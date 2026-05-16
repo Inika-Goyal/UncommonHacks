@@ -118,7 +118,10 @@ export async function lookupWikidata(query: string): Promise<CacheLookup<Wikidat
       const url = `${SPARQL_ENDPOINT}?${params.toString()}`;
       const payload = await fetchJson<SparqlResponse>(url, {
         timeoutMs: 20_000,
-        headers: { Accept: "application/sparql-results+json" },
+        headers: {
+          Accept: "application/sparql-results+json",
+          "User-Agent": "UnExploitedHackathon/0.1 (https://github.com/UncommonHacks)",
+        },
       });
       return parseBindings(payload.results?.bindings ?? []);
     },
