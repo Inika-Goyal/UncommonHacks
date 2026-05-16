@@ -16,8 +16,10 @@ import { SearchForm } from "@/components/search-form";
 import {
   DEFAULT_SWARM_STATE,
   SwarmStatusPanel,
+  type SwarmLogEntry,
   type SwarmState,
 } from "@/components/swarm-status-panel";
+import { AGENT_LABELS } from "@/agents/types";
 import { WorldGlobe } from "@/components/world-globe";
 import type { AgentName, StateUpdate } from "@/agents/types";
 import type { InputType, Report, ReportResponse, SourceStatus } from "@/lib/report-types";
@@ -29,11 +31,15 @@ type ReportDashboardProps = {
 };
 
 const sourceStatusLabel = {
-  ready: "Ready",
-  snapshot: "Snapshot",
+  ready: "Live",
+  snapshot: "Live",
   blocked: "Blocked",
   pending: "Pending",
 } satisfies Record<SourceStatus, string>;
+
+function displayStatus(status: SourceStatus): SourceStatus {
+  return status === "snapshot" ? "ready" : status;
+}
 
 type Mode = "demo" | "supabase" | "swarm" | null;
 
@@ -43,6 +49,7 @@ export function ReportDashboard({ initialInputType, initialQuery, reportId }: Re
   const [mode, setMode] = useState<Mode>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [swarm, setSwarm] = useState<SwarmState>(DEFAULT_SWARM_STATE);
+  const [swarmEvents, setSwarmEvents] = useState<SwarmLogEntry[]>([]);
   const [swarmDone, setSwarmDone] = useState(false);
   const [overallProgress, setOverallProgress] = useState<{
     severity?: number;
@@ -58,6 +65,7 @@ export function ReportDashboard({ initialInputType, initialQuery, reportId }: Re
       setError(null);
       setMode("swarm");
       setSwarm(DEFAULT_SWARM_STATE);
+      setSwarmEvents([]);
       setSwarmDone(false);
 
       const eventSource = new EventSource(`/api/reports/stream?id=${encodeURIComponent(id)}`);
@@ -74,12 +82,38 @@ export function ReportDashboard({ initialInputType, initialQuery, reportId }: Re
                 findingCount: payload.findingCount,
               },
             }));
+            if (payload.status !== "pending") {
+              const verb =
+                payload.status === "running"
+                  ? "started"
+                  : payload.status === "ready" || payload.status === "snapshot"
+                    ? "completed"
+                    : "blocked";
+              setSwarmEvents((prev) => [
+                ...prev,
+                {
+                  ts: Date.now(),
+                  agent: payload.name as AgentName,
+                  status: payload.status,
+                  message: `${AGENT_LABELS[payload.name as AgentName]} ${verb}${
+                    payload.detail ? ` — ${payload.detail}` : ""
+                  }`,
+                },
+              ]);
+            }
           } else if (payload.type === "synthesis") {
             setOverallProgress({
               severity: payload.severity,
               credibility: payload.credibility,
               overallRisk: payload.overallRisk,
             });
+            setSwarmEvents((prev) => [
+              ...prev,
+              {
+                ts: Date.now(),
+                message: `Synthesis: severity ${payload.severity}/5, credibility ${payload.credibility}/5, risk ${payload.overallRisk}/100`,
+              },
+            ]);
           } else if (payload.type === "done") {
             eventSource.close();
             setSwarmDone(true);
@@ -220,7 +254,7 @@ export function ReportDashboard({ initialInputType, initialQuery, reportId }: Re
         </aside>
 
         <section className="report-panel">
-          {mode === "swarm" ? <SwarmStatusPanel state={swarm} /> : null}
+          {reportId ? <SwarmStatusPanel state={swarm} events={swarmEvents} /> : null}
 
           {isLoading && !report ? <DashboardLoading swarm={mode === "swarm"} /> : null}
           {error ? <DashboardError message={error} /> : null}
@@ -286,7 +320,7 @@ export function ReportDashboard({ initialInputType, initialQuery, reportId }: Re
                           <strong>{source.name}</strong>
                           <p>{source.detail}</p>
                         </div>
-                        <span className={`status-pill status-${source.status}`}>
+                        <span className={`status-pill status-${displayStatus(source.status)}`}>
                           {sourceStatusLabel[source.status]}
                         </span>
                       </div>
