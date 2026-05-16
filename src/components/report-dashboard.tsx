@@ -10,26 +10,12 @@ import {
   ShieldAlert,
 } from "lucide-react";
 import Link from "next/link";
-import dynamic from "next/dynamic";
 import { useEffect, useMemo, useState } from "react";
 
 import { SearchForm } from "@/components/search-form";
-import {
-  DEFAULT_SWARM_STATE,
-  SwarmStatusPanel,
-  type SwarmLogEntry,
-  type SwarmState,
-} from "@/components/swarm-status-panel";
 import { ElevenLabsReportAgent } from "@/components/elevenlabs-report-agent";
 import { ScoreScrambler } from "@/components/score-scrambler";
-import { AGENT_LABELS } from "@/agents/types";
 import { WorldGlobe } from "@/components/world-globe";
-
-const SwarmConstellation = dynamic(
-  () => import("@/components/swarm-constellation").then((m) => m.SwarmConstellationClient),
-  { ssr: false, loading: () => <div className="constellation-wrap constellation-placeholder" /> },
-);
-import type { AgentName, StateUpdate } from "@/agents/types";
 import type { InputType, Report, ReportResponse, SourceStatus } from "@/lib/report-types";
 
 type ReportDashboardProps = {
@@ -49,21 +35,13 @@ function displayStatus(status: SourceStatus): SourceStatus {
   return status === "snapshot" ? "ready" : status;
 }
 
-type Mode = "demo" | "supabase" | "swarm" | null;
+type Mode = "demo" | "supabase" | null;
 
 export function ReportDashboard({ initialInputType, initialQuery, reportId }: ReportDashboardProps) {
   const [report, setReport] = useState<Report | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [mode, setMode] = useState<Mode>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [swarm, setSwarm] = useState<SwarmState>(DEFAULT_SWARM_STATE);
-  const [swarmEvents, setSwarmEvents] = useState<SwarmLogEntry[]>([]);
-  const [swarmDone, setSwarmDone] = useState(false);
-  const [overallProgress, setOverallProgress] = useState<{
-    severity?: number;
-    credibility?: number;
-    overallRisk?: number;
-  }>({});
 
   useEffect(() => {
     let aborted = false;
@@ -71,86 +49,8 @@ export function ReportDashboard({ initialInputType, initialQuery, reportId }: Re
     async function loadById(id: string) {
       setIsLoading(true);
       setError(null);
-      setMode("swarm");
-      setSwarm(DEFAULT_SWARM_STATE);
-      setSwarmEvents([]);
-      setSwarmDone(false);
-
-      const eventSource = new EventSource(`/api/reports/stream?id=${encodeURIComponent(id)}`);
-      eventSource.onmessage = (event) => {
-        if (aborted) return;
-        try {
-          const payload = JSON.parse(event.data) as StateUpdate;
-          if (payload.type === "agent") {
-            setSwarm((prev) => ({
-              ...prev,
-              [payload.name as AgentName]: {
-                status: payload.status,
-                detail: payload.detail,
-                findingCount: payload.findingCount,
-              },
-            }));
-            if (payload.status !== "pending") {
-              const verb =
-                payload.status === "running"
-                  ? "started"
-                  : payload.status === "ready" || payload.status === "snapshot"
-                    ? "completed"
-                    : "blocked";
-              setSwarmEvents((prev) => [
-                ...prev,
-                {
-                  ts: Date.now(),
-                  agent: payload.name as AgentName,
-                  status: payload.status,
-                  message: `${AGENT_LABELS[payload.name as AgentName]} ${verb}${
-                    payload.detail ? ` — ${payload.detail}` : ""
-                  }`,
-                },
-              ]);
-            }
-          } else if (payload.type === "synthesis") {
-            setOverallProgress({
-              severity: payload.severity,
-              credibility: payload.credibility,
-              overallRisk: payload.overallRisk,
-            });
-            setSwarmEvents((prev) => [
-              ...prev,
-              {
-                ts: Date.now(),
-                message: `Synthesis: severity ${payload.severity}/5, credibility ${payload.credibility}/5, risk ${payload.overallRisk}/100`,
-              },
-            ]);
-          } else if (payload.type === "done") {
-            eventSource.close();
-            setSwarmDone(true);
-            void fetchFinalReport(id);
-          } else if (payload.type === "error") {
-            setError(payload.message);
-          }
-        } catch {
-          // ignore malformed events
-        }
-      };
-      eventSource.onerror = () => {
-        // EventSource will auto-retry; if we already saw 'done', leave it closed.
-      };
-
-      return () => {
-        aborted = true;
-        eventSource.close();
-      };
-    }
-
-    async function fetchFinalReport(id: string) {
       try {
         const response = await fetch(`/api/reports/${id}`);
-        if (!response.ok) {
-          setError(`Final report fetch failed: HTTP ${response.status}`);
-          setIsLoading(false);
-          return;
-        }
         const payload = (await response.json()) as ReportResponse;
         if (aborted) return;
         if (!payload.ok) {
@@ -160,7 +60,8 @@ export function ReportDashboard({ initialInputType, initialQuery, reportId }: Re
         setReport(payload.report);
         setMode(payload.mode);
       } catch (err) {
-        if (!aborted) setError(err instanceof Error ? err.message : "Failed to load final report.");
+        if (aborted) return;
+        setError(err instanceof Error ? err.message : "Failed to load report.");
       } finally {
         if (!aborted) setIsLoading(false);
       }
@@ -169,7 +70,6 @@ export function ReportDashboard({ initialInputType, initialQuery, reportId }: Re
     async function loadDemo() {
       setIsLoading(true);
       setError(null);
-
       try {
         const response = await fetch("/api/reports", {
           method: "POST",
@@ -177,7 +77,6 @@ export function ReportDashboard({ initialInputType, initialQuery, reportId }: Re
           body: JSON.stringify({ inputType: initialInputType, query: initialQuery }),
         });
         const payload = (await response.json()) as ReportResponse;
-
         if (aborted) return;
         if (!payload.ok) {
           setReport(null);
@@ -185,7 +84,6 @@ export function ReportDashboard({ initialInputType, initialQuery, reportId }: Re
           setError(payload.error);
           return;
         }
-
         setReport(payload.report);
         setMode(payload.mode);
       } catch (requestError) {
@@ -210,24 +108,12 @@ export function ReportDashboard({ initialInputType, initialQuery, reportId }: Re
   }, [reportId, initialInputType, initialQuery]);
 
   const pdfHref = useMemo(() => {
-    if (!report) {
-      return "#";
-    }
+    if (!report) return "#";
     return `/api/reports/${report.id}/complaint.pdf`;
   }, [report]);
 
-  const modeLabel = useMemo(() => {
-    switch (mode) {
-      case "demo":
-        return "Demo fixtures";
-      case "supabase":
-        return "Supabase";
-      case "swarm":
-        return swarmDone ? "Live · ready" : "Live · running";
-      default:
-        return "Loading";
-    }
-  }, [mode, swarmDone]);
+  const modeLabel =
+    mode === "demo" ? "Demo fixtures" : mode === "supabase" ? "Live · ready" : "Loading";
 
   return (
     <main className="dashboard-page">
@@ -237,7 +123,9 @@ export function ReportDashboard({ initialInputType, initialQuery, reportId }: Re
           UnExploited
         </Link>
         <div className="topbar-status">
-          <span className={mode === "demo" ? "status-pill status-snapshot" : "status-pill"}>{modeLabel}</span>
+          <span className={mode === "demo" ? "status-pill status-snapshot" : "status-pill"}>
+            {modeLabel}
+          </span>
         </div>
       </header>
 
@@ -263,18 +151,7 @@ export function ReportDashboard({ initialInputType, initialQuery, reportId }: Re
         </aside>
 
         <section className="report-panel">
-          {reportId ? (
-            <>
-              <SwarmConstellation
-                state={swarm}
-                synthesisActive={Boolean(overallProgress.overallRisk)}
-                done={swarmDone}
-              />
-              <SwarmStatusPanel state={swarm} events={swarmEvents} />
-            </>
-          ) : null}
-
-          {isLoading && !report ? <DashboardLoading swarm={mode === "swarm"} /> : null}
+          {isLoading && !report ? <DashboardLoading /> : null}
           {error ? <DashboardError message={error} /> : null}
 
           {report ? (
@@ -294,24 +171,9 @@ export function ReportDashboard({ initialInputType, initialQuery, reportId }: Re
               </div>
 
               <div className="score-grid">
-                <ScoreBlock
-                  label="Overall risk"
-                  value={overallProgress.overallRisk ?? report.overallRisk}
-                  suffix="/100"
-                  tone="danger"
-                />
-                <ScoreBlock
-                  label="Severity"
-                  value={overallProgress.severity ?? report.severity}
-                  suffix="/5"
-                  tone="warning"
-                />
-                <ScoreBlock
-                  label="Credibility"
-                  value={overallProgress.credibility ?? report.credibility}
-                  suffix="/5"
-                  tone="info"
-                />
+                <ScoreBlock label="Overall risk" value={report.overallRisk} suffix="/100" tone="danger" />
+                <ScoreBlock label="Severity" value={report.severity} suffix="/5" tone="warning" />
+                <ScoreBlock label="Credibility" value={report.credibility} suffix="/5" tone="info" />
               </div>
 
               <div className="dashboard-content-grid">
@@ -412,17 +274,13 @@ export function ReportDashboard({ initialInputType, initialQuery, reportId }: Re
   );
 }
 
-function DashboardLoading({ swarm }: { swarm: boolean }) {
+function DashboardLoading() {
   return (
     <div className="panel loading-panel">
       <Loader2 aria-hidden="true" className="spin-icon" size={24} />
       <div>
-        <h2>{swarm ? "Swarm in flight" : "Generating report"}</h2>
-        <p>
-          {swarm
-            ? "Five specialist agents are pulling evidence in parallel; the report finalizes when synthesis completes."
-            : "Pulling the explicit MVP data path."}
-        </p>
+        <h2>Loading report</h2>
+        <p>Fetching the persisted findings from Supabase.</p>
       </div>
     </div>
   );
@@ -433,7 +291,7 @@ function DashboardError({ message }: { message: string }) {
     <div className="panel error-panel" role="alert">
       <AlertTriangle aria-hidden="true" size={24} />
       <div>
-        <h2>Report generation failed</h2>
+        <h2>Report load failed</h2>
         <p>{message}</p>
       </div>
     </div>
