@@ -1,12 +1,43 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState } from "react";
+import { Minus, Plus, RotateCcw } from "lucide-react";
 import * as THREE from "three";
 
 import type { MapPoint } from "@/lib/report-types";
 
-type WorldGlobeProps = {
+export type WorldGlobeProps = {
   points: MapPoint[];
+};
+
+export type WorldGlobePan = {
+  x: number;
+  y: number;
+};
+
+export type WorldGlobeRotation = {
+  x?: number;
+  y?: number;
+};
+
+export type WorldGlobeLocationTarget = {
+  latitude: number;
+  longitude: number;
+  zoom?: number;
+  pan?: WorldGlobePan;
+};
+
+export type WorldGlobeHandle = {
+  zoomTo: (zoom: number) => void;
+  panTo: (pan: WorldGlobePan) => void;
+  rotateTo: (rotation: WorldGlobeRotation) => void;
+  focusLocation: (target: WorldGlobeLocationTarget) => void;
+  resetView: () => void;
+  getView: () => {
+    zoom: number;
+    pan: WorldGlobePan;
+    rotation: Required<WorldGlobeRotation>;
+  };
 };
 
 type CountryFeature = {
@@ -44,6 +75,20 @@ const ARC_SEGMENTS = 96;
 const ARC_PULSE_WIDTH = 0.22;
 const SURFACE_NORMAL = new THREE.Vector3(0, 0, 1);
 const COUNTRY_GEOJSON_URL = "/data/ne_110m_admin_0_countries.geojson";
+const MIN_ZOOM = 1;
+const MAX_ZOOM = 1.65;
+const MAX_PAN_OFFSET = 1.42;
+const PAN_SENSITIVITY = 0.0062;
+const WHEEL_ZOOM_SENSITIVITY = 0.0012;
+const POINTER_ZOOM_PAN_SENSITIVITY = 1.05;
+
+const DEMO_MAP_POINTS = [
+  { id: "demo-intake", label: "Intake signal", latitude: 42.4, longitude: -38, risk: "low" },
+  { id: "demo-supplier", label: "Supplier registry", latitude: 34.6, longitude: -12, risk: "medium" },
+  { id: "demo-news", label: "News cluster", latitude: 43.4, longitude: 8, risk: "low" },
+  { id: "demo-legal", label: "Legal watchlist", latitude: 31.1, longitude: 31, risk: "high" },
+  { id: "demo-brief", label: "Brief output", latitude: 40.1, longitude: 47, risk: "medium" },
+] satisfies MapPoint[];
 
 const riskColor = {
   high: "#ec4899",
@@ -117,7 +162,21 @@ function latLngToVector3(latitude: number, longitude: number, radius: number) {
   );
 }
 
-function makeArcLinks(points: MapPoint[]): ArcLink[] {
+function rotationForLocation(latitude: number, longitude: number): Required<WorldGlobeRotation> {
+  return {
+    x: THREE.MathUtils.clamp(THREE.MathUtils.degToRad(latitude * 0.72), -0.9, 0.9),
+    y: THREE.MathUtils.degToRad(-longitude - 90),
+  };
+}
+
+function clampPan(pan: WorldGlobePan): WorldGlobePan {
+  return {
+    x: THREE.MathUtils.clamp(pan.x, -MAX_PAN_OFFSET, MAX_PAN_OFFSET),
+    y: THREE.MathUtils.clamp(pan.y, -MAX_PAN_OFFSET, MAX_PAN_OFFSET),
+  };
+}
+
+function makeArcLinks(points: readonly MapPoint[]): ArcLink[] {
   if (points.length < 2) {
     return [];
   }
@@ -319,14 +378,88 @@ function disposeObject(object: THREE.Object3D) {
   });
 }
 
-export function WorldGlobe({ points }: WorldGlobeProps) {
+export const WorldGlobe = forwardRef<WorldGlobeHandle, WorldGlobeProps>(function WorldGlobe({ points }, ref) {
   const mountRef = useRef<HTMLDivElement | null>(null);
+  const zoomLevelRef = useRef(1);
+  const panOffsetRef = useRef({ x: 0, y: 0 });
+  const rotationTargetRef = useRef<Required<WorldGlobeRotation> | null>(null);
+  const currentRotationRef = useRef<Required<WorldGlobeRotation>>({ x: 0, y: 0 });
   const [selectedPointId, setSelectedPointId] = useState(points[0]?.id ?? "");
+  const [showDemoNetwork, setShowDemoNetwork] = useState(false);
+  const [zoomLevel, setZoomLevel] = useState(1);
   const [geographyState, setGeographyState] = useState<GeographyState>({ status: "loading" });
 
+  const activePoints = useMemo(() => (showDemoNetwork ? DEMO_MAP_POINTS : points), [points, showDemoNetwork]);
+
   const selectedPoint = useMemo(
-    () => points.find((point) => point.id === selectedPointId) ?? points[0],
-    [points, selectedPointId],
+    () => activePoints.find((point) => point.id === selectedPointId) ?? activePoints[0],
+    [activePoints, selectedPointId],
+  );
+
+  useEffect(() => {
+    zoomLevelRef.current = zoomLevel;
+  }, [zoomLevel]);
+
+  const zoomPercent = Math.round(zoomLevel * 100);
+
+  const setPan = useCallback((pan: WorldGlobePan) => {
+    panOffsetRef.current = clampPan(pan);
+  }, []);
+
+  const setZoom = useCallback((nextZoom: number, options?: { keepPan?: boolean }) => {
+    const clampedZoom = THREE.MathUtils.clamp(Number(nextZoom.toFixed(2)), MIN_ZOOM, MAX_ZOOM);
+    zoomLevelRef.current = clampedZoom;
+    if (clampedZoom <= MIN_ZOOM && !options?.keepPan) {
+      setPan({ x: 0, y: 0 });
+    }
+    setZoomLevel(clampedZoom);
+  }, [setPan]);
+
+  function changeZoom(delta: number) {
+    setZoom(zoomLevelRef.current + delta);
+  }
+
+  function resetGlobeView() {
+    setPan({ x: 0, y: 0 });
+    setZoom(MIN_ZOOM);
+    if (activePoints[0]) {
+      rotationTargetRef.current = rotationForLocation(activePoints[0].latitude, activePoints[0].longitude);
+    }
+  }
+
+  function handleDemoNetworkToggle(checked: boolean) {
+    setShowDemoNetwork(checked);
+    const nextPoints = checked ? DEMO_MAP_POINTS : points;
+    setSelectedPointId(nextPoints[0]?.id ?? "");
+  }
+
+  useImperativeHandle(
+    ref,
+    () => ({
+      zoomTo: setZoom,
+      panTo: setPan,
+      rotateTo: (rotation) => {
+        rotationTargetRef.current = {
+          x: rotation.x ?? currentRotationRef.current.x,
+          y: rotation.y ?? currentRotationRef.current.y,
+        };
+      },
+      focusLocation: (target) => {
+        rotationTargetRef.current = rotationForLocation(target.latitude, target.longitude);
+        if (typeof target.zoom === "number") {
+          setZoom(target.zoom);
+        }
+        if (target.pan) {
+          setPan(target.pan);
+        }
+      },
+      resetView: resetGlobeView,
+      getView: () => ({
+        zoom: zoomLevelRef.current,
+        pan: panOffsetRef.current,
+        rotation: currentRotationRef.current,
+      }),
+    }),
   );
 
   useEffect(() => {
@@ -436,7 +569,7 @@ export function WorldGlobe({ points }: WorldGlobeProps) {
     const arcGroup = new THREE.Group();
     const arcPulseMaterials: THREE.ShaderMaterial[] = [];
     const arcBaseMaterials: THREE.ShaderMaterial[] = [];
-    makeArcLinks(points).forEach((link, index) => {
+    makeArcLinks(activePoints).forEach((link, index) => {
       const signalArc = makeSignalArc(link, index);
       arcGroup.add(signalArc.group);
       arcPulseMaterials.push(...signalArc.pulseMaterials);
@@ -468,7 +601,7 @@ export function WorldGlobe({ points }: WorldGlobeProps) {
       low: { length: 0.46, coreWidth: 0.003, glowWidth: 0.011, ringRadius: 0.016, ringCount: 2, pulseSpeed: 0.00034, travelSpeed: 0.38 },
     } satisfies Record<MapPoint["risk"], { length: number; coreWidth: number; glowWidth: number; ringRadius: number; ringCount: number; pulseSpeed: number; travelSpeed: number }>;
 
-    for (const [pointIndex, point] of points.entries()) {
+    for (const [pointIndex, point] of activePoints.entries()) {
       const surface = latLngToVector3(point.latitude, point.longitude, GLOBE_RADIUS);
       const color = new THREE.Color(riskColor[point.risk]);
       const spec = beamSpec[point.risk];
@@ -612,9 +745,12 @@ export function WorldGlobe({ points }: WorldGlobeProps) {
       pinTips.push(tip);
     }
 
-    if (points[0]) {
-      globeGroup.rotation.y = THREE.MathUtils.degToRad(-points[0].longitude - 90);
-      globeGroup.rotation.x = THREE.MathUtils.degToRad(28);
+    if (activePoints[0]) {
+      const initialRotation = rotationForLocation(activePoints[0].latitude, activePoints[0].longitude);
+      globeGroup.rotation.x = initialRotation.x;
+      globeGroup.rotation.y = initialRotation.y;
+      currentRotationRef.current = initialRotation;
+      rotationTargetRef.current = initialRotation;
     }
 
     const starsGeometry = new THREE.BufferGeometry();
@@ -649,6 +785,9 @@ export function WorldGlobe({ points }: WorldGlobeProps) {
     let dragStartY = 0;
     let startRotationX = 0;
     let startRotationY = 0;
+    let startPanX = 0;
+    let startPanY = 0;
+    let dragMode: "rotate" | "pan" = "rotate";
     const rotationVelocity = new THREE.Vector2(0, 0.00028);
 
     const resize = () => {
@@ -694,12 +833,22 @@ export function WorldGlobe({ points }: WorldGlobeProps) {
     };
 
     const handlePointerDown = (event: PointerEvent) => {
+      if (event.metaKey || event.ctrlKey) {
+        event.preventDefault();
+      }
       isDragging = true;
       dragStartX = event.clientX;
       dragStartY = event.clientY;
       startRotationX = globeGroup.rotation.x;
       startRotationY = globeGroup.rotation.y;
+      startPanX = panOffsetRef.current.x;
+      startPanY = panOffsetRef.current.y;
+      dragMode = event.metaKey || event.ctrlKey ? "pan" : "rotate";
       renderer.domElement.setPointerCapture(event.pointerId);
+    };
+
+    const handleContextMenu = (event: MouseEvent) => {
+      event.preventDefault();
     };
 
     const handlePointerMove = (event: PointerEvent) => {
@@ -709,8 +858,25 @@ export function WorldGlobe({ points }: WorldGlobeProps) {
 
       const dx = event.clientX - dragStartX;
       const dy = event.clientY - dragStartY;
+      if (dragMode === "pan" || event.metaKey || event.ctrlKey) {
+        setPan({
+          x: THREE.MathUtils.clamp(startPanX - dx * PAN_SENSITIVITY, -MAX_PAN_OFFSET, MAX_PAN_OFFSET),
+          y: THREE.MathUtils.clamp(startPanY + dy * PAN_SENSITIVITY, -MAX_PAN_OFFSET, MAX_PAN_OFFSET),
+        });
+        rotationVelocity.set(0, 0);
+        return;
+      }
+
       globeGroup.rotation.y = startRotationY + dx * 0.006;
       globeGroup.rotation.x = THREE.MathUtils.clamp(startRotationX + dy * 0.004, -0.9, 0.9);
+      rotationTargetRef.current = {
+        x: globeGroup.rotation.x,
+        y: globeGroup.rotation.y,
+      };
+      currentRotationRef.current = {
+        x: globeGroup.rotation.x,
+        y: globeGroup.rotation.y,
+      };
       rotationVelocity.set(dy * 0.00005, dx * 0.00008);
     };
 
@@ -724,18 +890,69 @@ export function WorldGlobe({ points }: WorldGlobeProps) {
       }
     };
 
+    const handleWheel = (event: WheelEvent) => {
+      event.preventDefault();
+      const oldZoom = zoomLevelRef.current;
+      const nextZoom = THREE.MathUtils.clamp(
+        oldZoom - event.deltaY * WHEEL_ZOOM_SENSITIVITY,
+        MIN_ZOOM,
+        MAX_ZOOM,
+      );
+      if (nextZoom === oldZoom) {
+        return;
+      }
+
+      const bounds = renderer.domElement.getBoundingClientRect();
+      const pointerX = ((event.clientX - bounds.left) / Math.max(bounds.width, 1) - 0.5) * 2;
+      const pointerY = ((event.clientY - bounds.top) / Math.max(bounds.height, 1) - 0.5) * 2;
+      const zoomDelta = nextZoom - oldZoom;
+      const nextPan = clampPan({
+        x: panOffsetRef.current.x + pointerX * zoomDelta * POINTER_ZOOM_PAN_SENSITIVITY,
+        y: panOffsetRef.current.y - pointerY * zoomDelta * POINTER_ZOOM_PAN_SENSITIVITY,
+      });
+
+      setPan(nextPan);
+      setZoom(nextZoom, { keepPan: true });
+    };
+
     renderer.domElement.addEventListener("pointerdown", handlePointerDown);
     renderer.domElement.addEventListener("pointermove", handlePointerMove);
     renderer.domElement.addEventListener("pointerup", handlePointerUp);
     renderer.domElement.addEventListener("pointercancel", handlePointerUp);
+    renderer.domElement.addEventListener("wheel", handleWheel, { passive: false });
+    renderer.domElement.addEventListener("contextmenu", handleContextMenu);
 
     const animate = () => {
-      if (!isDragging && !reducedMotion) {
+      const zoomAmount = (zoomLevelRef.current - MIN_ZOOM) / (MAX_ZOOM - MIN_ZOOM);
+      const targetCameraDistance = THREE.MathUtils.lerp(8.6, 5.45, zoomAmount);
+      const panInfluence = 0.55 + zoomAmount * 0.8;
+      const targetCameraX = panOffsetRef.current.x * panInfluence;
+      const targetCameraY = 0.2 + panOffsetRef.current.y * panInfluence;
+      camera.position.x = THREE.MathUtils.lerp(camera.position.x, targetCameraX, 0.14);
+      camera.position.y = THREE.MathUtils.lerp(camera.position.y, targetCameraY, 0.14);
+      camera.position.z = THREE.MathUtils.lerp(camera.position.z, targetCameraDistance, 0.12);
+
+      if (!isDragging && rotationTargetRef.current) {
+        globeGroup.rotation.x = THREE.MathUtils.lerp(globeGroup.rotation.x, rotationTargetRef.current.x, 0.1);
+        globeGroup.rotation.y = THREE.MathUtils.lerp(globeGroup.rotation.y, rotationTargetRef.current.y, 0.1);
+        if (
+          Math.abs(globeGroup.rotation.x - rotationTargetRef.current.x) < 0.0006 &&
+          Math.abs(globeGroup.rotation.y - rotationTargetRef.current.y) < 0.0006
+        ) {
+          globeGroup.rotation.x = rotationTargetRef.current.x;
+          globeGroup.rotation.y = rotationTargetRef.current.y;
+          rotationTargetRef.current = null;
+        }
+      } else if (!isDragging && !reducedMotion && zoomLevelRef.current <= MIN_ZOOM + 0.02) {
         globeGroup.rotation.y += rotationVelocity.y;
         globeGroup.rotation.x += rotationVelocity.x;
         rotationVelocity.multiplyScalar(0.992);
         rotationVelocity.y = Math.max(rotationVelocity.y, 0.00028);
       }
+      currentRotationRef.current = {
+        x: globeGroup.rotation.x,
+        y: globeGroup.rotation.y,
+      };
 
       if (!reducedMotion) {
         stars.rotation.y += 0.00018;
@@ -809,6 +1026,8 @@ export function WorldGlobe({ points }: WorldGlobeProps) {
       renderer.domElement.removeEventListener("pointermove", handlePointerMove);
       renderer.domElement.removeEventListener("pointerup", handlePointerUp);
       renderer.domElement.removeEventListener("pointercancel", handlePointerUp);
+      renderer.domElement.removeEventListener("wheel", handleWheel);
+      renderer.domElement.removeEventListener("contextmenu", handleContextMenu);
       globe._destructor();
       globeMaterial.dispose();
       disposeObject(arcGroup);
@@ -837,14 +1056,65 @@ export function WorldGlobe({ points }: WorldGlobeProps) {
       isDisposed = true;
       disposeScene?.();
     };
-  }, [geographyState, points]);
+  }, [activePoints, geographyState, setPan, setZoom]);
 
   return (
     <div className="globe-stage" aria-label="3D geographic report signals">
-      <div ref={mountRef} className="globe-canvas" role="img" aria-label="Rotating globe with risk pins" />
+      <div
+        ref={mountRef}
+        className="globe-canvas"
+        role="img"
+        aria-label="Rotating globe with risk pins"
+      />
       <div className="globe-overlay globe-overlay-top">
         <span>Supply-chain footprint</span>
-        <strong>{points.length} mapped signals</strong>
+        <strong>{activePoints.length} mapped signals</strong>
+      </div>
+      <div className="globe-controls" aria-label="Signal map controls">
+        <label className="globe-switch">
+          <input
+            type="checkbox"
+            checked={showDemoNetwork}
+            onChange={(event) => handleDemoNetworkToggle(event.target.checked)}
+          />
+          <span className="globe-switch-track" aria-hidden="true">
+            <span className="globe-switch-thumb" />
+          </span>
+          <span>Demo links</span>
+        </label>
+        <div className="globe-zoom-control" aria-label="Globe zoom">
+          <button
+            type="button"
+            aria-label="Zoom out"
+            title="Zoom out"
+            onClick={() => changeZoom(-0.1)}
+            disabled={zoomLevel <= MIN_ZOOM}
+          >
+            <Minus aria-hidden="true" size={14} />
+          </button>
+          <input
+            aria-label="Zoom level"
+            type="range"
+            min={MIN_ZOOM}
+            max={MAX_ZOOM}
+            step={0.05}
+            value={zoomLevel}
+            onChange={(event) => setZoom(Number(event.target.value))}
+          />
+          <button
+            type="button"
+            aria-label="Zoom in"
+            title="Zoom in"
+            onClick={() => changeZoom(0.1)}
+            disabled={zoomLevel >= MAX_ZOOM}
+          >
+            <Plus aria-hidden="true" size={14} />
+          </button>
+          <button type="button" aria-label="Reset globe view" title="Reset globe view" onClick={resetGlobeView}>
+            <RotateCcw aria-hidden="true" size={14} />
+          </button>
+          <span>{zoomPercent}%</span>
+        </div>
       </div>
       {geographyState.status === "loading" ? (
         <div className="globe-overlay globe-asset-state" aria-live="polite">
@@ -868,7 +1138,7 @@ export function WorldGlobe({ points }: WorldGlobeProps) {
         </div>
       ) : null}
       <div className="globe-legend" aria-label="Mapped risk points">
-        {points.map((point) => (
+        {activePoints.map((point) => (
           <button
             key={point.id}
             className={point.id === selectedPoint?.id ? "legend-row legend-row-active" : "legend-row"}
@@ -882,4 +1152,4 @@ export function WorldGlobe({ points }: WorldGlobeProps) {
       </div>
     </div>
   );
-}
+});
