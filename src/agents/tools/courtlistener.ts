@@ -3,7 +3,7 @@ import { TTL, hashKey, withCache, type CacheLookup } from "@/agents/tools/cache"
 
 export const SOURCE_COURTLISTENER = "courtlistener";
 
-const BASE_URL = "https://www.courtlistener.com/api/rest/v3/search/";
+const BASE_URL = "https://www.courtlistener.com/api/rest/v4/search/";
 
 export type CourtListenerResult = {
   caseName: string;
@@ -21,6 +21,7 @@ type SearchResponse = {
     court?: string;
     dateFiled?: string;
     absolute_url?: string;
+    docket_absolute_url?: string;
     docketNumber?: string;
     snippet?: string;
   }>;
@@ -61,7 +62,9 @@ export async function lookupCourtListener(query: string): Promise<CacheLookup<Co
         caseName: row.caseName ?? "",
         court: row.court ?? "",
         dateFiled: row.dateFiled ?? null,
-        absoluteUrl: row.absolute_url ? `https://www.courtlistener.com${row.absolute_url}` : "",
+        absoluteUrl: row.absolute_url || row.docket_absolute_url
+          ? `https://www.courtlistener.com${row.absolute_url ?? row.docket_absolute_url}`
+          : "",
         docketNumber: row.docketNumber ?? null,
         snippet: row.snippet ?? null,
       }));
