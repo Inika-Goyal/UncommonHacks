@@ -609,6 +609,188 @@ td a {
   animation: spin 900ms linear infinite;
 }
 
+.onboarding-extras {
+  display: grid;
+  gap: 14px;
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px dashed var(--line);
+}
+
+.onboarding-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.onboarding-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 720;
+  color: var(--ink-muted);
+}
+
+.onboarding-field select,
+.onboarding-field input {
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 8px 10px;
+  background: var(--surface);
+  color: var(--ink);
+  font: inherit;
+}
+
+.chip-input {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  border: 1px solid var(--line);
+  background: var(--surface);
+  border-radius: 10px;
+  padding: 6px 8px;
+}
+
+.chip-input input {
+  flex: 1;
+  min-width: 120px;
+  border: 0;
+  background: transparent;
+  padding: 4px 0;
+  font: inherit;
+  outline: none;
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: oklch(0.93 0.03 245);
+  border: 1px solid oklch(0.75 0.06 245);
+  color: oklch(0.4 0.11 245);
+  border-radius: 999px;
+  padding: 2px 10px;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.onboarding-fieldset {
+  border: 0;
+  margin: 0;
+  padding: 0;
+}
+
+.onboarding-fieldset legend {
+  font-size: 12px;
+  font-weight: 720;
+  color: var(--ink-muted);
+  margin-bottom: 6px;
+}
+
+.onboarding-radio-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.radio-chip {
+  border: 1px solid var(--line);
+  background: var(--surface);
+  color: var(--ink-muted);
+  padding: 6px 12px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.radio-chip input {
+  display: none;
+}
+
+.radio-chip-active {
+  border-color: var(--accent-strong);
+  background: oklch(0.95 0.04 245);
+  color: var(--accent-strong);
+}
+
+.form-error {
+  color: oklch(0.45 0.14 28);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.swarm-panel {
+  border-color: oklch(0.8 0.05 245);
+}
+
+.swarm-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.swarm-cell {
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 10px 12px;
+  background: var(--surface);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  transition: border-color 200ms, background 200ms;
+}
+
+.swarm-cell-running,
+.swarm-cell-pending {
+  border-color: oklch(0.78 0.07 245);
+  background: oklch(0.97 0.02 245);
+}
+
+.swarm-cell-ready {
+  border-color: oklch(0.73 0.1 145);
+  background: oklch(0.96 0.04 145);
+}
+
+.swarm-cell-snapshot {
+  border-color: oklch(0.75 0.08 76);
+  background: oklch(0.97 0.03 76);
+}
+
+.swarm-cell-blocked {
+  border-color: oklch(0.72 0.1 28);
+  background: oklch(0.97 0.03 28);
+}
+
+.swarm-cell-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+}
+
+.swarm-cell-icon {
+  display: inline-flex;
+  align-items: center;
+}
+
+.swarm-cell-head .status-pill {
+  margin-left: auto;
+  gap: 4px;
+}
+
+.swarm-cell-detail {
+  font-size: 12px;
+  color: var(--ink-muted);
+  margin: 0;
+  min-height: 1.2em;
+}
+
 @keyframes spin {
   to {
     transform: rotate(360deg);

@@ -5,6 +5,7 @@ type DashboardPageProps = {
   searchParams: Promise<{
     mode?: string | string[];
     query?: string | string[];
+    id?: string | string[];
   }>;
 };
 
@@ -14,10 +15,17 @@ function readParam(value: string | string[] | undefined) {
 
 export default async function DashboardPage({ searchParams }: DashboardPageProps) {
   const params = await searchParams;
+  const reportId = readParam(params.id);
   const mode = readParam(params.mode);
   const query = readParam(params.query);
   const inputType: InputType = mode === "region" ? "region" : "company";
   const fallbackQuery = inputType === "region" ? "Cambodia garment sector" : "Shein";
 
-  return <ReportDashboard initialInputType={inputType} initialQuery={query?.trim() || fallbackQuery} />;
+  return (
+    <ReportDashboard
+      initialInputType={inputType}
+      initialQuery={query?.trim() || fallbackQuery}
+      reportId={reportId}
+    />
+  );
 }

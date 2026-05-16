@@ -13,12 +13,19 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 
 import { SearchForm } from "@/components/search-form";
+import {
+  DEFAULT_SWARM_STATE,
+  SwarmStatusPanel,
+  type SwarmState,
+} from "@/components/swarm-status-panel";
 import { WorldGlobe } from "@/components/world-globe";
+import type { AgentName, StateUpdate } from "@/agents/types";
 import type { InputType, Report, ReportResponse, SourceStatus } from "@/lib/report-types";
 
 type ReportDashboardProps = {
   initialInputType: InputType;
   initialQuery: string;
+  reportId?: string;
 };
 
 const sourceStatusLabel = {
@@ -28,36 +35,108 @@ const sourceStatusLabel = {
   pending: "Pending",
 } satisfies Record<SourceStatus, string>;
 
-export function ReportDashboard({ initialInputType, initialQuery }: ReportDashboardProps) {
+type Mode = "demo" | "supabase" | "swarm" | null;
+
+export function ReportDashboard({ initialInputType, initialQuery, reportId }: ReportDashboardProps) {
   const [report, setReport] = useState<Report | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [mode, setMode] = useState<"demo" | "supabase" | null>(null);
+  const [mode, setMode] = useState<Mode>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [swarm, setSwarm] = useState<SwarmState>(DEFAULT_SWARM_STATE);
+  const [swarmDone, setSwarmDone] = useState(false);
+  const [overallProgress, setOverallProgress] = useState<{
+    severity?: number;
+    credibility?: number;
+    overallRisk?: number;
+  }>({});
 
   useEffect(() => {
-    let isActive = true;
+    let aborted = false;
 
-    async function loadReport() {
+    async function loadById(id: string) {
+      setIsLoading(true);
+      setError(null);
+      setMode("swarm");
+      setSwarm(DEFAULT_SWARM_STATE);
+      setSwarmDone(false);
+
+      const eventSource = new EventSource(`/api/reports/stream?id=${encodeURIComponent(id)}`);
+      eventSource.onmessage = (event) => {
+        if (aborted) return;
+        try {
+          const payload = JSON.parse(event.data) as StateUpdate;
+          if (payload.type === "agent") {
+            setSwarm((prev) => ({
+              ...prev,
+              [payload.name as AgentName]: {
+                status: payload.status,
+                detail: payload.detail,
+                findingCount: payload.findingCount,
+              },
+            }));
+          } else if (payload.type === "synthesis") {
+            setOverallProgress({
+              severity: payload.severity,
+              credibility: payload.credibility,
+              overallRisk: payload.overallRisk,
+            });
+          } else if (payload.type === "done") {
+            eventSource.close();
+            setSwarmDone(true);
+            void fetchFinalReport(id);
+          } else if (payload.type === "error") {
+            setError(payload.message);
+          }
+        } catch {
+          // ignore malformed events
+        }
+      };
+      eventSource.onerror = () => {
+        // EventSource will auto-retry; if we already saw 'done', leave it closed.
+      };
+
+      return () => {
+        aborted = true;
+        eventSource.close();
+      };
+    }
+
+    async function fetchFinalReport(id: string) {
+      try {
+        const response = await fetch(`/api/reports/${id}`);
+        if (!response.ok) {
+          setError(`Final report fetch failed: HTTP ${response.status}`);
+          setIsLoading(false);
+          return;
+        }
+        const payload = (await response.json()) as ReportResponse;
+        if (aborted) return;
+        if (!payload.ok) {
+          setError(payload.error);
+          return;
+        }
+        setReport(payload.report);
+        setMode(payload.mode);
+      } catch (err) {
+        if (!aborted) setError(err instanceof Error ? err.message : "Failed to load final report.");
+      } finally {
+        if (!aborted) setIsLoading(false);
+      }
+    }
+
+    async function loadDemo() {
       setIsLoading(true);
       setError(null);
 
       try {
         const response = await fetch("/api/reports", {
           method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            inputType: initialInputType,
-            query: initialQuery,
-          }),
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ inputType: initialInputType, query: initialQuery }),
         });
         const payload = (await response.json()) as ReportResponse;
 
-        if (!isActive) {
-          return;
-        }
-
+        if (aborted) return;
         if (!payload.ok) {
           setReport(null);
           setMode(null);
@@ -68,34 +147,45 @@ export function ReportDashboard({ initialInputType, initialQuery }: ReportDashbo
         setReport(payload.report);
         setMode(payload.mode);
       } catch (requestError) {
-        if (!isActive) {
-          return;
-        }
-
+        if (aborted) return;
         setReport(null);
         setMode(null);
         setError(requestError instanceof Error ? requestError.message : "Report generation failed.");
       } finally {
-        if (isActive) {
-          setIsLoading(false);
-        }
+        if (!aborted) setIsLoading(false);
       }
     }
 
-    loadReport();
+    if (reportId) {
+      void loadById(reportId);
+    } else {
+      void loadDemo();
+    }
 
     return () => {
-      isActive = false;
+      aborted = true;
     };
-  }, [initialInputType, initialQuery]);
+  }, [reportId, initialInputType, initialQuery]);
 
   const pdfHref = useMemo(() => {
     if (!report) {
       return "#";
     }
-
     return `/api/reports/${report.id}/complaint.pdf`;
   }, [report]);
+
+  const modeLabel = useMemo(() => {
+    switch (mode) {
+      case "demo":
+        return "Demo fixtures";
+      case "supabase":
+        return "Supabase";
+      case "swarm":
+        return swarmDone ? "Live · ready" : "Live · running";
+      default:
+        return "Loading";
+    }
+  }, [mode, swarmDone]);
 
   return (
     <main className="dashboard-page">
@@ -105,9 +195,7 @@ export function ReportDashboard({ initialInputType, initialQuery }: ReportDashbo
           UnExploited
         </Link>
         <div className="topbar-status">
-          <span className={mode === "demo" ? "status-pill status-snapshot" : "status-pill"}>
-            {mode === "demo" ? "Demo fixtures" : mode === "supabase" ? "Supabase" : "Loading"}
-          </span>
+          <span className={mode === "demo" ? "status-pill status-snapshot" : "status-pill"}>{modeLabel}</span>
         </div>
       </header>
 
@@ -132,13 +220,18 @@ export function ReportDashboard({ initialInputType, initialQuery }: ReportDashbo
         </aside>
 
         <section className="report-panel">
-          {isLoading ? <DashboardLoading /> : null}
-          {!isLoading && error ? <DashboardError message={error} /> : null}
-          {!isLoading && report ? (
+          {mode === "swarm" ? <SwarmStatusPanel state={swarm} /> : null}
+
+          {isLoading && !report ? <DashboardLoading swarm={mode === "swarm"} /> : null}
+          {error ? <DashboardError message={error} /> : null}
+
+          {report ? (
             <>
               <div className="report-header panel">
                 <div>
-                  <p className="eyebrow">{report.inputType === "company" ? "Company report" : "Region report"}</p>
+                  <p className="eyebrow">
+                    {report.inputType === "company" ? "Company report" : "Region report"}
+                  </p>
                   <h2>{report.title}</h2>
                   <p>{report.summary}</p>
                 </div>
@@ -149,9 +242,21 @@ export function ReportDashboard({ initialInputType, initialQuery }: ReportDashbo
               </div>
 
               <div className="score-grid">
-                <ScoreBlock label="Overall risk" value={`${report.overallRisk}/100`} tone="danger" />
-                <ScoreBlock label="Severity" value={`${report.severity}/5`} tone="warning" />
-                <ScoreBlock label="Credibility" value={`${report.credibility}/5`} tone="info" />
+                <ScoreBlock
+                  label="Overall risk"
+                  value={`${overallProgress.overallRisk ?? report.overallRisk}/100`}
+                  tone="danger"
+                />
+                <ScoreBlock
+                  label="Severity"
+                  value={`${overallProgress.severity ?? report.severity}/5`}
+                  tone="warning"
+                />
+                <ScoreBlock
+                  label="Credibility"
+                  value={`${overallProgress.credibility ?? report.credibility}/5`}
+                  tone="info"
+                />
               </div>
 
               <div className="dashboard-content-grid">
@@ -181,7 +286,9 @@ export function ReportDashboard({ initialInputType, initialQuery }: ReportDashbo
                           <strong>{source.name}</strong>
                           <p>{source.detail}</p>
                         </div>
-                        <span className={`status-pill status-${source.status}`}>{sourceStatusLabel[source.status]}</span>
+                        <span className={`status-pill status-${source.status}`}>
+                          {sourceStatusLabel[source.status]}
+                        </span>
                       </div>
                     ))}
                   </div>
@@ -250,13 +357,17 @@ export function ReportDashboard({ initialInputType, initialQuery }: ReportDashbo
   );
 }
 
-function DashboardLoading() {
+function DashboardLoading({ swarm }: { swarm: boolean }) {
   return (
     <div className="panel loading-panel">
       <Loader2 aria-hidden="true" className="spin-icon" size={24} />
       <div>
-        <h2>Generating report</h2>
-        <p>Pulling the explicit MVP data path.</p>
+        <h2>{swarm ? "Swarm in flight" : "Generating report"}</h2>
+        <p>
+          {swarm
+            ? "Five specialist agents are pulling evidence in parallel; the report finalizes when synthesis completes."
+            : "Pulling the explicit MVP data path."}
+        </p>
       </div>
     </div>
   );

@@ -33,6 +33,8 @@ export type SourceCheck = {
   detail: string;
 };
 
+export type ReportStatus = "running" | "ready" | "failed";
+
 export type Report = {
   id: string;
   inputType: InputType;
