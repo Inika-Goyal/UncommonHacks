@@ -38,7 +38,7 @@ Do not build demographic or economic modes for v0. They can be pitched as extens
 - Company and geographic-region input modes.
 - Demo paths for a recognizable company, likely Shein, and a country-sector query, likely Cambodia garment sector.
 - Dashboard report with severity, credibility, citations, source status, map points, and recommendation.
-- D3 SVG orthographic globe with interactive-looking pins. Use D3/SVG, not Three.js, for the globe.
+- Abstract Three.js data globe with Natural Earth polygons, graticules, risk pins, and animated arcs.
 - One-click formal complaint or corporate compliance letter PDF generated from report evidence.
 - Explicit demo fixtures gated by `NEXT_PUBLIC_DEMO_MODE=true` until live data is seeded.
 - Clear failure states for missing keys, failed source calls, Supabase errors, or unavailable data.
@@ -111,7 +111,7 @@ Do include one real NGO investigative report in the demo. The side-by-side compa
 
 ## Tech Stack
 - Frontend: Next.js + Tailwind.
-- Globe: D3 orthographic projection rendered as SVG.
+- Globe: Three.js abstract data globe using `three-globe` and Natural Earth 110m country polygons.
 - Backend/data app: Supabase/Postgres for app records and report persistence.
 - Warehouse/analytics: Snowflake for preloaded source data, training records, and trend analysis.
 - PDF generation: template + generated report content.
