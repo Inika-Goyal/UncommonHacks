@@ -37,6 +37,11 @@ type ArcLink = {
 };
 
 const GLOBE_RADIUS = 2.4;
+const ARC_HEIGHT = 0.44;
+const ARC_RADIUS = 0.007;
+const ARC_SEGMENTS = 96;
+const ARC_PULSE_WIDTH = 0.22;
+const SURFACE_NORMAL = new THREE.Vector3(0, 0, 1);
 const COUNTRY_GEOJSON_URL = "/data/ne_110m_admin_0_countries.geojson";
 
 const riskColor = {
@@ -91,6 +96,112 @@ function makeArcLinks(points: MapPoint[]): ArcLink[] {
   return links;
 }
 
+function makeArcPoints(link: ArcLink) {
+  const start = latLngToVector3(link.startLat, link.startLng, GLOBE_RADIUS);
+  const end = latLngToVector3(link.endLat, link.endLng, GLOBE_RADIUS);
+  const arcPoints: THREE.Vector3[] = [];
+
+  for (let index = 0; index <= ARC_SEGMENTS; index += 1) {
+    const t = index / ARC_SEGMENTS;
+    const normal = start.clone().lerp(end, t).normalize();
+    const altitude = GLOBE_RADIUS + Math.sin(Math.PI * t) * ARC_HEIGHT;
+    arcPoints.push(normal.multiplyScalar(altitude));
+  }
+
+  return arcPoints;
+}
+
+const ARC_VERTEX_SHADER = `
+  varying vec2 vUv;
+  void main() {
+    vUv = uv;
+    gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+  }
+`;
+
+const ARC_FRAGMENT_SHADER = `
+  uniform vec3 uStartColor;
+  uniform vec3 uEndColor;
+  uniform float uOpacity;
+  varying vec2 vUv;
+  void main() {
+    vec3 color = mix(uStartColor, uEndColor, smoothstep(0.0, 1.0, vUv.x));
+    gl_FragColor = vec4(color, uOpacity);
+  }
+`;
+
+const ARC_PULSE_FRAGMENT_SHADER = `
+  uniform vec3 uStartColor;
+  uniform vec3 uEndColor;
+  uniform float uProgress;
+  uniform float uWidth;
+  uniform float uIntensity;
+  varying vec2 vUv;
+  void main() {
+    float distanceFromPulse = abs(vUv.x - uProgress);
+    float core = smoothstep(uWidth, 0.0, distanceFromPulse);
+    float tail = smoothstep(uWidth * 1.7, 0.0, distanceFromPulse) * 0.28;
+    float alpha = (core + tail) * uIntensity;
+    vec3 color = mix(uStartColor, uEndColor, smoothstep(0.0, 1.0, vUv.x));
+    gl_FragColor = vec4(color, alpha);
+  }
+`;
+
+function makeArcMaterial([startColor, endColor]: [string, string], opacity = 0.92) {
+  return new THREE.ShaderMaterial({
+    uniforms: {
+      uStartColor: { value: new THREE.Color(startColor) },
+      uEndColor: { value: new THREE.Color(endColor) },
+      uOpacity: { value: opacity },
+    },
+    vertexShader: ARC_VERTEX_SHADER,
+    fragmentShader: ARC_FRAGMENT_SHADER,
+    transparent: true,
+    blending: THREE.AdditiveBlending,
+    depthWrite: false,
+    side: THREE.DoubleSide,
+  });
+}
+
+function makeArcPulseMaterial([startColor, endColor]: [string, string], phase: number) {
+  const material = new THREE.ShaderMaterial({
+    uniforms: {
+      uStartColor: { value: new THREE.Color(startColor) },
+      uEndColor: { value: new THREE.Color(endColor) },
+      uProgress: { value: -ARC_PULSE_WIDTH },
+      uWidth: { value: ARC_PULSE_WIDTH },
+      uIntensity: { value: 0.78 },
+    },
+    vertexShader: ARC_VERTEX_SHADER,
+    fragmentShader: ARC_PULSE_FRAGMENT_SHADER,
+    transparent: true,
+    blending: THREE.AdditiveBlending,
+    depthWrite: false,
+    side: THREE.DoubleSide,
+  });
+  material.userData.phase = phase;
+  return material;
+}
+
+function makeSignalArc(link: ArcLink, arcIndex: number) {
+  const group = new THREE.Group();
+  const pulseMaterials: THREE.ShaderMaterial[] = [];
+  const points = makeArcPoints(link);
+  const curve = new THREE.CatmullRomCurve3(points);
+  const tubeSegments = points.length * 2;
+  const mesh = new THREE.Mesh(new THREE.TubeGeometry(curve, tubeSegments, ARC_RADIUS, 8, false), makeArcMaterial(link.color));
+  mesh.renderOrder = 5;
+  group.add(mesh);
+
+  const pulseMaterial = makeArcPulseMaterial(link.color, arcIndex * 0.29);
+  const pulse = new THREE.Mesh(new THREE.TubeGeometry(curve, tubeSegments, ARC_RADIUS * 2.1, 8, false), pulseMaterial);
+  pulse.renderOrder = 7;
+  group.add(pulse);
+  pulseMaterials.push(pulseMaterial);
+
+  return { group, pulseMaterials };
+}
+
 function styleThinGlobeLines(object: THREE.Object3D) {
   object.traverse((child) => {
     if (!(child instanceof THREE.LineSegments)) {
@@ -143,10 +254,11 @@ const BEAM_FRAGMENT_SHADER = `
   uniform float uHeight;
   uniform float uIntensity;
   uniform float uFalloff;
+  uniform float uPulse;
   varying float vY;
   void main() {
     float t = clamp((vY + uHeight * 0.5) / uHeight, 0.0, 1.0);
-    float alpha = pow(1.0 - t, uFalloff) * uIntensity;
+    float alpha = pow(1.0 - t, uFalloff) * uIntensity * uPulse;
     gl_FragColor = vec4(uColor, alpha);
   }
 `;
@@ -236,11 +348,11 @@ export function WorldGlobe({ points }: WorldGlobeProps) {
     scene.add(globeGroup);
 
     const globeMaterial = new THREE.MeshPhongMaterial({
-      color: "#070a1c",
-      emissive: "#1a1450",
-      emissiveIntensity: 0.32,
-      shininess: 3,
-      specular: "#1e1b4b",
+      color: "#091a4a",
+      emissive: "#0b2a6b",
+      emissiveIntensity: 0.48,
+      shininess: 6,
+      specular: "#1e3a8a",
       transparent: true,
       opacity: 0.98,
     });
@@ -249,34 +361,30 @@ export function WorldGlobe({ points }: WorldGlobeProps) {
       .showGlobe(true)
       .showGraticules(true)
       .showAtmosphere(true)
-      .atmosphereColor("#7c3aed")
-      .atmosphereAltitude(0.22)
+      .atmosphereColor("#22d3ee")
+      .atmosphereAltitude(0.28)
       .globeCurvatureResolution(3)
       .globeMaterial(globeMaterial)
       .polygonsData(countryFeatures)
-      .polygonCapColor(() => "#1c1147")
-      .polygonSideColor(() => "rgba(124, 58, 237, 0.22)")
-      .polygonStrokeColor(() => "#6366f1")
+      .polygonCapColor(() => "#1b2367")
+      .polygonSideColor(() => "rgba(56, 189, 248, 0.22)")
+      .polygonStrokeColor(() => "#38bdf8")
       .polygonAltitude(0.006)
       .polygonCapCurvatureResolution(2)
-      .polygonsTransitionDuration(0)
-      .arcsData(makeArcLinks(points))
-      .arcStartLat("startLat")
-      .arcStartLng("startLng")
-      .arcEndLat("endLat")
-      .arcEndLng("endLng")
-      .arcColor("color")
-      .arcAltitude(0.22)
-      .arcStroke(0.42)
-      .arcCurveResolution(64)
-      .arcDashLength(0.42)
-      .arcDashGap(0.14)
-      .arcDashAnimateTime(reducedMotion ? 0 : 3200)
-      .arcsTransitionDuration(0);
+      .polygonsTransitionDuration(0);
 
     globe.scale.setScalar(GLOBE_RADIUS / globe.getGlobeRadius());
     styleThinGlobeLines(globe);
     globeGroup.add(globe);
+
+    const arcGroup = new THREE.Group();
+    const arcPulseMaterials: THREE.ShaderMaterial[] = [];
+    makeArcLinks(points).forEach((link, index) => {
+      const signalArc = makeSignalArc(link, index);
+      arcGroup.add(signalArc.group);
+      arcPulseMaterials.push(...signalArc.pulseMaterials);
+    });
+    globeGroup.add(arcGroup);
 
     scene.add(new THREE.AmbientLight("#312e81", 0.85));
     const keyLight = new THREE.DirectionalLight("#a5b4fc", 1.35);
@@ -291,15 +399,16 @@ export function WorldGlobe({ points }: WorldGlobeProps) {
     const pinGroup = new THREE.Group();
     globeGroup.add(pinGroup);
     const pinMeshes: THREE.Object3D[] = [];
-    const beamMaterials: THREE.ShaderMaterial[] = [];
+    const beaconMaterials: THREE.ShaderMaterial[] = [];
+    const pinPulseRings: THREE.Mesh<THREE.TorusGeometry, THREE.MeshBasicMaterial>[] = [];
 
     const beamSpec = {
-      high: { length: 0.62, base: 0.024, intensity: 0.95, ringRadius: 0.05 },
-      medium: { length: 0.5, base: 0.02, intensity: 0.82, ringRadius: 0.045 },
-      low: { length: 0.4, base: 0.018, intensity: 0.72, ringRadius: 0.04 },
+      high: { length: 0.38, base: 0.009, intensity: 0.52, ringRadius: 0.034 },
+      medium: { length: 0.32, base: 0.008, intensity: 0.46, ringRadius: 0.031 },
+      low: { length: 0.28, base: 0.007, intensity: 0.4, ringRadius: 0.028 },
     } satisfies Record<MapPoint["risk"], { length: number; base: number; intensity: number; ringRadius: number }>;
 
-    for (const point of points) {
+    for (const [pointIndex, point] of points.entries()) {
       const surface = latLngToVector3(point.latitude, point.longitude, GLOBE_RADIUS);
       const color = new THREE.Color(riskColor[point.risk]);
       const spec = beamSpec[point.risk];
@@ -307,14 +416,15 @@ export function WorldGlobe({ points }: WorldGlobeProps) {
       const pin = new THREE.Group();
       pin.userData.pointId = point.id;
       pin.position.copy(surface);
-      pin.lookAt(surface.clone().multiplyScalar(2));
+      pin.quaternion.setFromUnitVectors(SURFACE_NORMAL, surface.clone().normalize());
 
-      const coreBeamMaterial = new THREE.ShaderMaterial({
+      const beaconMaterial = new THREE.ShaderMaterial({
         uniforms: {
           uColor: { value: color.clone() },
           uHeight: { value: spec.length },
           uIntensity: { value: spec.intensity },
-          uFalloff: { value: 1.6 },
+          uFalloff: { value: 2.15 },
+          uPulse: { value: 1 },
         },
         vertexShader: BEAM_VERTEX_SHADER,
         fragmentShader: BEAM_FRAGMENT_SHADER,
@@ -323,36 +433,30 @@ export function WorldGlobe({ points }: WorldGlobeProps) {
         depthWrite: false,
         side: THREE.DoubleSide,
       });
-      const coreBeam = new THREE.Mesh(
-        new THREE.CylinderGeometry(0.002, spec.base * 0.6, spec.length, 18, 1, true),
-        coreBeamMaterial,
+      const beacon = new THREE.Mesh(
+        new THREE.ConeGeometry(spec.base, spec.length, 18, 1, true),
+        beaconMaterial,
       );
-      coreBeam.rotation.x = -Math.PI / 2;
-      coreBeam.position.z = -spec.length / 2;
+      beacon.rotation.x = Math.PI / 2;
+      beacon.position.z = spec.length / 2;
 
-      const haloBeamMaterial = new THREE.ShaderMaterial({
-        uniforms: {
-          uColor: { value: color.clone() },
-          uHeight: { value: spec.length * 0.85 },
-          uIntensity: { value: 0.32 },
-          uFalloff: { value: 2.2 },
-        },
-        vertexShader: BEAM_VERTEX_SHADER,
-        fragmentShader: BEAM_FRAGMENT_SHADER,
-        transparent: true,
-        blending: THREE.AdditiveBlending,
-        depthWrite: false,
-        side: THREE.DoubleSide,
-      });
-      const haloBeam = new THREE.Mesh(
-        new THREE.CylinderGeometry(0.006, spec.base * 2.2, spec.length * 0.85, 18, 1, true),
-        haloBeamMaterial,
+      const ray = new THREE.Line(
+        new THREE.BufferGeometry().setFromPoints([
+          new THREE.Vector3(0, 0, 0.018),
+          new THREE.Vector3(0, 0, spec.length * 0.82),
+        ]),
+        new THREE.LineBasicMaterial({
+          color,
+          transparent: true,
+          opacity: 0.56,
+          blending: THREE.AdditiveBlending,
+          depthWrite: false,
+        }),
       );
-      haloBeam.rotation.x = -Math.PI / 2;
-      haloBeam.position.z = -(spec.length * 0.85) / 2;
+      ray.renderOrder = 9;
 
       const baseRing = new THREE.Mesh(
-        new THREE.TorusGeometry(spec.ringRadius, 0.0045, 12, 48),
+        new THREE.TorusGeometry(spec.ringRadius, 0.0034, 12, 56),
         new THREE.MeshBasicMaterial({
           color,
           transparent: true,
@@ -361,22 +465,38 @@ export function WorldGlobe({ points }: WorldGlobeProps) {
           depthWrite: false,
         }),
       );
-      baseRing.position.z = -0.003;
+      baseRing.position.z = 0.003;
 
       const baseGlow = new THREE.Mesh(
-        new THREE.CircleGeometry(spec.ringRadius * 1.6, 32),
+        new THREE.CircleGeometry(spec.ringRadius * 1.75, 40),
         new THREE.MeshBasicMaterial({
           color,
           transparent: true,
-          opacity: 0.25,
+          opacity: 0.22,
           blending: THREE.AdditiveBlending,
           depthWrite: false,
         }),
       );
-      baseGlow.position.z = -0.001;
+      baseGlow.position.z = 0.002;
+
+      const pulseRings = [0, 1].map((ringIndex) => {
+        const pulseRing = new THREE.Mesh(
+          new THREE.TorusGeometry(spec.ringRadius * 1.02, 0.0022, 10, 48),
+          new THREE.MeshBasicMaterial({
+            color,
+            transparent: true,
+            opacity: 0.32,
+            blending: THREE.AdditiveBlending,
+            depthWrite: false,
+          }),
+        );
+        pulseRing.position.z = 0.006 + ringIndex * 0.002;
+        pulseRing.userData.phase = pointIndex * 0.23 + ringIndex * 0.5;
+        return pulseRing;
+      });
 
       const core = new THREE.Mesh(
-        new THREE.SphereGeometry(0.013, 18, 18),
+        new THREE.SphereGeometry(0.011, 18, 18),
         new THREE.MeshBasicMaterial({
           color,
           transparent: true,
@@ -385,21 +505,23 @@ export function WorldGlobe({ points }: WorldGlobeProps) {
           depthWrite: false,
         }),
       );
-      core.position.z = -0.006;
+      core.position.z = 0.02;
 
       pin.add(baseGlow);
-      pin.add(haloBeam);
-      pin.add(coreBeam);
+      pin.add(beacon);
+      pin.add(ray);
       pin.add(baseRing);
+      pulseRings.forEach((pulseRing) => pin.add(pulseRing));
       pin.add(core);
       pinGroup.add(pin);
       pinMeshes.push(pin);
-      beamMaterials.push(coreBeamMaterial, haloBeamMaterial);
+      beaconMaterials.push(beaconMaterial);
+      pinPulseRings.push(...pulseRings);
     }
 
     if (points[0]) {
       globeGroup.rotation.y = THREE.MathUtils.degToRad(-points[0].longitude - 90);
-      globeGroup.rotation.x = THREE.MathUtils.degToRad(points[0].latitude * 0.28);
+      globeGroup.rotation.x = THREE.MathUtils.degToRad(28);
     }
 
     const starsGeometry = new THREE.BufferGeometry();
@@ -434,7 +556,7 @@ export function WorldGlobe({ points }: WorldGlobeProps) {
     let dragStartY = 0;
     let startRotationX = 0;
     let startRotationY = 0;
-    const rotationVelocity = new THREE.Vector2(0.00045, 0.00088);
+    const rotationVelocity = new THREE.Vector2(0, 0.00028);
 
     const resize = () => {
       const { width, height } = mountElement.getBoundingClientRect();
@@ -519,18 +641,29 @@ export function WorldGlobe({ points }: WorldGlobeProps) {
         globeGroup.rotation.y += rotationVelocity.y;
         globeGroup.rotation.x += rotationVelocity.x;
         rotationVelocity.multiplyScalar(0.992);
-        rotationVelocity.y = Math.max(rotationVelocity.y, 0.0005);
+        rotationVelocity.y = Math.max(rotationVelocity.y, 0.00028);
       }
 
       if (!reducedMotion) {
         stars.rotation.y += 0.00018;
         const now = performance.now();
-        beamMaterials.forEach((material, index) => {
+        arcPulseMaterials.forEach((material) => {
+          const phase = material.userData.phase as number;
+          material.uniforms.uProgress.value = ((now * 0.00022 + phase) % 1.34) - ARC_PULSE_WIDTH;
+        });
+        beaconMaterials.forEach((material, index) => {
           const base = material.uniforms.uIntensity.value as number;
           const phase = Math.sin(now * 0.0019 + index * 0.7);
           material.userData.baseIntensity ??= base;
           material.uniforms.uIntensity.value =
             (material.userData.baseIntensity as number) * (0.85 + phase * 0.18);
+          material.uniforms.uPulse.value = 0.86 + Math.sin(now * 0.0024 + index * 0.9) * 0.14;
+        });
+        pinPulseRings.forEach((ring) => {
+          const phase = (now * 0.00045 + (ring.userData.phase as number)) % 1;
+          const scale = 1 + phase * 0.72;
+          ring.scale.setScalar(scale);
+          ring.material.opacity = (1 - phase) * 0.34;
         });
       }
 
@@ -548,6 +681,7 @@ export function WorldGlobe({ points }: WorldGlobeProps) {
       renderer.domElement.removeEventListener("pointercancel", handlePointerUp);
       globe._destructor();
       globeMaterial.dispose();
+      disposeObject(arcGroup);
       disposeObject(pinGroup);
       starsGeometry.dispose();
       (stars.material as THREE.Material).dispose();

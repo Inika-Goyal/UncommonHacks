@@ -1,5 +1,234 @@
 @import "tailwindcss";
 
+@font-face {
+  font-family: "Helvetica Regular";
+  src: url("https://db.onlinewebfonts.com/t/a64ff11d2c24584c767f6257e880dc65.eot");
+  src: url("https://db.onlinewebfonts.com/t/a64ff11d2c24584c767f6257e880dc65.eot?#iefix") format("embedded-opentype"),
+    url("https://db.onlinewebfonts.com/t/a64ff11d2c24584c767f6257e880dc65.woff2") format("woff2"),
+    url("https://db.onlinewebfonts.com/t/a64ff11d2c24584c767f6257e880dc65.woff") format("woff"),
+    url("https://db.onlinewebfonts.com/t/a64ff11d2c24584c767f6257e880dc65.ttf") format("truetype"),
+    url("https://db.onlinewebfonts.com/t/a64ff11d2c24584c767f6257e880dc65.svg#Helvetica Regular") format("svg");
+}
+
+.lumina-shell {
+  background: #0a0a0a;
+  color: #ededed;
+  font-family: "Helvetica Regular", Helvetica, Arial, sans-serif;
+}
+
+.liquid-glass {
+  background: rgba(255, 255, 255, 0.01);
+  background-blend-mode: luminosity;
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  border: none;
+  box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.1);
+  position: relative;
+  overflow: hidden;
+}
+
+.liquid-glass::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: 1.4px;
+  background: linear-gradient(
+    180deg,
+    rgba(255, 255, 255, 0.45) 0%,
+    rgba(255, 255, 255, 0.15) 20%,
+    rgba(255, 255, 255, 0) 40%,
+    rgba(255, 255, 255, 0) 60%,
+    rgba(255, 255, 255, 0.15) 80%,
+    rgba(255, 255, 255, 0.45) 100%
+  );
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  pointer-events: none;
+}
+
+.lumina-shell .lumina-nav a {
+  color: inherit;
+}
+
+.lumina-extras {
+  display: grid;
+  gap: 12px;
+  margin: 4px 0 14px;
+  padding-top: 14px;
+  border-top: 1px dashed rgba(255, 255, 255, 0.1);
+}
+
+.lumina-extras-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.lumina-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  color: rgba(255, 255, 255, 0.55);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.lumina-field select,
+.lumina-field input,
+.lumina-chip-input {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
+  padding: 9px 10px;
+  color: #fff;
+  font: inherit;
+  font-size: 13px;
+  letter-spacing: normal;
+  text-transform: none;
+  outline: none;
+  transition: border-color 180ms ease-out;
+}
+
+.lumina-field select {
+  appearance: none;
+  -webkit-appearance: none;
+  background-image: linear-gradient(45deg, transparent 50%, rgba(255, 255, 255, 0.5) 50%),
+    linear-gradient(135deg, rgba(255, 255, 255, 0.5) 50%, transparent 50%);
+  background-position: calc(100% - 14px) 50%, calc(100% - 9px) 50%;
+  background-size: 5px 5px, 5px 5px;
+  background-repeat: no-repeat;
+  padding-right: 28px;
+}
+
+.lumina-field select option {
+  background: #0a0a0a;
+  color: #fff;
+}
+
+.lumina-field select:focus,
+.lumina-field input:focus,
+.lumina-chip-input:focus-within {
+  border-color: rgba(255, 255, 255, 0.25);
+}
+
+.lumina-chip-input {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 7px 8px;
+}
+
+.lumina-chip-input input {
+  flex: 1;
+  min-width: 120px;
+  border: 0;
+  background: transparent;
+  padding: 4px 2px;
+  font-size: 13px;
+  color: #fff;
+  outline: none;
+}
+
+.lumina-chip-input input::placeholder {
+  color: rgba(255, 255, 255, 0.3);
+}
+
+.lumina-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  color: #fff;
+  border-radius: 999px;
+  padding: 2px 10px;
+  font-size: 11px;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.lumina-fieldset {
+  border: 0;
+  margin: 0;
+  padding: 0;
+}
+
+.lumina-fieldset legend {
+  color: rgba(255, 255, 255, 0.55);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  margin-bottom: 6px;
+}
+
+.lumina-radio-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.lumina-radio-chip {
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.04);
+  color: rgba(255, 255, 255, 0.6);
+  padding: 6px 12px;
+  border-radius: 999px;
+  font-size: 12px;
+  cursor: pointer;
+  transition: border-color 180ms, background 180ms, color 180ms;
+}
+
+.lumina-radio-chip input {
+  display: none;
+}
+
+.lumina-radio-chip-active {
+  border-color: rgba(255, 255, 255, 0.4);
+  background: rgba(255, 255, 255, 0.12);
+  color: #fff;
+}
+
+.lumina-strip {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 14px 20px;
+}
+
+.lumina-strip > div {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: rgba(255, 255, 255, 0.55);
+  font-size: 12px;
+  letter-spacing: 0.02em;
+}
+
+.lumina-strip svg {
+  color: rgba(255, 255, 255, 0.45);
+}
+
+.lumina-demo-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 1;
+  padding: 10px 16px;
+  border-radius: 14px;
+  color: rgba(255, 255, 255, 0.85);
+  font-size: 13px;
+  text-align: center;
+  transition: color 180ms ease-out, transform 180ms ease-out;
+}
+
+.lumina-demo-btn:hover {
+  color: #fff;
+  transform: translateY(-1px);
+}
+
 :root {
   --page: oklch(0.965 0.012 73);
   --surface: oklch(0.99 0.008 73);
@@ -468,22 +697,61 @@ p {
 
 .globe-stage {
   position: relative;
+  isolation: isolate;
   min-height: clamp(560px, 72vh, 860px);
+  overflow: hidden;
   width: 100%;
   border-radius: var(--radius);
   background:
-    radial-gradient(circle at 62% 42%, oklch(0.55 0.18 280 / 0.22), transparent 38%),
-    radial-gradient(circle at 22% 78%, oklch(0.5 0.2 300 / 0.16), transparent 28%),
-    radial-gradient(circle at 78% 18%, oklch(0.58 0.18 240 / 0.14), transparent 26%),
-    linear-gradient(150deg, oklch(0.07 0.04 270), oklch(0.1 0.05 280) 48%, oklch(0.03 0.02 270));
+    radial-gradient(circle at 62% 42%, oklch(0.33 0.16 250 / 0.18), transparent 36%),
+    radial-gradient(circle at 24% 82%, oklch(0.34 0.16 295 / 0.14), transparent 30%),
+    linear-gradient(150deg, oklch(0.035 0.025 270), oklch(0.06 0.035 255) 48%, oklch(0.018 0.018 270));
   box-shadow:
     inset 0 0 0 1px oklch(0.7 0.14 280 / 0.22),
     inset 0 -120px 180px oklch(0.02 0.02 270 / 0.78);
 }
 
+.globe-stage::before,
+.globe-stage::after {
+  position: absolute;
+  inset: -24%;
+  z-index: 0;
+  content: "";
+  pointer-events: none;
+}
+
+.globe-stage::before {
+  background-image:
+    radial-gradient(circle, oklch(0.94 0.04 240 / 0.75) 0 1px, transparent 1.6px),
+    radial-gradient(circle, oklch(0.78 0.12 280 / 0.48) 0 1px, transparent 1.7px);
+  background-position:
+    0 0,
+    42px 58px;
+  background-size:
+    118px 118px,
+    176px 176px;
+  opacity: 0.62;
+  animation: star-drift 36s linear infinite;
+}
+
+.globe-stage::after {
+  background-image:
+    radial-gradient(circle, oklch(0.98 0.03 220 / 0.9) 0 1px, transparent 1.5px),
+    radial-gradient(circle at center, oklch(0.82 0.12 230 / 0.2), transparent 42%);
+  background-position:
+    24px 18px,
+    center;
+  background-size:
+    240px 240px,
+    100% 100%;
+  opacity: 0.46;
+  animation: star-drift-slow 72s linear infinite;
+}
+
 .globe-canvas {
   position: absolute;
   inset: 0;
+  z-index: 1;
   cursor: grab;
   touch-action: none;
 }
@@ -500,7 +768,7 @@ p {
 
 .globe-overlay {
   position: absolute;
-  z-index: 1;
+  z-index: 3;
   display: grid;
   gap: 5px;
   border: 1px solid oklch(0.7 0.12 275 / 0.3);
@@ -575,7 +843,7 @@ p {
 
 .globe-legend {
   position: absolute;
-  z-index: 1;
+  z-index: 3;
   bottom: 18px;
   left: 18px;
   display: grid;
@@ -902,6 +1170,18 @@ td a {
 @keyframes spin {
   to {
     transform: rotate(360deg);
+  }
+}
+
+@keyframes star-drift {
+  to {
+    transform: translate3d(-96px, 72px, 0);
+  }
+}
+
+@keyframes star-drift-slow {
+  to {
+    transform: translate3d(84px, -54px, 0);
   }
 }
 
