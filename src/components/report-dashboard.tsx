@@ -102,7 +102,7 @@ export function ReportDashboard({ initialInputType, initialQuery }: ReportDashbo
       <header className="app-topbar">
         <Link className="brand-mark" href="/">
           <span className="brand-symbol">E</span>
-          Exploited
+          UnExploited
         </Link>
         <div className="topbar-status">
           <span className={mode === "demo" ? "status-pill status-snapshot" : "status-pill"}>

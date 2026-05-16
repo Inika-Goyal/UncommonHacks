@@ -1,4 +1,4 @@
-# Exploited Design Context
+# UnExploited Design Context
 
 ## Design Register
 Product UI. The frontend is intentionally minimal because another teammate owns full frontend direction later.

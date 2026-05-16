@@ -1,4 +1,4 @@
-# Exploited
+# UnExploited
 
 Bare-bones Uncommon Hacks MVP for evidence-backed exploitation reports.
 

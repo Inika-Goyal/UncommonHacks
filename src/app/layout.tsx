@@ -2,7 +2,7 @@ import type { Metadata, Viewport } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Exploited",
+  title: "UnExploited",
   description: "Evidence-backed exploitation report MVP.",
 };
 

@@ -1,13 +1,13 @@
-# Exploited Product Context
+# UnExploited Product Context
 
 ## Register
 product
 
 ## Source Of Truth
-The Google Doc `ExploitedSpecs` is authoritative for product direction. This file is the repo-local operating summary for implementation, design, and demo planning. When the Google Doc changes, update this file before making product or frontend decisions.
+The Google Doc `ExploitedSpecs` is authoritative for product direction. The working product name is UnExploited. This file is the repo-local operating summary for implementation, design, and demo planning. When the Google Doc changes, update this file before making product or frontend decisions.
 
 ## Product Purpose
-Exploited helps investigators, advocates, compliance teams, and hackathon judges turn a company or geographic-region query into a cited exploitation-risk report. The demo must prove a compact loop: enter a target, generate an evidence-backed report, inspect geographic/source signals, compare against a real NGO-style reference, and produce a formal complaint or compliance letter PDF.
+UnExploited helps investigators, advocates, compliance teams, and hackathon judges turn a company or geographic-region query into a cited exploitation-risk report. The demo must prove a compact loop: enter a target, generate an evidence-backed report, inspect geographic/source signals, compare against a real NGO-style reference, and produce a formal complaint or compliance letter PDF.
 
 The pitch claim is acceleration: compressing work that normally takes weeks of human investigation into minutes of guided synthesis. The product should not pretend to be a final legal or investigative authority; it should make source-backed triage faster, more actionable, and easier to explain.
 

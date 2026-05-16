@@ -45,7 +45,7 @@ export async function createComplaintPdf(report: Report) {
   };
 
   drawLine("Formal Complaint Draft", { size: 18, font: bold });
-  drawLine(`Generated from Exploited report: ${report.title}`, { size: 10, color: muted });
+  drawLine(`Generated from UnExploited report: ${report.title}`, { size: 10, color: muted });
   y -= 16;
   drawLine("To: Labor authority or corporate compliance officer", { font: bold });
   drawLine("Re: Request for investigation and remediation of labor exploitation indicators", { font: bold });
@@ -83,7 +83,7 @@ export async function createComplaintPdf(report: Report) {
   }
 
   y -= 4;
-  drawLine("Prepared by Exploited MVP. Verify all live sources before sending.", { size: 10, color: muted });
+  drawLine("Prepared by UnExploited MVP. Verify all live sources before sending.", { size: 10, color: muted });
 
   return pdf.save();
 }

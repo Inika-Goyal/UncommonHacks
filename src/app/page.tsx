@@ -9,7 +9,7 @@ export default function Home() {
       <header className="landing-nav">
         <Link className="brand-mark" href="/">
           <span className="brand-symbol">E</span>
-          Exploited
+          UnExploited
         </Link>
         <Link className="text-link" href="/dashboard?mode=company&query=Shein">
           Open dashboard
