@@ -37,8 +37,9 @@ type ArcLink = {
 };
 
 const GLOBE_RADIUS = 2.4;
-const ARC_HEIGHT = 0.44;
-const ARC_RADIUS = 0.007;
+const ARC_HEIGHT = 0.26;
+const ARC_HEIGHT_MIN_FACTOR = 0.18;
+const ARC_RADIUS = 0.006;
 const ARC_SEGMENTS = 96;
 const ARC_PULSE_WIDTH = 0.22;
 const SURFACE_NORMAL = new THREE.Vector3(0, 0, 1);
@@ -55,6 +56,40 @@ const riskLabel = {
   medium: "Medium",
   low: "Low",
 } satisfies Record<MapPoint["risk"], string>;
+
+const ARC_GRADIENT: readonly string[] = ["#38bdf8", "#a855f7", "#ec4899"];
+
+function gradientColorAt(t: number): THREE.Color {
+  const clamped = THREE.MathUtils.clamp(t, 0, 1);
+  if (clamped <= 0.5) {
+    return new THREE.Color(ARC_GRADIENT[0]).lerp(new THREE.Color(ARC_GRADIENT[1]), clamped * 2);
+  }
+  return new THREE.Color(ARC_GRADIENT[1]).lerp(new THREE.Color(ARC_GRADIENT[2]), (clamped - 0.5) * 2);
+}
+
+function gradientHexAt(t: number): string {
+  return `#${gradientColorAt(t).getHexString()}`;
+}
+
+function makeTeardropProfile(width: number, length: number): THREE.Vector2[] {
+  const w = width;
+  const l = length;
+  // Long tapered tail at y=0 (points DOWN at the surface), round bulb near the top.
+  return [
+    new THREE.Vector2(0, 0),
+    new THREE.Vector2(w * 0.04, l * 0.08),
+    new THREE.Vector2(w * 0.09, l * 0.2),
+    new THREE.Vector2(w * 0.15, l * 0.34),
+    new THREE.Vector2(w * 0.24, l * 0.48),
+    new THREE.Vector2(w * 0.4, l * 0.6),
+    new THREE.Vector2(w * 0.62, l * 0.7),
+    new THREE.Vector2(w * 0.85, l * 0.79),
+    new THREE.Vector2(w * 0.98, l * 0.87),
+    new THREE.Vector2(w * 0.94, l * 0.94),
+    new THREE.Vector2(w * 0.6, l * 0.99),
+    new THREE.Vector2(0, l * 1.0),
+  ];
+}
 
 function isCountryFeatureCollection(value: unknown): value is CountryFeatureCollection {
   if (!value || typeof value !== "object") {
@@ -82,15 +117,18 @@ function makeArcLinks(points: MapPoint[]): ArcLink[] {
   }
 
   const links: ArcLink[] = [];
-  for (let index = 0; index < points.length - 1; index += 1) {
+  const segments = points.length - 1;
+  for (let index = 0; index < segments; index += 1) {
     const from = points[index];
     const to = points[index + 1];
+    const t0 = index / segments;
+    const t1 = (index + 1) / segments;
     links.push({
       startLat: from.latitude,
       startLng: from.longitude,
       endLat: to.latitude,
       endLng: to.longitude,
-      color: [riskColor[from.risk], riskColor[to.risk]],
+      color: [gradientHexAt(t0), gradientHexAt(t1)],
     });
   }
   return links;
@@ -99,12 +137,16 @@ function makeArcLinks(points: MapPoint[]): ArcLink[] {
 function makeArcPoints(link: ArcLink) {
   const start = latLngToVector3(link.startLat, link.startLng, GLOBE_RADIUS);
   const end = latLngToVector3(link.endLat, link.endLng, GLOBE_RADIUS);
+  const chord = start.distanceTo(end);
+  const chordRatio = THREE.MathUtils.clamp(chord / (2 * GLOBE_RADIUS), 0, 1);
+  const heightFactor = ARC_HEIGHT_MIN_FACTOR + Math.sqrt(chordRatio) * (1 - ARC_HEIGHT_MIN_FACTOR);
+  const arcHeight = ARC_HEIGHT * heightFactor;
   const arcPoints: THREE.Vector3[] = [];
 
   for (let index = 0; index <= ARC_SEGMENTS; index += 1) {
     const t = index / ARC_SEGMENTS;
     const normal = start.clone().lerp(end, t).normalize();
-    const altitude = GLOBE_RADIUS + Math.sin(Math.PI * t) * ARC_HEIGHT;
+    const altitude = GLOBE_RADIUS + Math.sin(Math.PI * t) * arcHeight;
     arcPoints.push(normal.multiplyScalar(altitude));
   }
 
@@ -123,10 +165,15 @@ const ARC_FRAGMENT_SHADER = `
   uniform vec3 uStartColor;
   uniform vec3 uEndColor;
   uniform float uOpacity;
+  uniform float uTime;
+  uniform float uShimmerPhase;
   varying vec2 vUv;
   void main() {
     vec3 color = mix(uStartColor, uEndColor, smoothstep(0.0, 1.0, vUv.x));
-    gl_FragColor = vec4(color, uOpacity);
+    float shimmer = sin(vUv.x * 18.0 - uTime * 1.6 + uShimmerPhase) * 0.5 + 0.5;
+    float edgeFade = sin(vUv.x * 3.14159);
+    float modulated = uOpacity * (0.62 + shimmer * 0.38) * mix(0.55, 1.0, edgeFade);
+    gl_FragColor = vec4(color * (0.85 + shimmer * 0.25), modulated);
   }
 `;
 
@@ -140,19 +187,23 @@ const ARC_PULSE_FRAGMENT_SHADER = `
   void main() {
     float distanceFromPulse = abs(vUv.x - uProgress);
     float core = smoothstep(uWidth, 0.0, distanceFromPulse);
-    float tail = smoothstep(uWidth * 1.7, 0.0, distanceFromPulse) * 0.28;
-    float alpha = (core + tail) * uIntensity;
+    float tail = smoothstep(uWidth * 2.4, 0.0, distanceFromPulse) * 0.34;
+    float comet = smoothstep(uWidth * 0.6, 0.0, vUv.x - uProgress) * step(0.0, vUv.x - uProgress) * 0.45;
+    float alpha = (core + tail + comet) * uIntensity;
     vec3 color = mix(uStartColor, uEndColor, smoothstep(0.0, 1.0, vUv.x));
-    gl_FragColor = vec4(color, alpha);
+    vec3 hot = mix(color, vec3(1.0), core * 0.55);
+    gl_FragColor = vec4(hot, alpha);
   }
 `;
 
-function makeArcMaterial([startColor, endColor]: [string, string], opacity = 0.92) {
-  return new THREE.ShaderMaterial({
+function makeArcMaterial([startColor, endColor]: [string, string], shimmerPhase: number, opacity = 0.85) {
+  const material = new THREE.ShaderMaterial({
     uniforms: {
       uStartColor: { value: new THREE.Color(startColor) },
       uEndColor: { value: new THREE.Color(endColor) },
       uOpacity: { value: opacity },
+      uTime: { value: 0 },
+      uShimmerPhase: { value: shimmerPhase },
     },
     vertexShader: ARC_VERTEX_SHADER,
     fragmentShader: ARC_FRAGMENT_SHADER,
@@ -161,16 +212,23 @@ function makeArcMaterial([startColor, endColor]: [string, string], opacity = 0.9
     depthWrite: false,
     side: THREE.DoubleSide,
   });
+  return material;
 }
 
-function makeArcPulseMaterial([startColor, endColor]: [string, string], phase: number) {
+function makeArcPulseMaterial(
+  [startColor, endColor]: [string, string],
+  phase: number,
+  speed: number,
+  width: number,
+  intensity: number,
+) {
   const material = new THREE.ShaderMaterial({
     uniforms: {
       uStartColor: { value: new THREE.Color(startColor) },
       uEndColor: { value: new THREE.Color(endColor) },
-      uProgress: { value: -ARC_PULSE_WIDTH },
-      uWidth: { value: ARC_PULSE_WIDTH },
-      uIntensity: { value: 0.78 },
+      uProgress: { value: -width },
+      uWidth: { value: width },
+      uIntensity: { value: intensity },
     },
     vertexShader: ARC_VERTEX_SHADER,
     fragmentShader: ARC_PULSE_FRAGMENT_SHADER,
@@ -180,6 +238,8 @@ function makeArcPulseMaterial([startColor, endColor]: [string, string], phase: n
     side: THREE.DoubleSide,
   });
   material.userData.phase = phase;
+  material.userData.speed = speed;
+  material.userData.width = width;
   return material;
 }
 
@@ -189,17 +249,29 @@ function makeSignalArc(link: ArcLink, arcIndex: number) {
   const points = makeArcPoints(link);
   const curve = new THREE.CatmullRomCurve3(points);
   const tubeSegments = points.length * 2;
-  const mesh = new THREE.Mesh(new THREE.TubeGeometry(curve, tubeSegments, ARC_RADIUS, 8, false), makeArcMaterial(link.color));
+  const baseMaterial = makeArcMaterial(link.color, arcIndex * 0.7);
+  const mesh = new THREE.Mesh(new THREE.TubeGeometry(curve, tubeSegments, ARC_RADIUS, 8, false), baseMaterial);
   mesh.renderOrder = 5;
   group.add(mesh);
 
-  const pulseMaterial = makeArcPulseMaterial(link.color, arcIndex * 0.29);
-  const pulse = new THREE.Mesh(new THREE.TubeGeometry(curve, tubeSegments, ARC_RADIUS * 2.1, 8, false), pulseMaterial);
-  pulse.renderOrder = 7;
-  group.add(pulse);
-  pulseMaterials.push(pulseMaterial);
+  // 2-3 pulses per arc, each with varied speed, width, intensity, and phase
+  const pulseCount = 2 + (arcIndex % 2);
+  for (let pulseIndex = 0; pulseIndex < pulseCount; pulseIndex += 1) {
+    const phase = (arcIndex * 0.31 + pulseIndex / pulseCount) % 1;
+    const speed = 0.75 + ((arcIndex * 7 + pulseIndex * 11) % 9) * 0.06;
+    const width = ARC_PULSE_WIDTH * (0.75 + pulseIndex * 0.22);
+    const intensity = 0.92 - pulseIndex * 0.18;
+    const pulseMaterial = makeArcPulseMaterial(link.color, phase, speed, width, intensity);
+    const pulse = new THREE.Mesh(
+      new THREE.TubeGeometry(curve, tubeSegments, ARC_RADIUS * (1.9 + pulseIndex * 0.55), 8, false),
+      pulseMaterial,
+    );
+    pulse.renderOrder = 7 + pulseIndex;
+    group.add(pulse);
+    pulseMaterials.push(pulseMaterial);
+  }
 
-  return { group, pulseMaterials };
+  return { group, pulseMaterials, baseMaterial };
 }
 
 function styleThinGlobeLines(object: THREE.Object3D) {
@@ -240,28 +312,6 @@ function disposeObject(object: THREE.Object3D) {
     }
   });
 }
-
-const BEAM_VERTEX_SHADER = `
-  varying float vY;
-  void main() {
-    vY = position.y;
-    gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
-  }
-`;
-
-const BEAM_FRAGMENT_SHADER = `
-  uniform vec3 uColor;
-  uniform float uHeight;
-  uniform float uIntensity;
-  uniform float uFalloff;
-  uniform float uPulse;
-  varying float vY;
-  void main() {
-    float t = clamp((vY + uHeight * 0.5) / uHeight, 0.0, 1.0);
-    float alpha = pow(1.0 - t, uFalloff) * uIntensity * uPulse;
-    gl_FragColor = vec4(uColor, alpha);
-  }
-`;
 
 export function WorldGlobe({ points }: WorldGlobeProps) {
   const mountRef = useRef<HTMLDivElement | null>(null);
@@ -379,10 +429,12 @@ export function WorldGlobe({ points }: WorldGlobeProps) {
 
     const arcGroup = new THREE.Group();
     const arcPulseMaterials: THREE.ShaderMaterial[] = [];
+    const arcBaseMaterials: THREE.ShaderMaterial[] = [];
     makeArcLinks(points).forEach((link, index) => {
       const signalArc = makeSignalArc(link, index);
       arcGroup.add(signalArc.group);
       arcPulseMaterials.push(...signalArc.pulseMaterials);
+      arcBaseMaterials.push(signalArc.baseMaterial);
     });
     globeGroup.add(arcGroup);
 
@@ -399,14 +451,17 @@ export function WorldGlobe({ points }: WorldGlobeProps) {
     const pinGroup = new THREE.Group();
     globeGroup.add(pinGroup);
     const pinMeshes: THREE.Object3D[] = [];
-    const beaconMaterials: THREE.ShaderMaterial[] = [];
     const pinPulseRings: THREE.Mesh<THREE.TorusGeometry, THREE.MeshBasicMaterial>[] = [];
+    const pinBodies: THREE.Mesh<THREE.LatheGeometry, THREE.MeshPhongMaterial>[] = [];
+    const pinHaloes: THREE.Mesh<THREE.LatheGeometry, THREE.MeshBasicMaterial>[] = [];
+    const pinBaseGlows: THREE.Mesh<THREE.CircleGeometry, THREE.MeshBasicMaterial>[] = [];
+    const pinTips: THREE.Mesh<THREE.CircleGeometry, THREE.MeshBasicMaterial>[] = [];
 
     const beamSpec = {
-      high: { length: 0.38, base: 0.009, intensity: 0.52, ringRadius: 0.034 },
-      medium: { length: 0.32, base: 0.008, intensity: 0.46, ringRadius: 0.031 },
-      low: { length: 0.28, base: 0.007, intensity: 0.4, ringRadius: 0.028 },
-    } satisfies Record<MapPoint["risk"], { length: number; base: number; intensity: number; ringRadius: number }>;
+      high: { length: 0.17, width: 0.022, ringRadius: 0.022, ringCount: 4, pulseSpeed: 0.00058 },
+      medium: { length: 0.14, width: 0.019, ringRadius: 0.019, ringCount: 3, pulseSpeed: 0.00045 },
+      low: { length: 0.11, width: 0.016, ringRadius: 0.016, ringCount: 2, pulseSpeed: 0.00034 },
+    } satisfies Record<MapPoint["risk"], { length: number; width: number; ringRadius: number; ringCount: number; pulseSpeed: number }>;
 
     for (const [pointIndex, point] of points.entries()) {
       const surface = latLngToVector3(point.latitude, point.longitude, GLOBE_RADIUS);
@@ -418,42 +473,55 @@ export function WorldGlobe({ points }: WorldGlobeProps) {
       pin.position.copy(surface);
       pin.quaternion.setFromUnitVectors(SURFACE_NORMAL, surface.clone().normalize());
 
-      const beaconMaterial = new THREE.ShaderMaterial({
-        uniforms: {
-          uColor: { value: color.clone() },
-          uHeight: { value: spec.length },
-          uIntensity: { value: spec.intensity },
-          uFalloff: { value: 2.15 },
-          uPulse: { value: 1 },
-        },
-        vertexShader: BEAM_VERTEX_SHADER,
-        fragmentShader: BEAM_FRAGMENT_SHADER,
+      // Teardrop / grapefruit-seed shaped pin body — sharp tip points DOWN to the surface,
+      // fat middle, tapered narrow top. Lathe profile is built around +Y, then rotated to +Z.
+      const profile = makeTeardropProfile(spec.width, spec.length);
+      const bodyGeom = new THREE.LatheGeometry(profile, 32);
+      bodyGeom.rotateX(Math.PI / 2);
+
+      const bodyMaterial = new THREE.MeshPhongMaterial({
+        color: color.clone().multiplyScalar(0.25),
+        emissive: color.clone(),
+        emissiveIntensity: 1.45,
+        shininess: 90,
+        specular: new THREE.Color(0xffffff),
+      });
+      const body = new THREE.Mesh(bodyGeom, bodyMaterial);
+      body.position.z = 0.001;
+      body.userData.phase = pointIndex * 0.41;
+      body.userData.risk = point.risk;
+      body.renderOrder = 6;
+
+      // Halo shell — additive back-side render gives the silhouette a glowing rim.
+      const haloGeom = bodyGeom.clone();
+      const haloMaterial = new THREE.MeshBasicMaterial({
+        color: color.clone(),
         transparent: true,
+        opacity: 0.4,
         blending: THREE.AdditiveBlending,
         depthWrite: false,
-        side: THREE.DoubleSide,
+        side: THREE.BackSide,
       });
-      const beacon = new THREE.Mesh(
-        new THREE.ConeGeometry(spec.base, spec.length, 18, 1, true),
-        beaconMaterial,
-      );
-      beacon.rotation.x = Math.PI / 2;
-      beacon.position.z = spec.length / 2;
+      const halo = new THREE.Mesh(haloGeom, haloMaterial);
+      halo.scale.setScalar(1.28);
+      halo.position.z = 0.001;
+      halo.userData.phase = pointIndex * 0.31;
+      halo.renderOrder = 4;
 
-      const ray = new THREE.Line(
-        new THREE.BufferGeometry().setFromPoints([
-          new THREE.Vector3(0, 0, 0.018),
-          new THREE.Vector3(0, 0, spec.length * 0.82),
-        ]),
-        new THREE.LineBasicMaterial({
-          color,
+      // Tip indicator — small bright disc right at the location so the point reads clearly.
+      const tip = new THREE.Mesh(
+        new THREE.CircleGeometry(spec.width * 0.45, 24),
+        new THREE.MeshBasicMaterial({
+          color: color.clone(),
           transparent: true,
-          opacity: 0.56,
+          opacity: 0.95,
           blending: THREE.AdditiveBlending,
           depthWrite: false,
         }),
       );
-      ray.renderOrder = 9;
+      tip.position.z = 0.0009;
+      tip.userData.phase = pointIndex * 0.53;
+      tip.renderOrder = 8;
 
       const baseRing = new THREE.Mesh(
         new THREE.TorusGeometry(spec.ringRadius, 0.0034, 12, 56),
@@ -465,21 +533,22 @@ export function WorldGlobe({ points }: WorldGlobeProps) {
           depthWrite: false,
         }),
       );
-      baseRing.position.z = 0.003;
+      baseRing.position.z = 0.0014;
 
       const baseGlow = new THREE.Mesh(
-        new THREE.CircleGeometry(spec.ringRadius * 1.75, 40),
+        new THREE.CircleGeometry(spec.ringRadius * 1.85, 40),
         new THREE.MeshBasicMaterial({
           color,
           transparent: true,
-          opacity: 0.22,
+          opacity: 0.24,
           blending: THREE.AdditiveBlending,
           depthWrite: false,
         }),
       );
-      baseGlow.position.z = 0.002;
+      baseGlow.position.z = 0.0007;
+      baseGlow.userData.phase = pointIndex * 0.37;
 
-      const pulseRings = [0, 1].map((ringIndex) => {
+      const pulseRings = Array.from({ length: spec.ringCount }).map((_, ringIndex) => {
         const pulseRing = new THREE.Mesh(
           new THREE.TorusGeometry(spec.ringRadius * 1.02, 0.0022, 10, 48),
           new THREE.MeshBasicMaterial({
@@ -490,33 +559,27 @@ export function WorldGlobe({ points }: WorldGlobeProps) {
             depthWrite: false,
           }),
         );
-        pulseRing.position.z = 0.006 + ringIndex * 0.002;
-        pulseRing.userData.phase = pointIndex * 0.23 + ringIndex * 0.5;
+        pulseRing.position.z = 0.0018 + ringIndex * 0.0006;
+        pulseRing.userData.phase = (pointIndex * 0.23 + ringIndex / spec.ringCount) % 1;
+        pulseRing.userData.speed = spec.pulseSpeed;
+        pulseRing.userData.maxScale = 2.2 + ringIndex * 0.35;
         return pulseRing;
       });
 
-      const core = new THREE.Mesh(
-        new THREE.SphereGeometry(0.011, 18, 18),
-        new THREE.MeshBasicMaterial({
-          color,
-          transparent: true,
-          opacity: 0.95,
-          blending: THREE.AdditiveBlending,
-          depthWrite: false,
-        }),
-      );
-      core.position.z = 0.02;
-
       pin.add(baseGlow);
-      pin.add(beacon);
-      pin.add(ray);
       pin.add(baseRing);
       pulseRings.forEach((pulseRing) => pin.add(pulseRing));
-      pin.add(core);
+      pin.add(halo);
+      pin.add(body);
+      pin.add(tip);
       pinGroup.add(pin);
+
       pinMeshes.push(pin);
-      beaconMaterials.push(beaconMaterial);
       pinPulseRings.push(...pulseRings);
+      pinBodies.push(body);
+      pinHaloes.push(halo);
+      pinBaseGlows.push(baseGlow);
+      pinTips.push(tip);
     }
 
     if (points[0]) {
@@ -647,23 +710,60 @@ export function WorldGlobe({ points }: WorldGlobeProps) {
       if (!reducedMotion) {
         stars.rotation.y += 0.00018;
         const now = performance.now();
+        const seconds = now * 0.001;
+
+        arcBaseMaterials.forEach((material, index) => {
+          material.uniforms.uTime.value = seconds + index * 0.4;
+        });
+
         arcPulseMaterials.forEach((material) => {
           const phase = material.userData.phase as number;
-          material.uniforms.uProgress.value = ((now * 0.00022 + phase) % 1.34) - ARC_PULSE_WIDTH;
+          const speed = material.userData.speed as number;
+          const width = material.userData.width as number;
+          material.uniforms.uProgress.value = ((seconds * 0.22 * speed + phase) % 1.45) - width;
         });
-        beaconMaterials.forEach((material, index) => {
-          const base = material.uniforms.uIntensity.value as number;
-          const phase = Math.sin(now * 0.0019 + index * 0.7);
-          material.userData.baseIntensity ??= base;
-          material.uniforms.uIntensity.value =
-            (material.userData.baseIntensity as number) * (0.85 + phase * 0.18);
-          material.uniforms.uPulse.value = 0.86 + Math.sin(now * 0.0024 + index * 0.9) * 0.14;
-        });
+
         pinPulseRings.forEach((ring) => {
-          const phase = (now * 0.00045 + (ring.userData.phase as number)) % 1;
-          const scale = 1 + phase * 0.72;
+          const speed = (ring.userData.speed as number) ?? 0.00045;
+          const maxScale = (ring.userData.maxScale as number) ?? 1.72;
+          const phase = (now * speed + (ring.userData.phase as number)) % 1;
+          const eased = phase * phase;
+          const scale = 1 + eased * (maxScale - 1);
           ring.scale.setScalar(scale);
-          ring.material.opacity = (1 - phase) * 0.34;
+          ring.material.opacity = Math.pow(1 - phase, 1.6) * 0.42;
+        });
+
+        pinBodies.forEach((body) => {
+          const phase = body.userData.phase as number;
+          const risk = body.userData.risk as MapPoint["risk"];
+          const beatSpeed = risk === "high" ? 2.6 : risk === "medium" ? 1.9 : 1.4;
+          const beat = Math.sin(seconds * beatSpeed + phase);
+          const breathe = 1 + beat * (risk === "high" ? 0.06 : risk === "medium" ? 0.045 : 0.035);
+          body.scale.set(breathe, breathe, breathe);
+          body.material.emissiveIntensity = 1.25 + Math.abs(beat) * 0.4;
+        });
+
+        pinHaloes.forEach((halo) => {
+          const phase = halo.userData.phase as number;
+          const pulse = (Math.sin(seconds * 1.7 + phase) + 1) * 0.5;
+          halo.material.opacity = 0.26 + pulse * 0.22;
+          const haloScale = 1.22 + pulse * 0.14;
+          halo.scale.set(haloScale, haloScale, haloScale);
+        });
+
+        pinTips.forEach((tip) => {
+          const phase = tip.userData.phase as number;
+          const beat = (Math.sin(seconds * 3.2 + phase) + 1) * 0.5;
+          tip.material.opacity = 0.65 + beat * 0.35;
+          const tipScale = 0.85 + beat * 0.4;
+          tip.scale.set(tipScale, tipScale, 1);
+        });
+
+        pinBaseGlows.forEach((glow) => {
+          const phase = glow.userData.phase as number;
+          const pulse = (Math.sin(seconds * 1.4 + phase) + 1) * 0.5;
+          glow.material.opacity = 0.16 + pulse * 0.18;
+          glow.scale.setScalar(0.9 + pulse * 0.3);
         });
       }
 

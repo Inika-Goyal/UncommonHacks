@@ -1,0 +1,40 @@
+- main [ref=e2]:
+  - generic [ref=e3]:
+    - link "E UnExploited" [ref=e4] [cursor=pointer]:
+      - /url: /
+      - generic [ref=e5]: E
+      - text: UnExploited
+    - generic [ref=e7]: Loading
+  - generic [ref=e8]:
+    - complementary [ref=e9]:
+      - generic [ref=e10]:
+        - paragraph [ref=e11]: Investigation
+        - heading "Report workspace" [level=1] [ref=e12]
+        - paragraph [ref=e13]: Company and region modes share the same report contract, so later sources can plug into one flow.
+      - generic [ref=e14]:
+        - generic "Report input type" [ref=e15]:
+          - button "Company" [ref=e16] [cursor=pointer]:
+            - img [ref=e17]
+            - text: Company
+          - button "Region" [ref=e21] [cursor=pointer]:
+            - img [ref=e22]
+            - text: Region
+        - generic [ref=e26]: Investigation target
+        - generic [ref=e27]:
+          - generic [ref=e28]:
+            - img [ref=e29]
+            - textbox "Investigation target" [ref=e32]:
+              - /placeholder: Shein
+              - text: Shein
+          - button "Generate" [ref=e33]:
+            - text: Generate
+            - img [ref=e34]
+      - generic [ref=e36]:
+        - paragraph [ref=e37]: Benchmark
+        - heading "Demo comparison target needed" [level=2] [ref=e38]
+        - paragraph [ref=e39]: Pick one real NGO report, such as Verite, WRC, or FLA, then place it here beside the generated report during the final video.
+    - generic [ref=e41]:
+      - img [ref=e42]
+      - generic [ref=e44]:
+        - heading "Generating report" [level=2] [ref=e45]
+        - paragraph [ref=e46]: Pulling the explicit MVP data path.

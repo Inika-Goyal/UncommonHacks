@@ -18,6 +18,7 @@ import {
   SwarmStatusPanel,
   type SwarmState,
 } from "@/components/swarm-status-panel";
+import { ElevenLabsReportAgent } from "@/components/elevenlabs-report-agent";
 import { WorldGlobe } from "@/components/world-globe";
 import type { AgentName, StateUpdate } from "@/agents/types";
 import type { InputType, Report, ReportResponse, SourceStatus } from "@/lib/report-types";
@@ -209,6 +210,7 @@ export function ReportDashboard({ initialInputType, initialQuery, reportId }: Re
             </p>
           </div>
           <SearchForm compact initialInputType={initialInputType} initialQuery={initialQuery} />
+          {report ? <ElevenLabsReportAgent report={report} mode={mode ?? "demo"} /> : null}
           <div className="panel benchmark-panel">
             <p className="eyebrow">Benchmark</p>
             <h2>Demo comparison target needed</h2>

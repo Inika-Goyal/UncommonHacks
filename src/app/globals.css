@@ -320,7 +320,8 @@ input:focus-visible {
 
 .text-link,
 .primary-button,
-.secondary-button {
+.secondary-button,
+.icon-button {
   display: inline-flex;
   min-height: 40px;
   align-items: center;
@@ -376,6 +377,19 @@ input:focus-visible {
 }
 
 .secondary-button:hover {
+  border-color: oklch(0.7 0.04 52);
+  background: oklch(0.965 0.015 73);
+}
+
+.icon-button {
+  min-height: 34px;
+  border: 1px solid var(--line);
+  background: var(--surface);
+  color: var(--ink);
+  padding: 0 10px;
+}
+
+.icon-button:hover {
   border-color: oklch(0.7 0.04 52);
   background: oklch(0.965 0.015 73);
 }
@@ -566,6 +580,7 @@ p {
 .benchmark-panel p,
 .action-panel p,
 .source-row p,
+.voice-agent-copy,
 .report-header p {
   color: var(--ink-muted);
   line-height: 1.55;
@@ -908,8 +923,67 @@ p {
   font-size: 13px;
 }
 
+.voice-agent-panel {
+  display: grid;
+  gap: 14px;
+}
+
+.voice-agent-status {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.voice-agent-copy,
+.voice-agent-message,
+.voice-agent-error {
+  margin-bottom: 0;
+  font-size: 13px;
+}
+
+.voice-agent-message {
+  border-left: 3px solid var(--info);
+  background: oklch(0.96 0.018 230);
+  color: var(--ink);
+  padding: 10px 12px;
+}
+
+.voice-agent-error {
+  border-left: 3px solid var(--danger);
+  background: oklch(0.95 0.025 28);
+  color: oklch(0.45 0.14 28);
+  padding: 10px 12px;
+}
+
+.voice-agent-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.voice-status-connected {
+  border-color: oklch(0.73 0.08 145);
+  background: oklch(0.94 0.03 145);
+  color: oklch(0.42 0.11 145);
+}
+
+.voice-status-connecting {
+  border-color: oklch(0.72 0.05 235);
+  background: oklch(0.94 0.026 235);
+  color: oklch(0.43 0.09 235);
+}
+
+.voice-status-disconnected {
+  border-color: var(--line);
+  background: var(--surface-muted);
+  color: var(--ink-muted);
+}
+
 .status-pill {
   display: inline-flex;
+  gap: 6px;
   min-height: 26px;
   align-items: center;
   border: 1px solid var(--line);
