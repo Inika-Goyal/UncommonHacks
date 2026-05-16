@@ -1,7 +1,7 @@
 import { demoReports, findDemoReport } from "@/lib/demo-reports";
 import type { InputType, Report, ReportRequest } from "@/lib/report-types";
 import { isDemoMode } from "@/lib/runtime-config";
-import { findSupabaseReport } from "@/lib/supabase-server";
+import { findSupabaseReport, findSupabaseReportById } from "@/lib/supabase-server";
 
 export class NotFoundError extends Error {
   code = "REPORT_NOT_FOUND";
@@ -75,7 +75,7 @@ export async function getReportById(id: string): Promise<{
     return { report, mode: "demo" };
   }
 
-  const report = await findSupabaseReport({ inputType: "company", query: id });
+  const report = await findSupabaseReportById(id);
 
   if (!report) {
     throw new NotFoundError(`No Supabase report exists with id ${id}.`);

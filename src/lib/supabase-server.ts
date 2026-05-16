@@ -43,10 +43,50 @@ type SupabaseReportRow = {
   }>;
 };
 
-export function createSupabaseServerClient() {
-  const { url, serviceRoleKey } = getSupabaseServerConfig();
+const reportSelect = `
+  id,
+  input_type,
+  query,
+  title,
+  summary,
+  overall_risk,
+  severity,
+  credibility,
+  recommended_action,
+  source_note,
+  created_at,
+  findings (
+    id,
+    signal,
+    severity,
+    credibility,
+    geography,
+    evidence,
+    citations (
+      label,
+      source,
+      url,
+      accessed_at
+    )
+  ),
+  map_points (
+    id,
+    label,
+    latitude,
+    longitude,
+    risk
+  ),
+  source_status (
+    name,
+    status,
+    detail
+  )
+`;
 
-  return createClient(url, serviceRoleKey, {
+export function createSupabaseServerClient() {
+  const { url, secretKey } = getSupabaseServerConfig();
+
+  return createClient(url, secretKey, {
     auth: {
       autoRefreshToken: false,
       persistSession: false,
@@ -54,65 +94,7 @@ export function createSupabaseServerClient() {
   });
 }
 
-export async function findSupabaseReport(request: ReportRequest): Promise<Report | null> {
-  const supabase = createSupabaseServerClient();
-  const { data, error } = await supabase
-    .from("reports")
-    .select(
-      `
-        id,
-        input_type,
-        query,
-        title,
-        summary,
-        overall_risk,
-        severity,
-        credibility,
-        recommended_action,
-        source_note,
-        created_at,
-        findings (
-          id,
-          signal,
-          severity,
-          credibility,
-          geography,
-          evidence,
-          citations (
-            label,
-            source,
-            url,
-            accessed_at
-          )
-        ),
-        map_points (
-          id,
-          label,
-          latitude,
-          longitude,
-          risk
-        ),
-        source_status (
-          name,
-          status,
-          detail
-        )
-      `,
-    )
-    .eq("input_type", request.inputType)
-    .ilike("query", `%${request.query.trim()}%`)
-    .limit(1)
-    .returns<SupabaseReportRow[]>();
-
-  if (error) {
-    throw new Error(`Supabase report lookup failed: ${error.message}`);
-  }
-
-  const row = data?.[0];
-  if (!row) {
-    return null;
-  }
-
+function mapSupabaseReport(row: SupabaseReportRow): Report {
   return {
     id: row.id,
     inputType: row.input_type,
@@ -146,4 +128,43 @@ export async function findSupabaseReport(request: ReportRequest): Promise<Report
       detail: source.detail,
     })),
   };
+}
+
+export async function findSupabaseReport(request: ReportRequest): Promise<Report | null> {
+  const supabase = createSupabaseServerClient();
+  const { data, error } = await supabase
+    .from("reports")
+    .select(reportSelect)
+    .eq("input_type", request.inputType)
+    .ilike("query", `%${request.query.trim()}%`)
+    .limit(1)
+    .returns<SupabaseReportRow[]>();
+
+  if (error) {
+    throw new Error(`Supabase report lookup failed: ${error.message}`);
+  }
+
+  const row = data?.[0];
+  if (!row) {
+    return null;
+  }
+
+  return mapSupabaseReport(row);
+}
+
+export async function findSupabaseReportById(id: string): Promise<Report | null> {
+  const supabase = createSupabaseServerClient();
+  const { data, error } = await supabase
+    .from("reports")
+    .select(reportSelect)
+    .eq("id", id)
+    .limit(1)
+    .returns<SupabaseReportRow[]>();
+
+  if (error) {
+    throw new Error(`Supabase report lookup failed: ${error.message}`);
+  }
+
+  const row = data?.[0];
+  return row ? mapSupabaseReport(row) : null;
 }

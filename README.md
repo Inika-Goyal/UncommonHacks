@@ -9,7 +9,7 @@ pnpm install
 pnpm dev
 ```
 
-The local workspace includes `.env.local` with `NEXT_PUBLIC_DEMO_MODE=true`, so the app uses labeled demo fixtures. Production mode should provide `NEXT_PUBLIC_SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY`; otherwise report generation fails clearly.
+The local workspace includes `.env.local` with `NEXT_PUBLIC_DEMO_MODE=true`, so the app uses labeled demo fixtures. Production mode should provide `NEXT_PUBLIC_SUPABASE_URL` and `SUPABASE_SECRET_KEY`; otherwise report generation fails clearly.
 
 ## Useful commands
 
