@@ -108,7 +108,7 @@ export default function LandingPage() {
         return;
       }
 
-      router.push(`/dashboard?id=${payload.reportId}`);
+      router.push(`/swarm/${payload.reportId}`);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to start the swarm.");
       setLoading(false);
