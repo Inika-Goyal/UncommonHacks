@@ -775,6 +775,27 @@ p {
   cursor: grabbing;
 }
 
+.globe-canvas-unavailable,
+.globe-canvas-unavailable:active {
+  cursor: default;
+}
+
+.globe-canvas-unavailable::before {
+  position: absolute;
+  inset: 18% 16% 20%;
+  border: 1px solid oklch(0.72 0.14 230 / 0.28);
+  border-radius: 999px;
+  background:
+    linear-gradient(90deg, transparent 48%, oklch(0.72 0.14 230 / 0.18) 49% 51%, transparent 52%),
+    linear-gradient(0deg, transparent 48%, oklch(0.72 0.14 230 / 0.16) 49% 51%, transparent 52%),
+    radial-gradient(circle, oklch(0.18 0.08 250 / 0.52), oklch(0.05 0.03 265 / 0.24) 64%, transparent 66%);
+  box-shadow:
+    inset 0 0 44px oklch(0.72 0.14 230 / 0.14),
+    0 0 80px oklch(0.58 0.18 285 / 0.18);
+  content: "";
+  opacity: 0.8;
+}
+
 .globe-canvas canvas {
   display: block;
   width: 100%;
@@ -1171,6 +1192,76 @@ td a {
   color: oklch(0.45 0.14 28);
   font-size: 13px;
   font-weight: 600;
+}
+
+.constellation-wrap {
+  position: relative;
+  width: 100%;
+  height: 360px;
+  margin-bottom: 14px;
+  border: 1px solid oklch(0.32 0.04 245);
+  border-radius: 14px;
+  overflow: hidden;
+  background:
+    radial-gradient(ellipse at 50% 50%, oklch(0.18 0.05 270) 0%, oklch(0.07 0.04 270) 70%),
+    oklch(0.05 0.03 270);
+  box-shadow:
+    inset 0 0 60px oklch(0.4 0.18 280 / 0.18),
+    0 24px 50px oklch(0.05 0.05 270 / 0.45);
+}
+
+.constellation-placeholder {
+  background: oklch(0.07 0.04 270);
+}
+
+/* Animated fallback for browsers without WebGL — a CSS-only constellation. */
+.constellation-fallback::before,
+.constellation-fallback::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(circle at 25% 50%, oklch(0.8 0.18 145 / 0.45) 0, transparent 9%),
+    radial-gradient(circle at 50% 30%, oklch(0.78 0.18 50 / 0.55) 0, transparent 10%),
+    radial-gradient(circle at 75% 60%, oklch(0.78 0.18 280 / 0.5) 0, transparent 9%),
+    radial-gradient(circle at 65% 80%, oklch(0.8 0.18 145 / 0.4) 0, transparent 8%),
+    radial-gradient(circle at 35% 75%, oklch(0.78 0.18 50 / 0.4) 0, transparent 8%);
+  filter: blur(1.5px);
+  animation: fallbackFloat 10s ease-in-out infinite alternate;
+}
+.constellation-fallback::after {
+  background:
+    repeating-linear-gradient(
+      45deg,
+      transparent 0,
+      transparent 18px,
+      oklch(0.8 0.18 245 / 0.07) 18px,
+      oklch(0.8 0.18 245 / 0.07) 19px
+    );
+  animation-duration: 18s;
+  mix-blend-mode: screen;
+}
+@keyframes fallbackFloat {
+  0% { transform: translate(-2%, -1%) rotate(-1deg); }
+  100% { transform: translate(2%, 1%) rotate(1deg); }
+}
+
+.constellation-vignette {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(circle at 50% 50%, transparent 50%, oklch(0.05 0.03 270 / 0.55) 100%),
+    linear-gradient(180deg, oklch(0.05 0.03 270 / 0.35) 0%, transparent 25%, transparent 75%, oklch(0.05 0.03 270 / 0.45) 100%);
+}
+
+.constellation-wrap canvas {
+  display: block;
+}
+
+.score-block strong {
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.5px;
 }
 
 .swarm-panel {

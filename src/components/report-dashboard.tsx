@@ -10,6 +10,7 @@ import {
   ShieldAlert,
 } from "lucide-react";
 import Link from "next/link";
+import dynamic from "next/dynamic";
 import { useEffect, useMemo, useState } from "react";
 
 import { SearchForm } from "@/components/search-form";
@@ -20,8 +21,14 @@ import {
   type SwarmState,
 } from "@/components/swarm-status-panel";
 import { ElevenLabsReportAgent } from "@/components/elevenlabs-report-agent";
+import { ScoreScrambler } from "@/components/score-scrambler";
 import { AGENT_LABELS } from "@/agents/types";
 import { WorldGlobe } from "@/components/world-globe";
+
+const SwarmConstellation = dynamic(
+  () => import("@/components/swarm-constellation").then((m) => m.SwarmConstellationClient),
+  { ssr: false, loading: () => <div className="constellation-wrap constellation-placeholder" /> },
+);
 import type { AgentName, StateUpdate } from "@/agents/types";
 import type { InputType, Report, ReportResponse, SourceStatus } from "@/lib/report-types";
 
@@ -256,7 +263,16 @@ export function ReportDashboard({ initialInputType, initialQuery, reportId }: Re
         </aside>
 
         <section className="report-panel">
-          {reportId ? <SwarmStatusPanel state={swarm} events={swarmEvents} /> : null}
+          {reportId ? (
+            <>
+              <SwarmConstellation
+                state={swarm}
+                synthesisActive={Boolean(overallProgress.overallRisk)}
+                done={swarmDone}
+              />
+              <SwarmStatusPanel state={swarm} events={swarmEvents} />
+            </>
+          ) : null}
 
           {isLoading && !report ? <DashboardLoading swarm={mode === "swarm"} /> : null}
           {error ? <DashboardError message={error} /> : null}
@@ -280,17 +296,20 @@ export function ReportDashboard({ initialInputType, initialQuery, reportId }: Re
               <div className="score-grid">
                 <ScoreBlock
                   label="Overall risk"
-                  value={`${overallProgress.overallRisk ?? report.overallRisk}/100`}
+                  value={overallProgress.overallRisk ?? report.overallRisk}
+                  suffix="/100"
                   tone="danger"
                 />
                 <ScoreBlock
                   label="Severity"
-                  value={`${overallProgress.severity ?? report.severity}/5`}
+                  value={overallProgress.severity ?? report.severity}
+                  suffix="/5"
                   tone="warning"
                 />
                 <ScoreBlock
                   label="Credibility"
-                  value={`${overallProgress.credibility ?? report.credibility}/5`}
+                  value={overallProgress.credibility ?? report.credibility}
+                  suffix="/5"
                   tone="info"
                 />
               </div>
@@ -421,11 +440,24 @@ function DashboardError({ message }: { message: string }) {
   );
 }
 
-function ScoreBlock({ label, value, tone }: { label: string; value: string; tone: "danger" | "warning" | "info" }) {
+function ScoreBlock({
+  label,
+  value,
+  suffix,
+  tone,
+}: {
+  label: string;
+  value: number;
+  suffix: string;
+  tone: "danger" | "warning" | "info";
+}) {
   return (
     <div className={`score-block score-${tone}`}>
       <span>{label}</span>
-      <strong>{value}</strong>
+      <strong>
+        <ScoreScrambler value={value} />
+        {suffix}
+      </strong>
     </div>
   );
 }
