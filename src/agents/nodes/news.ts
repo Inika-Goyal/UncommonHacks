@@ -1,22 +1,31 @@
 import type { Citation } from "@/lib/report-types";
 
 import type { OrchestratorState, OrchestratorUpdate } from "@/agents/state";
-import { lookupGdelt, type GdeltArticle } from "@/agents/tools/gdelt";
+import { lookupGoogleNews, type NewsArticle } from "@/agents/tools/google-news";
+import { lookupGdelt } from "@/agents/tools/gdelt";
 import { runAgentNode, extractFindingsWithLlm } from "@/agents/nodes/_helpers";
 
 const accessedAt = () => new Date().toISOString().slice(0, 10);
 
-function summarizeArticles(articles: GdeltArticle[]): string {
+function summarizeArticles(articles: NewsArticle[]): string {
   if (articles.length === 0) {
-    return "No GDELT articles matched the query and labor-theme filters.";
+    return "No news articles matched the query and labor-theme filters.";
   }
   return articles
     .slice(0, 25)
     .map(
       (article, idx) =>
-        `${idx + 1}. ${article.title} | domain=${article.domain} | seen=${article.seendate} | tone=${article.tone ?? "n/a"} | ${article.url}`,
+        `${idx + 1}. ${article.title} | ${article.source} | ${article.publishedAt} | ${article.url}`,
     )
     .join("\n");
+}
+
+function countLast30d(articles: NewsArticle[]): number {
+  const cutoff = Date.now() - 30 * 24 * 3600 * 1000;
+  return articles.filter((a) => {
+    const ts = a.publishedAt ? Date.parse(a.publishedAt) : NaN;
+    return Number.isFinite(ts) && ts > cutoff;
+  }).length;
 }
 
 export async function newsNode(state: OrchestratorState): Promise<OrchestratorUpdate> {
@@ -24,49 +33,63 @@ export async function newsNode(state: OrchestratorState): Promise<OrchestratorUp
     agent: "news",
     reportId: state.reportId,
     runner: async () => {
-      const lookup = await lookupGdelt(state.query, state.onboarding.timeWindowMonths ?? 12);
+      // Primary: Google News RSS (no key, generous rate limits, topical relevance).
+      const newsLookup = await lookupGoogleNews(
+        state.query,
+        state.onboarding.timeWindowMonths ?? 12,
+      );
 
-      if (lookup.source === "miss") {
-        throw lookup.error instanceof Error
-          ? lookup.error
-          : new Error("GDELT lookup failed without a cached fallback.");
+      if (newsLookup.source === "miss") {
+        throw newsLookup.error instanceof Error
+          ? newsLookup.error
+          : new Error("Google News lookup failed without a cached fallback.");
       }
 
-      const { articles, laborKeywordHits, averageTone, queryUrl } = lookup.payload;
+      const { articles, laborKeywordHits, queryUrl } = newsLookup.payload;
+
+      // Secondary (best-effort): GDELT for tone + event-count signal. Failures are silent.
+      let gdeltEventCount = 0;
+      let averageTone: number | null = null;
+      try {
+        const gdelt = await lookupGdelt(state.query, state.onboarding.timeWindowMonths ?? 12);
+        if (gdelt.source !== "miss") {
+          gdeltEventCount = gdelt.payload.articles.length;
+          averageTone = gdelt.payload.averageTone;
+        }
+      } catch {
+        // GDELT enrichment is optional; skip if it fails or rate-limits.
+      }
+
       const evidence = summarizeArticles(articles);
 
       const findings = await extractFindingsWithLlm({
         agent: "news",
         evidence,
-        instructions: `Subject: ${state.query}. Distill the strongest labor-exploitation signal(s) in the article list. Each citation must use a real URL from the list. Use the GDELT Project as the source. Accessed date: ${accessedAt()}.`,
+        instructions: `Subject: ${state.query}. Distill the strongest labor-exploitation signal(s) in the article list. Each citation MUST use the actual URL and outlet name from one of the articles above. Do not fabricate URLs. Accessed date: ${accessedAt()}.`,
       });
 
       const decoratedFindings = findings.map((finding) => ({
         ...finding,
-        citations: finding.citations.length > 0
-          ? finding.citations
-          : ([
-              {
-                label: "GDELT Project labor-theme query",
-                source: "GDELT Project",
-                url: queryUrl,
-                accessedAt: accessedAt(),
-              },
-            ] satisfies Citation[]),
+        citations:
+          finding.citations.length > 0
+            ? finding.citations
+            : ([
+                {
+                  label: `News search: ${state.query} labor`,
+                  source: "Google News",
+                  url: queryUrl,
+                  accessedAt: accessedAt(),
+                },
+              ] satisfies Citation[]),
       }));
 
-      const last30dCount = articles.filter((a) => {
-        const d = a.seendate;
-        if (!d || d.length < 8) return false;
-        const ymd = `${d.slice(0, 4)}-${d.slice(4, 6)}-${d.slice(6, 8)}`;
-        return new Date(ymd).getTime() > Date.now() - 30 * 24 * 3600 * 1000;
-      }).length;
+      const last30dCount = countLast30d(articles);
 
       const rawFeatures = {
         articleCount: articles.length,
         last30dCount,
         laborKeywordHits,
-        gdeltEventCount: articles.length,
+        gdeltEventCount,
         averageTone,
         sampleTitles: articles.slice(0, 5).map((a) => a.title),
       };
@@ -78,8 +101,8 @@ export async function newsNode(state: OrchestratorState): Promise<OrchestratorUp
       ];
 
       return {
-        status: lookup.source === "live" ? "ready" : "snapshot",
-        detail: `${detailParts.join(", ")} (${lookup.source}).`,
+        status: newsLookup.source === "live" ? "ready" : "snapshot",
+        detail: `${detailParts.join(", ")}.`,
         findings: decoratedFindings,
         rawFeatures,
       };

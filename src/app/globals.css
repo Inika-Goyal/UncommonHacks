@@ -1002,10 +1002,11 @@ p {
   color: oklch(0.42 0.11 145);
 }
 
+/* snapshot reads as "Live" in the UI; shares the ready palette. */
 .status-snapshot {
-  border-color: oklch(0.75 0.07 68);
-  background: oklch(0.94 0.035 76);
-  color: oklch(0.44 0.1 68);
+  border-color: oklch(0.73 0.08 145);
+  background: oklch(0.94 0.03 145);
+  color: oklch(0.42 0.11 145);
 }
 
 .status-pending {
@@ -1186,6 +1187,8 @@ td a {
 }
 
 .swarm-cell {
+  position: relative;
+  overflow: hidden;
   border: 1px solid var(--line);
   border-radius: 12px;
   padding: 10px 12px;
@@ -1193,7 +1196,7 @@ td a {
   display: flex;
   flex-direction: column;
   gap: 4px;
-  transition: border-color 200ms, background 200ms;
+  transition: border-color 280ms ease, background 280ms ease, box-shadow 280ms ease;
 }
 
 .swarm-cell-running,
@@ -1202,14 +1205,13 @@ td a {
   background: oklch(0.97 0.02 245);
 }
 
-.swarm-cell-ready {
+/* snapshot intentionally collapses into ready for the user-facing palette */
+.swarm-cell-ready,
+.swarm-cell-snapshot {
   border-color: oklch(0.73 0.1 145);
   background: oklch(0.96 0.04 145);
-}
-
-.swarm-cell-snapshot {
-  border-color: oklch(0.75 0.08 76);
-  background: oklch(0.97 0.03 76);
+  animation: cellSettle 700ms ease-out;
+  box-shadow: 0 0 0 0 oklch(0.73 0.1 145 / 0);
 }
 
 .swarm-cell-blocked {
@@ -1217,7 +1219,25 @@ td a {
   background: oklch(0.97 0.03 28);
 }
 
+.swarm-cell-shimmer {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(
+    105deg,
+    transparent 0%,
+    transparent 30%,
+    oklch(0.92 0.05 245 / 0.55) 50%,
+    transparent 70%,
+    transparent 100%
+  );
+  background-size: 250% 100%;
+  background-repeat: no-repeat;
+  animation: cellShimmer 1600ms linear infinite;
+}
+
 .swarm-cell-head {
+  position: relative;
   display: flex;
   align-items: center;
   gap: 8px;
@@ -1235,10 +1255,158 @@ td a {
 }
 
 .swarm-cell-detail {
+  position: relative;
   font-size: 12px;
   color: var(--ink-muted);
   margin: 0;
   min-height: 1.2em;
+}
+
+.swarm-cell-findings {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  margin: 4px 0 0;
+  font-size: 12px;
+  font-weight: 720;
+  color: oklch(0.4 0.12 145);
+  animation: findingsPop 360ms cubic-bezier(0.2, 0.8, 0.3, 1.2);
+}
+
+.swarm-summary {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.swarm-summary-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11px;
+  font-weight: 720;
+  padding: 2px 9px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: var(--surface);
+}
+
+.swarm-summary-live {
+  border-color: oklch(0.73 0.1 145);
+  background: oklch(0.94 0.03 145);
+  color: oklch(0.4 0.12 145);
+}
+
+.swarm-summary-running {
+  border-color: oklch(0.78 0.07 245);
+  background: oklch(0.95 0.025 245);
+  color: oklch(0.42 0.12 245);
+}
+
+.swarm-summary-blocked {
+  border-color: oklch(0.72 0.1 28);
+  background: oklch(0.96 0.025 28);
+  color: oklch(0.45 0.14 28);
+}
+
+.swarm-log {
+  margin-top: 12px;
+  border-top: 1px dashed var(--line);
+  padding-top: 10px;
+}
+
+.swarm-log-eyebrow {
+  margin: 0 0 6px;
+}
+
+.swarm-log ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.swarm-log-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--ink-muted);
+  animation: logSlideIn 280ms ease-out;
+}
+
+.swarm-log-time {
+  font-variant-numeric: tabular-nums;
+  color: var(--ink-muted);
+  opacity: 0.7;
+  flex: 0 0 auto;
+}
+
+.swarm-log-msg {
+  flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+@keyframes cellShimmer {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -100% 0;
+  }
+}
+
+@keyframes cellSettle {
+  0% {
+    box-shadow: 0 0 0 0 oklch(0.73 0.1 145 / 0.45);
+    transform: scale(0.99);
+  }
+  60% {
+    box-shadow: 0 0 0 8px oklch(0.73 0.1 145 / 0.18);
+    transform: scale(1.005);
+  }
+  100% {
+    box-shadow: 0 0 0 0 oklch(0.73 0.1 145 / 0);
+    transform: scale(1);
+  }
+}
+
+@keyframes findingsPop {
+  0% {
+    transform: translateY(4px) scale(0.92);
+    opacity: 0;
+  }
+  100% {
+    transform: translateY(0) scale(1);
+    opacity: 1;
+  }
+}
+
+@keyframes logSlideIn {
+  0% {
+    transform: translateX(-6px);
+    opacity: 0;
+  }
+  100% {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .swarm-cell,
+  .swarm-cell-ready,
+  .swarm-cell-snapshot,
+  .swarm-cell-findings,
+  .swarm-cell-shimmer,
+  .swarm-log-row {
+    animation: none !important;
+  }
 }
 
 @keyframes spin {
