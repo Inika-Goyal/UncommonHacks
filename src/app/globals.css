@@ -1185,6 +1185,13 @@ td a {
   }
 }
 
+@media (prefers-reduced-motion: reduce) {
+  .globe-stage::before,
+  .globe-stage::after {
+    animation: none;
+  }
+}
+
 @media (max-width: 980px) {
   .landing-hero,
   .dashboard-grid,
