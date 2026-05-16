@@ -71,25 +71,31 @@ function gradientHexAt(t: number): string {
   return `#${gradientColorAt(t).getHexString()}`;
 }
 
-function makeTeardropProfile(width: number, length: number): THREE.Vector2[] {
-  const w = width;
-  const l = length;
-  // Long tapered tail at y=0 (points DOWN at the surface), round bulb near the top.
-  return [
-    new THREE.Vector2(0, 0),
-    new THREE.Vector2(w * 0.04, l * 0.08),
-    new THREE.Vector2(w * 0.09, l * 0.2),
-    new THREE.Vector2(w * 0.15, l * 0.34),
-    new THREE.Vector2(w * 0.24, l * 0.48),
-    new THREE.Vector2(w * 0.4, l * 0.6),
-    new THREE.Vector2(w * 0.62, l * 0.7),
-    new THREE.Vector2(w * 0.85, l * 0.79),
-    new THREE.Vector2(w * 0.98, l * 0.87),
-    new THREE.Vector2(w * 0.94, l * 0.94),
-    new THREE.Vector2(w * 0.6, l * 0.99),
-    new THREE.Vector2(0, l * 1.0),
-  ];
-}
+const RAY_VERTEX_SHADER = `
+  varying float vT;
+  void main() {
+    vT = uv.y;
+    gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+  }
+`;
+
+const RAY_FRAGMENT_SHADER = `
+  uniform vec3 uColor;
+  uniform float uIntensity;
+  uniform float uFalloff;
+  uniform float uPulse;
+  uniform float uTravel;
+  uniform float uTravelWidth;
+  varying float vT;
+  void main() {
+    float fade = pow(1.0 - vT, uFalloff);
+    float travelDist = abs(vT - uTravel);
+    float travelBump = smoothstep(uTravelWidth, 0.0, travelDist) * (1.0 - clamp(vT, 0.0, 1.0)) * 0.9;
+    float alpha = (fade + travelBump) * uIntensity * uPulse;
+    vec3 hot = mix(uColor, vec3(1.0), pow(1.0 - vT, 6.0) * 0.45 + travelBump * 0.7);
+    gl_FragColor = vec4(hot, alpha);
+  }
+`;
 
 function isCountryFeatureCollection(value: unknown): value is CountryFeatureCollection {
   if (!value || typeof value !== "object") {
@@ -452,16 +458,15 @@ export function WorldGlobe({ points }: WorldGlobeProps) {
     globeGroup.add(pinGroup);
     const pinMeshes: THREE.Object3D[] = [];
     const pinPulseRings: THREE.Mesh<THREE.TorusGeometry, THREE.MeshBasicMaterial>[] = [];
-    const pinBodies: THREE.Mesh<THREE.LatheGeometry, THREE.MeshPhongMaterial>[] = [];
-    const pinHaloes: THREE.Mesh<THREE.LatheGeometry, THREE.MeshBasicMaterial>[] = [];
+    const pinRayMaterials: THREE.ShaderMaterial[] = [];
     const pinBaseGlows: THREE.Mesh<THREE.CircleGeometry, THREE.MeshBasicMaterial>[] = [];
     const pinTips: THREE.Mesh<THREE.CircleGeometry, THREE.MeshBasicMaterial>[] = [];
 
     const beamSpec = {
-      high: { length: 0.17, width: 0.022, ringRadius: 0.022, ringCount: 4, pulseSpeed: 0.00058 },
-      medium: { length: 0.14, width: 0.019, ringRadius: 0.019, ringCount: 3, pulseSpeed: 0.00045 },
-      low: { length: 0.11, width: 0.016, ringRadius: 0.016, ringCount: 2, pulseSpeed: 0.00034 },
-    } satisfies Record<MapPoint["risk"], { length: number; width: number; ringRadius: number; ringCount: number; pulseSpeed: number }>;
+      high: { length: 0.78, coreWidth: 0.004, glowWidth: 0.016, ringRadius: 0.022, ringCount: 4, pulseSpeed: 0.00058, travelSpeed: 0.55 },
+      medium: { length: 0.6, coreWidth: 0.0034, glowWidth: 0.013, ringRadius: 0.019, ringCount: 3, pulseSpeed: 0.00045, travelSpeed: 0.45 },
+      low: { length: 0.46, coreWidth: 0.003, glowWidth: 0.011, ringRadius: 0.016, ringCount: 2, pulseSpeed: 0.00034, travelSpeed: 0.38 },
+    } satisfies Record<MapPoint["risk"], { length: number; coreWidth: number; glowWidth: number; ringRadius: number; ringCount: number; pulseSpeed: number; travelSpeed: number }>;
 
     for (const [pointIndex, point] of points.entries()) {
       const surface = latLngToVector3(point.latitude, point.longitude, GLOBE_RADIUS);
@@ -473,44 +478,70 @@ export function WorldGlobe({ points }: WorldGlobeProps) {
       pin.position.copy(surface);
       pin.quaternion.setFromUnitVectors(SURFACE_NORMAL, surface.clone().normalize());
 
-      // Teardrop / grapefruit-seed shaped pin body — sharp tip points DOWN to the surface,
-      // fat middle, tapered narrow top. Lathe profile is built around +Y, then rotated to +Z.
-      const profile = makeTeardropProfile(spec.width, spec.length);
-      const bodyGeom = new THREE.LatheGeometry(profile, 32);
-      bodyGeom.rotateX(Math.PI / 2);
-
-      const bodyMaterial = new THREE.MeshPhongMaterial({
-        color: color.clone().multiplyScalar(0.25),
-        emissive: color.clone(),
-        emissiveIntensity: 1.45,
-        shininess: 90,
-        specular: new THREE.Color(0xffffff),
-      });
-      const body = new THREE.Mesh(bodyGeom, bodyMaterial);
-      body.position.z = 0.001;
-      body.userData.phase = pointIndex * 0.41;
-      body.userData.risk = point.risk;
-      body.renderOrder = 6;
-
-      // Halo shell — additive back-side render gives the silhouette a glowing rim.
-      const haloGeom = bodyGeom.clone();
-      const haloMaterial = new THREE.MeshBasicMaterial({
-        color: color.clone(),
+      // Ray emerging from the surface — narrow bright core fading upward into space,
+      // with a traveling spark that climbs and dies near the top.
+      const coreMaterial = new THREE.ShaderMaterial({
+        uniforms: {
+          uColor: { value: color.clone() },
+          uIntensity: { value: 1.05 },
+          uFalloff: { value: 3.2 },
+          uPulse: { value: 1.0 },
+          uTravel: { value: -0.2 },
+          uTravelWidth: { value: 0.18 },
+        },
+        vertexShader: RAY_VERTEX_SHADER,
+        fragmentShader: RAY_FRAGMENT_SHADER,
         transparent: true,
-        opacity: 0.4,
         blending: THREE.AdditiveBlending,
         depthWrite: false,
-        side: THREE.BackSide,
+        side: THREE.DoubleSide,
       });
-      const halo = new THREE.Mesh(haloGeom, haloMaterial);
-      halo.scale.setScalar(1.28);
-      halo.position.z = 0.001;
-      halo.userData.phase = pointIndex * 0.31;
-      halo.renderOrder = 4;
+      coreMaterial.userData.phase = pointIndex * 0.41;
+      coreMaterial.userData.baseIntensity = 1.05;
+      coreMaterial.userData.risk = point.risk;
+      coreMaterial.userData.travelSpeed = spec.travelSpeed;
+      coreMaterial.userData.travelOffset = pointIndex * 0.37;
+      const rayCore = new THREE.Mesh(
+        new THREE.ConeGeometry(spec.coreWidth, spec.length, 12, 1, true),
+        coreMaterial,
+      );
+      rayCore.rotation.x = Math.PI / 2;
+      rayCore.position.z = spec.length / 2;
+      rayCore.renderOrder = 7;
 
-      // Tip indicator — small bright disc right at the location so the point reads clearly.
+      // Outer halo cone — wider, dimmer, slower fade so the beam reads softly from far away.
+      const glowMaterial = new THREE.ShaderMaterial({
+        uniforms: {
+          uColor: { value: color.clone() },
+          uIntensity: { value: 0.42 },
+          uFalloff: { value: 1.9 },
+          uPulse: { value: 1.0 },
+          uTravel: { value: -0.2 },
+          uTravelWidth: { value: 0.26 },
+        },
+        vertexShader: RAY_VERTEX_SHADER,
+        fragmentShader: RAY_FRAGMENT_SHADER,
+        transparent: true,
+        blending: THREE.AdditiveBlending,
+        depthWrite: false,
+        side: THREE.DoubleSide,
+      });
+      glowMaterial.userData.phase = pointIndex * 0.31;
+      glowMaterial.userData.baseIntensity = 0.42;
+      glowMaterial.userData.risk = point.risk;
+      glowMaterial.userData.travelSpeed = spec.travelSpeed * 0.85;
+      glowMaterial.userData.travelOffset = pointIndex * 0.37 + 0.12;
+      const rayGlow = new THREE.Mesh(
+        new THREE.ConeGeometry(spec.glowWidth, spec.length * 0.96, 14, 1, true),
+        glowMaterial,
+      );
+      rayGlow.rotation.x = Math.PI / 2;
+      rayGlow.position.z = (spec.length * 0.96) / 2;
+      rayGlow.renderOrder = 5;
+
+      // Tip indicator — small bright disc right at the location so the surface point reads clearly.
       const tip = new THREE.Mesh(
-        new THREE.CircleGeometry(spec.width * 0.45, 24),
+        new THREE.CircleGeometry(spec.glowWidth * 0.55, 24),
         new THREE.MeshBasicMaterial({
           color: color.clone(),
           transparent: true,
@@ -519,7 +550,7 @@ export function WorldGlobe({ points }: WorldGlobeProps) {
           depthWrite: false,
         }),
       );
-      tip.position.z = 0.0009;
+      tip.position.z = 0.0012;
       tip.userData.phase = pointIndex * 0.53;
       tip.renderOrder = 8;
 
@@ -569,15 +600,14 @@ export function WorldGlobe({ points }: WorldGlobeProps) {
       pin.add(baseGlow);
       pin.add(baseRing);
       pulseRings.forEach((pulseRing) => pin.add(pulseRing));
-      pin.add(halo);
-      pin.add(body);
+      pin.add(rayGlow);
+      pin.add(rayCore);
       pin.add(tip);
       pinGroup.add(pin);
 
       pinMeshes.push(pin);
       pinPulseRings.push(...pulseRings);
-      pinBodies.push(body);
-      pinHaloes.push(halo);
+      pinRayMaterials.push(coreMaterial, glowMaterial);
       pinBaseGlows.push(baseGlow);
       pinTips.push(tip);
     }
@@ -733,22 +763,22 @@ export function WorldGlobe({ points }: WorldGlobeProps) {
           ring.material.opacity = Math.pow(1 - phase, 1.6) * 0.42;
         });
 
-        pinBodies.forEach((body) => {
-          const phase = body.userData.phase as number;
-          const risk = body.userData.risk as MapPoint["risk"];
+        pinRayMaterials.forEach((material) => {
+          const phase = material.userData.phase as number;
+          const risk = material.userData.risk as MapPoint["risk"];
+          const baseIntensity = material.userData.baseIntensity as number;
+          const travelSpeed = material.userData.travelSpeed as number;
+          const travelOffset = material.userData.travelOffset as number;
           const beatSpeed = risk === "high" ? 2.6 : risk === "medium" ? 1.9 : 1.4;
-          const beat = Math.sin(seconds * beatSpeed + phase);
-          const breathe = 1 + beat * (risk === "high" ? 0.06 : risk === "medium" ? 0.045 : 0.035);
-          body.scale.set(breathe, breathe, breathe);
-          body.material.emissiveIntensity = 1.25 + Math.abs(beat) * 0.4;
-        });
-
-        pinHaloes.forEach((halo) => {
-          const phase = halo.userData.phase as number;
-          const pulse = (Math.sin(seconds * 1.7 + phase) + 1) * 0.5;
-          halo.material.opacity = 0.26 + pulse * 0.22;
-          const haloScale = 1.22 + pulse * 0.14;
-          halo.scale.set(haloScale, haloScale, haloScale);
+          const beat = (Math.sin(seconds * beatSpeed + phase) + 1) * 0.5;
+          material.uniforms.uPulse.value = 0.72 + beat * 0.42;
+          material.uniforms.uIntensity.value =
+            baseIntensity * (0.85 + Math.sin(seconds * 0.9 + phase) * 0.15);
+          // Traveling spark climbs from below the base (-0.2) up past the tip (1.2),
+          // then wraps. Overshoot keeps a gap so the launch reads as a fresh shot.
+          const cycleLength = 1.4;
+          const travel = ((seconds * travelSpeed + travelOffset) % cycleLength) / cycleLength;
+          material.uniforms.uTravel.value = travel * 1.4 - 0.2;
         });
 
         pinTips.forEach((tip) => {
