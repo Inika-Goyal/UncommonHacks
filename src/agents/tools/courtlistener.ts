@@ -58,16 +58,17 @@ export async function lookupCourtListener(query: string): Promise<CacheLookup<Co
     { ttlMs: TTL.DAY, staleTtlMs: TTL.MONTH },
     async () => {
       const payload = await fetchJson<SearchResponse>(url, { headers });
-      const results: CourtListenerResult[] = (payload.results ?? []).slice(0, 20).map((row) => ({
-        caseName: row.caseName ?? "",
-        court: row.court ?? "",
-        dateFiled: row.dateFiled ?? null,
-        absoluteUrl: row.absolute_url || row.docket_absolute_url
-          ? `https://www.courtlistener.com${row.absolute_url ?? row.docket_absolute_url}`
-          : "",
-        docketNumber: row.docketNumber ?? null,
-        snippet: row.snippet ?? null,
-      }));
+      const results: CourtListenerResult[] = (payload.results ?? []).slice(0, 20).map((row) => {
+        const path = row.absolute_url || row.docket_absolute_url;
+        return {
+          caseName: row.caseName ?? "",
+          court: row.court ?? "",
+          dateFiled: row.dateFiled ?? null,
+          absoluteUrl: path ? `https://www.courtlistener.com${path}` : "",
+          docketNumber: row.docketNumber ?? null,
+          snippet: row.snippet ?? null,
+        };
+      });
 
       const flsaCount = results.filter((r) =>
         (r.snippet ?? "").toLowerCase().includes("fair labor standards act"),
