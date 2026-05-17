@@ -232,11 +232,6 @@ export default function LandingPage() {
         >
           <div className="flex-1" />
 
-          <div className="liquid-glass rounded-2xl px-5 py-4 mb-6 max-w-md ml-auto">
-            <p className="text-white/70 text-xs leading-relaxed">
-              Analysis uses public data sources only. Not legal advice.
-            </p>
-          </div>
         </motion.div>
       </div>
     </div>
