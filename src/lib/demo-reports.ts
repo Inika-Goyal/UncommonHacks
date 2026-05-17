@@ -1,6 +1,150 @@
-import type { Report, ReportRequest } from "@/lib/report-types";
+import type { MlGeoExploit, MlPrediction, Report, ReportRequest } from "@/lib/report-types";
 
 const accessedAt = "2026-05-16";
+
+// Shared validation block — same model artifact powers every demo
+// prediction below, so the CV / coverage metadata is identical.
+const ML_VALIDATION = {
+  cv_mae: 2.1748,
+  cv_r2: 0.2731,
+  conformal_half_width: 3.0117,
+  empirical_coverage_80: 0.6606,
+} as const;
+
+const ML_GLOBAL_PROPORTION_NOTE =
+  "ILO Global Estimates of Modern Slavery 2022 (constant per country; not learned)";
+
+const ML_CLASS_PROBABILITIES = {
+  forced_labor: 0.55,
+  illegal_profits: 0.28,
+  sexual_exploitation: 0.1,
+  children: 0.07,
+} as const;
+
+const ML_CLASS_PROBABILITIES_NOTE =
+  "Global ILO proportions of modern-slavery types (2022); constant per country, not per-country learned.";
+
+const ML_SOURCES = {
+  predicted: [
+    {
+      key: "gsi",
+      name: "Walk Free Global Slavery Index",
+      publisher: "Walk Free Foundation",
+      url: "https://www.walkfree.org/global-slavery-index/",
+      role: "predicted",
+    },
+  ],
+  predictors: [
+    {
+      key: "wdi",
+      name: "World Bank World Development Indicators",
+      publisher: "World Bank",
+      url: "https://datatopics.worldbank.org/world-development-indicators/",
+      role: "predictor",
+    },
+    {
+      key: "rsf",
+      name: "Reporters Without Borders Press Freedom Index",
+      publisher: "RSF",
+      url: "https://rsf.org/en/index",
+      role: "predictor",
+    },
+  ],
+};
+
+function geoExploit(mean: number, lower: number, upper: number, spread: number): MlGeoExploit {
+  return {
+    predicted_prevalence_per_1k: mean,
+    uncertainty_band_p10_p90: [lower, upper],
+    spread,
+    global_proportion_source: ML_GLOBAL_PROPORTION_NOTE,
+    validation: { ...ML_VALIDATION },
+  };
+}
+
+const CAMBODIA_ML_PREDICTION: MlPrediction = {
+  country: "KHM",
+  country_name: "Cambodia",
+  year: 2021,
+  warnings: [],
+  geographic: {
+    forced_labor: geoExploit(3.7638, 2.1073, 5.4202, 1.1968),
+    illegal_profits: geoExploit(1.9161, 1.0728, 2.7594, 0.6093),
+    sexual_exploitation: geoExploit(0.6843, 0.3832, 0.9855, 0.2176),
+    child_labor: geoExploit(0.479, 0.2682, 0.6898, 0.1523),
+  },
+  geographic_overall: {
+    predicted_prevalence_per_1k: 6.8433,
+    uncertainty_band_p10_p90: [3.8315, 9.855],
+    spread: 2.1759,
+  },
+  cluster: {
+    cluster_id: 2,
+    k: 3,
+    silhouette: 0.282,
+    class_probabilities: { ...ML_CLASS_PROBABILITIES },
+    class_probabilities_note: ML_CLASS_PROBABILITIES_NOTE,
+    similar_countries: [
+      { country: "GTM", country_name: "Guatemala", distance: 0.9647 },
+      { country: "LAO", country_name: "Lao PDR", distance: 1.0066 },
+      { country: "TKM", country_name: "Turkmenistan", distance: 1.169 },
+      { country: "GHA", country_name: "Ghana", distance: 1.1819 },
+      { country: "UZB", country_name: "Uzbekistan", distance: 1.1929 },
+    ],
+  },
+  scores: {
+    severity: 3,
+    credibility: 3,
+    overall_risk: 65,
+    rationale:
+      "Severity scales with predicted overall GSI prevalence (log-compressed). " +
+      "Credibility scales inversely with the split-conformal half-width. " +
+      "Overall risk blends them; no LLM in this loop.",
+  },
+  sources: ML_SOURCES,
+};
+
+const CHINA_ML_PREDICTION: MlPrediction = {
+  country: "CHN",
+  country_name: "China",
+  year: 2021,
+  warnings: [],
+  geographic: {
+    forced_labor: geoExploit(3.5396, 1.8831, 5.196, 1.608),
+    illegal_profits: geoExploit(1.802, 0.9587, 2.6452, 0.8186),
+    sexual_exploitation: geoExploit(0.6436, 0.3424, 0.9447, 0.2924),
+    child_labor: geoExploit(0.4505, 0.2397, 0.6613, 0.2047),
+  },
+  geographic_overall: {
+    predicted_prevalence_per_1k: 6.4356,
+    uncertainty_band_p10_p90: [3.4239, 9.4473],
+    spread: 2.9237,
+  },
+  cluster: {
+    cluster_id: 1,
+    k: 3,
+    silhouette: 0.282,
+    class_probabilities: { ...ML_CLASS_PROBABILITIES },
+    class_probabilities_note: ML_CLASS_PROBABILITIES_NOTE,
+    similar_countries: [
+      { country: "RUS", country_name: "Russia", distance: 1.6831 },
+      { country: "USA", country_name: "United States of America", distance: 1.9449 },
+      { country: "THA", country_name: "Thailand", distance: 2.2176 },
+      { country: "MEX", country_name: "Mexico", distance: 2.267 },
+      { country: "IRN", country_name: "Iran", distance: 2.2946 },
+    ],
+  },
+  scores: {
+    severity: 3,
+    credibility: 3,
+    overall_risk: 64,
+    rationale:
+      "Severity scales with predicted overall GSI prevalence (log-compressed). " +
+      "Credibility scales inversely with the split-conformal half-width. " +
+      "Overall risk blends them; no LLM in this loop.",
+  },
+  sources: ML_SOURCES,
+};
 
 export const demoReports: Report[] = [
   {
@@ -213,6 +357,7 @@ export const demoReports: Report[] = [
         detail: "API key not configured.",
       },
     ],
+    mlPrediction: CHINA_ML_PREDICTION,
   },
   {
     id: "demo-cambodia-region",
@@ -423,6 +568,7 @@ export const demoReports: Report[] = [
         detail: "BigQuery or DOC API credentials not configured.",
       },
     ],
+    mlPrediction: CAMBODIA_ML_PREDICTION,
   },
 ];
 

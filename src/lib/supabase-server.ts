@@ -4,6 +4,7 @@ import type {
   ExploitCategory,
   MapPoint,
   MapPointStage,
+  MlPrediction,
   Report,
   ReportRequest,
   SourceStatus,
@@ -54,6 +55,7 @@ type SupabaseReportRow = {
     status: SourceStatus;
     detail: string;
   }>;
+  ml_prediction: MlPrediction | null;
 };
 
 const reportSelect = `
@@ -68,6 +70,7 @@ const reportSelect = `
   recommended_action,
   source_note,
   created_at,
+  ml_prediction,
   findings (
     id,
     signal,
@@ -158,6 +161,7 @@ function mapSupabaseReport(row: SupabaseReportRow): Report {
       status: source.status,
       detail: source.detail,
     })),
+    mlPrediction: row.ml_prediction ?? null,
   };
 }
 

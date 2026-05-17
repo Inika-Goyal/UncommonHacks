@@ -8,7 +8,6 @@ import {
   Download,
   ExternalLink,
   FileText,
-  Info,
   Loader2,
   Radio,
   ShieldAlert,
@@ -316,7 +315,7 @@ export function ReportDashboard({ initialInputType, initialQuery, reportId }: Re
               data-dashboard-section="summary"
               tabIndex={-1}
             >
-              <SectionHeader icon={<Info size={14} />} title="Executive Summary" />
+              <SectionHeader title="Executive Summary" />
               <h2>{report.title}</h2>
               <p>{report.summary}</p>
             </section>
@@ -349,7 +348,6 @@ export function ReportDashboard({ initialInputType, initialQuery, reportId }: Re
             >
               <SectionHeader icon={<CheckCircle2 size={14} />} title="Recommended Action" />
               <p>{report.recommendedAction}</p>
-              <span>{report.sourceNote}</span>
             </section>
 
             <div className="lumina-report-actions">
@@ -379,11 +377,9 @@ export function ReportDashboard({ initialInputType, initialQuery, reportId }: Re
             </div>
             <WorldGlobe ref={globeRef} points={report.mapPoints} />
           </motion.aside>
-        </section>
-      ) : null}
 
-      {report ? (
-        <ModelIntelligencePanel report={report} onFocusGeography={handleFocusGeography} />
+          <ModelIntelligencePanel report={report} onFocusGeography={handleFocusGeography} />
+        </section>
       ) : null}
     </main>
   );
@@ -413,10 +409,10 @@ function DashboardError({ message }: { message: string }) {
   );
 }
 
-function SectionHeader({ icon, title }: { icon: ReactNode; title: string }) {
+function SectionHeader({ icon, title }: { icon?: ReactNode; title: string }) {
   return (
     <div className="lumina-section-header">
-      <span>{icon}</span>
+      {icon ? <span>{icon}</span> : null}
       <h2>{title}</h2>
     </div>
   );
