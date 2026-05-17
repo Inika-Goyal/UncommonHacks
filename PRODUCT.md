@@ -130,7 +130,7 @@ The dashboard still needs one real NGO investigative report as a side-by-side co
 - Agent orchestration: LangGraph and LangChain.
 - LLMs: OpenAI structured output for finding extraction and synthesis.
 - Persistence: Supabase/Postgres.
-- PDF generation: `pdf-lib`.
+- PDF generation: `@react-pdf/renderer`.
 - Voice: ElevenLabs Conversational AI.
 - Tests: Playwright, ESLint, TypeScript.
 

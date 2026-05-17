@@ -1873,7 +1873,7 @@ td a {
 .launch-score-value {
   display: inline-flex;
   align-items: baseline;
-  font-size: clamp(28px, 3.5vw, 42px);
+  font-size: clamp(24px, 2.4vw, 32px);
   font-weight: 800;
   letter-spacing: -0.03em;
   font-variant-numeric: tabular-nums;
@@ -2346,10 +2346,11 @@ td a {
 /* -------------------------------------------------------------------------- */
 
 .launch-page.lumina-shell {
-  height: 100dvh;
+  min-height: 100dvh;
   color: #ededed;
   background: #0a0a0a;
-  overflow: hidden;
+  overflow-x: hidden;
+  overflow-y: auto;
 }
 
 .launch-page .fixed.inset-0 {
@@ -2421,12 +2422,12 @@ td a {
 
 .launch-stage {
   max-width: 1180px;
-  height: calc(100dvh - 72px);
-  min-height: 0;
+  min-height: calc(100dvh - 72px);
+  height: auto;
   padding: clamp(10px, 1.4vw, 20px) clamp(16px, 4vw, 48px) clamp(14px, 1.8vw, 24px);
   gap: clamp(8px, 1vw, 12px);
-  grid-template-rows: auto minmax(0, 1fr) auto auto;
-  align-content: stretch;
+  grid-template-rows: auto auto auto auto;
+  align-content: start;
 }
 
 .launch-titlebar {
@@ -2467,15 +2468,14 @@ td a {
 .launch-visual-shell {
   padding: clamp(6px, 1vw, 12px);
   border-radius: 32px;
-  min-height: 0;
+  min-height: calc(clamp(260px, 31vh, 380px) + clamp(32px, 3.6vw, 46px));
   display: flex;
   flex-direction: column;
 }
 
 .launch-constellation {
-  flex: 1 1 0;
-  min-height: 220px;
-  height: auto;
+  flex: 0 0 auto;
+  height: clamp(260px, 31vh, 380px);
   border: 0;
   border-radius: 24px;
   background:
@@ -2623,7 +2623,7 @@ td a {
 
 .launch-score-value {
   color: rgba(255, 255, 255, 0.92);
-  font-size: clamp(25px, 3vw, 34px);
+  font-size: clamp(22px, 2.2vw, 28px);
   font-weight: 300;
 }
 
@@ -2815,6 +2815,10 @@ td a {
 
   .launch-constellation {
     height: 310px;
+  }
+
+  .launch-visual-shell {
+    min-height: 354px;
   }
 
   .launch-agents {
@@ -3067,16 +3071,16 @@ td a {
 }
 
 .lumina-report-card {
-  position: sticky;
-  top: 12px;
   align-self: start;
   display: flex;
   flex-direction: column;
   gap: 22px;
   min-width: 0;
   max-height: calc(100dvh - 106px);
+  overscroll-behavior: contain;
   overflow-y: auto;
   padding: clamp(20px, 2.4vw, 30px);
+  scrollbar-gutter: stable;
 }
 
 .lumina-report-summary > h2 {
@@ -3134,7 +3138,7 @@ td a {
   display: inline-flex;
   align-items: baseline;
   color: #fff;
-  font-size: clamp(42px, 4.4vw, 60px);
+  font-size: clamp(30px, 3vw, 42px);
   font-weight: 500;
   letter-spacing: 0;
   font-variant-numeric: tabular-nums;
@@ -3142,9 +3146,9 @@ td a {
 }
 
 .lumina-score-tile small {
-  margin-left: 3px;
+  margin-left: 4px;
   color: rgba(255, 255, 255, 0.42);
-  font-size: 0.32em;
+  font-size: 0.42em;
   font-weight: 400;
 }
 

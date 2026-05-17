@@ -2,6 +2,8 @@ import { createComplaintPdf } from "@/lib/complaint-pdf";
 import { getReportById, NotFoundError } from "@/lib/report-service";
 import { ConfigError } from "@/lib/runtime-config";
 
+export const runtime = "nodejs";
+
 export async function GET(_request: Request, context: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await context.params;
