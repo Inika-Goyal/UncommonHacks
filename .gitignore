@@ -41,3 +41,9 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 /.playwright-cli/
+
+# prevent nested dependency folders anywhere in repo
+**/node_modules/
+
+# claude workspace copies (your case)
+.claude copy/
