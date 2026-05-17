@@ -7,6 +7,7 @@ import { BarChart3, ChevronDown, ChevronRight, Loader2, Newspaper, ShieldAlert }
 
 import IntroScreen from "@/components/IntroScreen";
 import { VideoBackground } from "@/components/video-background";
+import AnimatedCounter from "@/components/AnimatedCounter";
 
 type InputMode = "company" | "region";
 
@@ -189,11 +190,19 @@ export default function LandingPage() {
                 className="text-center"
               >
                 <h1 className="text-white text-[2.75rem] font-semibold leading-[1.05] tracking-[-0.03em]">
-                  Labour exploitation,{' '}
-                  <span className="font-light opacity-70 italic">made visible.</span>
+                  <span className="inline-flex items-baseline justify-center gap-3">
+                    <span className="text-[3.1rem] font-extrabold leading-none">
+                      <AnimatedCounter />
+                    </span>
+                    <span className="text-[1.05rem] font-light">million people live in exploitation.</span>
+                  </span>
                 </h1>
+                <p className="text-white text-[1.15rem] font-semibold mt-4 max-w-[40rem] mx-auto leading-snug">
+                  Many high-risk regions appear statistically safe.
+                </p>
+
                 <p className="text-white/60 text-sm mt-4 max-w-[28rem] mx-auto leading-relaxed">
-                  Enter a company or region. Specialist agents pull news, watchlists, supplier disclosures and country-risk data into one cited report — in minutes, not weeks.
+                  Enter a company or region. Specialist agents pull news, watchlists, supplier disclosures and country-risk data into one cited report, in minutes, not weeks.
                 </p>
               </motion.div>
 
