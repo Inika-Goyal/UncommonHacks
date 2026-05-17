@@ -34,6 +34,7 @@ export type WorldGlobeProps = {
   idleRotationSpeed?: number;
   showLoadingOverlay?: boolean;
   showChrome?: boolean;
+  showFlowLegend?: boolean;
   interactive?: boolean;
   onReady?: () => void;
   onTrackedPointScreenPosition?: (position: WorldGlobeScreenPosition | null) => void;
@@ -114,6 +115,7 @@ type ArcLink = {
   endLat: number;
   endLng: number;
   color: [string, string];
+  flowStep: number;
 };
 
 type LabelAnchor = {
@@ -152,6 +154,8 @@ const ARC_HEIGHT_MIN_FACTOR = 0.18;
 const ARC_RADIUS = 0.006;
 const ARC_SEGMENTS = 96;
 const ARC_PULSE_WIDTH = 0.22;
+const FLOW_ARC_DRAW_SECONDS = 0.9;
+const FLOW_HOLD_SECONDS = 5;
 const SURFACE_NORMAL = new THREE.Vector3(0, 0, 1);
 const COUNTRY_GEOJSON_URL = "/data/ne_110m_admin_0_countries.geojson";
 const MIN_ZOOM = 1;
@@ -312,15 +316,22 @@ function clampPan(pan: WorldGlobePan): WorldGlobePan {
   };
 }
 
+function pointFlowOrder(point: MapPoint, fallback = 0): number {
+  if (typeof point.order === "number") return point.order;
+  return point.stage ? STAGE_ORDER.indexOf(point.stage) : fallback;
+}
+
 function makeArcLink(from: MapPoint, to: MapPoint): ArcLink {
   const fromSeverity = from.severity ?? (from.risk === "high" ? 4 : from.risk === "medium" ? 3 : 2);
   const toSeverity = to.severity ?? (to.risk === "high" ? 4 : to.risk === "medium" ? 3 : 2);
+  const fromOrder = pointFlowOrder(from);
   return {
     startLat: from.latitude,
     startLng: from.longitude,
     endLat: to.latitude,
     endLng: to.longitude,
     color: [severityColor(fromSeverity), severityColor(toSeverity)],
+    flowStep: fromOrder < 0 ? 0 : fromOrder,
   };
 }
 
@@ -339,15 +350,23 @@ function makeArcLinks(points: readonly MapPoint[], arcs: readonly MapArc[] = [])
       .map((arc) => {
         const from = byId.get(arc.fromPointId);
         const to = byId.get(arc.toPointId);
-        return from && to ? makeArcLink(from, to) : null;
+        return from && to
+          ? {
+              link: makeArcLink(from, to),
+              fromOrder: pointFlowOrder(from),
+              toOrder: pointFlowOrder(to),
+            }
+          : null;
       })
-      .filter((link): link is ArcLink => Boolean(link));
+      .filter((entry): entry is { link: ArcLink; fromOrder: number; toOrder: number } => Boolean(entry))
+      .sort((a, b) => a.fromOrder - b.fromOrder || a.toOrder - b.toOrder)
+      .map((entry) => entry.link);
   }
 
-  const ordered = [...points].sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+  const ordered = [...points].sort((a, b) => pointFlowOrder(a) - pointFlowOrder(b));
   const grouped = new Map<number, MapPoint[]>();
   ordered.forEach((point, index) => {
-    const key = point.order ?? index;
+    const key = pointFlowOrder(point, index);
     grouped.set(key, [...(grouped.get(key) ?? []), point]);
   });
 
@@ -529,12 +548,14 @@ const ARC_FRAGMENT_SHADER = `
   uniform float uOpacity;
   uniform float uTime;
   uniform float uShimmerPhase;
+  uniform float uReveal;
   varying vec2 vUv;
   void main() {
+    float revealFade = 1.0 - smoothstep(uReveal, uReveal + 0.018, vUv.x);
     vec3 color = mix(uStartColor, uEndColor, smoothstep(0.0, 1.0, vUv.x));
     float shimmer = sin(vUv.x * 18.0 - uTime * 1.6 + uShimmerPhase) * 0.5 + 0.5;
     float edgeFade = sin(vUv.x * 3.14159);
-    float modulated = uOpacity * (0.62 + shimmer * 0.38) * mix(0.55, 1.0, edgeFade);
+    float modulated = uOpacity * revealFade * (0.62 + shimmer * 0.38) * mix(0.55, 1.0, edgeFade);
     gl_FragColor = vec4(color * (0.85 + shimmer * 0.25), modulated);
   }
 `;
@@ -545,13 +566,15 @@ const ARC_PULSE_FRAGMENT_SHADER = `
   uniform float uProgress;
   uniform float uWidth;
   uniform float uIntensity;
+  uniform float uReveal;
   varying vec2 vUv;
   void main() {
+    float revealFade = 1.0 - smoothstep(uReveal, uReveal + 0.018, vUv.x);
     float distanceFromPulse = abs(vUv.x - uProgress);
     float core = smoothstep(uWidth, 0.0, distanceFromPulse);
     float tail = smoothstep(uWidth * 2.4, 0.0, distanceFromPulse) * 0.34;
     float comet = smoothstep(uWidth * 0.6, 0.0, vUv.x - uProgress) * step(0.0, vUv.x - uProgress) * 0.45;
-    float alpha = (core + tail + comet) * uIntensity;
+    float alpha = (core + tail + comet) * uIntensity * revealFade;
     vec3 color = mix(uStartColor, uEndColor, smoothstep(0.0, 1.0, vUv.x));
     vec3 hot = mix(color, vec3(1.0), core * 0.55);
     gl_FragColor = vec4(hot, alpha);
@@ -566,6 +589,7 @@ function makeArcMaterial([startColor, endColor]: [string, string], shimmerPhase:
       uOpacity: { value: opacity },
       uTime: { value: 0 },
       uShimmerPhase: { value: shimmerPhase },
+      uReveal: { value: 1 },
     },
     vertexShader: ARC_VERTEX_SHADER,
     fragmentShader: ARC_FRAGMENT_SHADER,
@@ -591,6 +615,7 @@ function makeArcPulseMaterial(
       uProgress: { value: -width },
       uWidth: { value: width },
       uIntensity: { value: intensity },
+      uReveal: { value: 1 },
     },
     vertexShader: ARC_VERTEX_SHADER,
     fragmentShader: ARC_PULSE_FRAGMENT_SHADER,
@@ -612,6 +637,7 @@ function makeSignalArc(link: ArcLink, arcIndex: number) {
   const curve = new THREE.CatmullRomCurve3(points);
   const tubeSegments = points.length * 2;
   const baseMaterial = makeArcMaterial(link.color, arcIndex * 0.7);
+  baseMaterial.userData.flowIndex = arcIndex;
   const mesh = new THREE.Mesh(new THREE.TubeGeometry(curve, tubeSegments, ARC_RADIUS, 8, false), baseMaterial);
   mesh.renderOrder = 5;
   group.add(mesh);
@@ -621,6 +647,7 @@ function makeSignalArc(link: ArcLink, arcIndex: number) {
   const phase = (arcIndex * 0.31) % 1;
   const speed = 0.85 + (arcIndex % 3) * 0.08;
   const pulseMaterial = makeArcPulseMaterial(link.color, phase, speed, ARC_PULSE_WIDTH, 0.95);
+  pulseMaterial.userData.flowIndex = arcIndex;
   const pulse = new THREE.Mesh(
     new THREE.TubeGeometry(curve, tubeSegments, ARC_RADIUS * 2.1, 8, false),
     pulseMaterial,
@@ -701,6 +728,7 @@ export const WorldGlobe = forwardRef<WorldGlobeHandle, WorldGlobeProps>(function
     idleRotationSpeed = 0.00028,
     showLoadingOverlay = true,
     showChrome = true,
+    showFlowLegend = showChrome,
     interactive = true,
     onReady,
     onTrackedPointScreenPosition,
@@ -743,6 +771,7 @@ export const WorldGlobe = forwardRef<WorldGlobeHandle, WorldGlobeProps>(function
         endLat: arc.endLat,
         endLng: arc.endLng,
         color: arc.color ?? ["#22d3ee", "#f59e0b"],
+        flowStep: 0,
       })),
     [ambientArcs],
   );
@@ -756,6 +785,7 @@ export const WorldGlobe = forwardRef<WorldGlobeHandle, WorldGlobeProps>(function
     [labelAnchors, labelFrame],
   );
   const legendGroups = useMemo(() => groupLegendPoints(activePoints), [activePoints]);
+  const flowLegendGroups = useMemo(() => legendGroups.slice(0, 5), [legendGroups]);
 
   useEffect(() => {
     zoomLevelRef.current = zoomLevel;
@@ -981,8 +1011,26 @@ export const WorldGlobe = forwardRef<WorldGlobeHandle, WorldGlobeProps>(function
       const arcGroup = new THREE.Group();
       const arcPulseMaterials: THREE.ShaderMaterial[] = [];
       const arcBaseMaterials: THREE.ShaderMaterial[] = [];
-      [...ambientArcLinks, ...(showPointArcs ? makeArcLinks(activePoints, activeArcs) : [])].forEach((link, index) => {
+      const pointArcLinks = showPointArcs ? makeArcLinks(activePoints, activeArcs) : [];
+      const arcLinks = [...ambientArcLinks, ...pointArcLinks];
+      const flowSteps = [...new Set(arcLinks.map((link, index) => link.flowStep ?? index))].sort((a, b) => a - b);
+      const flowStepIndexByValue = new Map(flowSteps.map((step, index) => [step, index]));
+      const flowOrderKeys = [...new Set(activePoints.map((point, index) => pointFlowOrder(point, index)))].sort((a, b) => a - b);
+      const pointRevealIndexById = new Map(
+        activePoints.map((point, index) => {
+          const order = pointFlowOrder(point, index);
+          const orderIndex = Math.max(0, flowOrderKeys.indexOf(order));
+          return [point.id, orderIndex] as const;
+        }),
+      );
+      const revealedPointIds = new Set<string>();
+      arcLinks.forEach((link, index) => {
         const signalArc = makeSignalArc(link, index);
+        const flowIndex = flowStepIndexByValue.get(link.flowStep) ?? index;
+        signalArc.baseMaterial.userData.flowIndex = flowIndex;
+        signalArc.pulseMaterials.forEach((material) => {
+          material.userData.flowIndex = flowIndex;
+        });
         arcGroup.add(signalArc.group);
         arcPulseMaterials.push(...signalArc.pulseMaterials);
         arcBaseMaterials.push(signalArc.baseMaterial);
@@ -1406,6 +1454,9 @@ export const WorldGlobe = forwardRef<WorldGlobeHandle, WorldGlobeProps>(function
         const nextAnchors: LabelAnchor[] = [];
 
         for (const point of activePoints) {
+          if (arcLinks.length > 0 && !revealedPointIds.has(point.id)) {
+            continue;
+          }
           const localSurface = latLngToVector3(point.latitude, point.longitude, GLOBE_RADIUS);
           const worldSurface = localSurface.clone().applyMatrix4(globeGroup.matrixWorld);
           const normal = localSurface.clone().normalize().transformDirection(globeGroup.matrixWorld);
@@ -1444,6 +1495,7 @@ export const WorldGlobe = forwardRef<WorldGlobeHandle, WorldGlobeProps>(function
 
       const animate = () => {
         const now = performance.now();
+        const seconds = now * 0.001;
         const zoomAmount = (zoomLevelRef.current - MIN_ZOOM) / (MAX_ZOOM - MIN_ZOOM);
         const targetCameraDistance = THREE.MathUtils.lerp(8.6, 5.45, zoomAmount);
         const panInfluence = 0.55 + zoomAmount * 0.8;
@@ -1501,6 +1553,27 @@ export const WorldGlobe = forwardRef<WorldGlobeHandle, WorldGlobeProps>(function
         globeGroup.getWorldPosition(globeWorldCenter);
         camera.getWorldPosition(cameraWorldPosition);
 
+        const flowArcCount = flowSteps.length;
+        const flowDrawSeconds = flowArcCount * FLOW_ARC_DRAW_SECONDS;
+        const flowCycleSeconds = flowDrawSeconds + FLOW_HOLD_SECONDS;
+        const flowElapsed = flowArcCount > 0 && !reducedMotion ? seconds % flowCycleSeconds : flowCycleSeconds;
+        const isFlowHolding = flowArcCount === 0 || reducedMotion || flowElapsed >= flowDrawSeconds;
+        const activeArcIndex = Math.floor(Math.min(flowElapsed, Math.max(flowDrawSeconds - 0.001, 0)) / FLOW_ARC_DRAW_SECONDS);
+        const activeArcProgress = flowArcCount > 0
+          ? (Math.min(flowElapsed, flowDrawSeconds) - activeArcIndex * FLOW_ARC_DRAW_SECONDS) / FLOW_ARC_DRAW_SECONDS
+          : 1;
+        const activeFlowStep = isFlowHolding
+          ? flowOrderKeys.length
+          : Math.min(flowOrderKeys.length - 1, activeArcIndex + (activeArcProgress > 0.52 ? 1 : 0));
+
+        revealedPointIds.clear();
+        activePoints.forEach((point) => {
+          const revealIndex = pointRevealIndexById.get(point.id) ?? 0;
+          if (flowArcCount === 0 || revealIndex <= activeFlowStep) {
+            revealedPointIds.add(point.id);
+          }
+        });
+
         const visiblePointIds = visiblePointIdsRef.current;
         pointPinGroups.forEach((pin, pointId) => {
           const localSurface = pointSurfaceVectors.get(pointId);
@@ -1512,7 +1585,8 @@ export const WorldGlobe = forwardRef<WorldGlobeHandle, WorldGlobeProps>(function
           const normal = worldSurface.clone().sub(globeWorldCenter).normalize();
           const toCamera = cameraWorldPosition.clone().sub(worldSurface).normalize();
           const isFrontFacing = normal.dot(toCamera) > 0.02;
-          pin.visible = (!visiblePointIds || visiblePointIds.has(pointId)) && isFrontFacing;
+          const isFlowVisible = flowArcCount === 0 || revealedPointIds.has(pointId);
+          pin.visible = (!visiblePointIds || visiblePointIds.has(pointId)) && isFlowVisible && isFrontFacing;
         });
 
         const trackedPointId = trackedPointIdRef.current;
@@ -1547,17 +1621,26 @@ export const WorldGlobe = forwardRef<WorldGlobeHandle, WorldGlobeProps>(function
 
         if (!reducedMotion) {
           stars.rotation.y += 0.00018;
-          const seconds = now * 0.001;
 
           arcBaseMaterials.forEach((material, index) => {
+            const flowIndex = (material.userData.flowIndex as number | undefined) ?? index;
+            const localElapsed = flowElapsed - flowIndex * FLOW_ARC_DRAW_SECONDS;
+            const reveal = isFlowHolding
+              ? 1
+              : THREE.MathUtils.clamp(localElapsed / FLOW_ARC_DRAW_SECONDS, 0, 1);
             material.uniforms.uTime.value = seconds + index * 0.4;
+            material.uniforms.uReveal.value = reveal;
           });
 
           arcPulseMaterials.forEach((material) => {
-            const phase = material.userData.phase as number;
-            const speed = material.userData.speed as number;
             const width = material.userData.width as number;
-            material.uniforms.uProgress.value = ((seconds * 0.22 * speed + phase) % 1.45) - width;
+            const flowIndex = (material.userData.flowIndex as number | undefined) ?? 0;
+            const localElapsed = flowElapsed - flowIndex * FLOW_ARC_DRAW_SECONDS;
+            const reveal = isFlowHolding
+              ? 1
+              : THREE.MathUtils.clamp(localElapsed / FLOW_ARC_DRAW_SECONDS, 0, 1);
+            material.uniforms.uReveal.value = reveal;
+            material.uniforms.uProgress.value = isFlowHolding ? 1 + width : reveal;
           });
 
           pinPulseRings.forEach((ring) => {
@@ -1662,6 +1745,20 @@ export const WorldGlobe = forwardRef<WorldGlobeHandle, WorldGlobeProps>(function
             <strong>
               {activePoints.length} mapped {activePoints.length === 1 ? "signal" : "signals"}
             </strong>
+          </div>
+        ) : null}
+        {showFlowLegend && activePoints.length > 1 ? (
+          <div className="globe-flow-scale" aria-label="Animated supply-chain flow order">
+            <span className="globe-flow-scale-title">Flow order</span>
+            <div className="globe-flow-scale-rows">
+              {flowLegendGroups.map((group, index) => (
+                <span className="globe-flow-scale-row" key={group.stage}>
+                  <i>{index + 1}</i>
+                  <span>{group.label}</span>
+                  <em>{group.points.length}</em>
+                </span>
+              ))}
+            </div>
           </div>
         ) : null}
         {showChrome ? (

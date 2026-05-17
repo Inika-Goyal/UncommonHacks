@@ -619,6 +619,7 @@ export function SwarmLaunch({ reportId }: Props) {
               idleRotationSpeed={0.0002}
               showLoadingOverlay={false}
               showChrome={false}
+              showFlowLegend={mapPoints.length > 1}
               interactive={false}
               onReady={handleGlobeReady}
               onTrackedPointScreenPosition={handleTrackedPointScreenPosition}

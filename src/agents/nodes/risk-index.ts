@@ -42,11 +42,11 @@ export async function riskIndexNode(state: OrchestratorState): Promise<Orchestra
     agent: "risk_index",
     reportId: state.reportId,
     runner: async () => {
-      const lookup = await lookupGsi(state.countries);
-
-      if (lookup.source === "miss") {
-        throw lookup.error instanceof Error ? lookup.error : new Error("GSI lookup failed.");
-      }
+      const requestedCountries = Array.from(new Set([
+        ...(state.countries ?? []),
+        ...(state.onboarding.countries ?? []),
+      ].filter(Boolean)));
+      const lookup = await lookupGsi(requestedCountries);
 
       const { scores, weightedScore } = lookup.payload;
       const findings = buildRiskIndexFindings(scores);
@@ -61,7 +61,7 @@ export async function riskIndexNode(state: OrchestratorState): Promise<Orchestra
       };
 
       return {
-        status: lookup.source === "live" ? "ready" as const : "snapshot" as const,
+        status: scores.length > 0 ? "ready" as const : "snapshot" as const,
         detail: scores.length > 0
           ? `${scores.length} countries scored; weighted prevalence ${weightedScore?.toFixed(2) ?? "n/a"}/1000.`
           : "No countries resolved from the query or onboarding input.",

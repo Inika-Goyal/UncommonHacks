@@ -1,5 +1,3 @@
-import { TTL, hashKey, withCache, type CacheLookup } from "@/agents/tools/cache";
-
 export const SOURCE_GSI = "global_slavery_index";
 
 export type GsiCountry = {
@@ -53,37 +51,33 @@ export type GsiLookup = {
   weightedScore: number | null;
 };
 
+export type GsiLookupResult = {
+  source: "live";
+  payload: GsiLookup;
+};
+
 function normalizeCountry(country: string): string {
   return country.toLowerCase().trim();
 }
 
-export async function lookupGsi(countries: string[]): Promise<CacheLookup<GsiLookup>> {
+export async function lookupGsi(countries: string[]): Promise<GsiLookupResult> {
   const normalized = countries.map(normalizeCountry).filter(Boolean);
-  const key = hashKey(["gsi", ...normalized.sort()]);
+  const scores = normalized
+    .map((requested) =>
+      GSI_DATA.find(
+        (entry) =>
+          normalizeCountry(entry.country) === requested ||
+          normalizeCountry(entry.iso3) === requested,
+      ),
+    )
+    .filter((entry): entry is GsiCountry => Boolean(entry));
 
-  return withCache<GsiLookup>(
-    SOURCE_GSI,
-    key,
-    { ttlMs: TTL.MONTH, staleTtlMs: TTL.MONTH * 6 },
-    async () => {
-      const scores = normalized
-        .map((requested) =>
-          GSI_DATA.find(
-            (entry) =>
-              normalizeCountry(entry.country) === requested ||
-              normalizeCountry(entry.iso3) === requested,
-          ),
-        )
-        .filter((entry): entry is GsiCountry => Boolean(entry));
+  const weightedScore =
+    scores.length > 0
+      ? scores.reduce((sum, entry) => sum + entry.prevalencePer1000, 0) / scores.length
+      : null;
 
-      const weightedScore =
-        scores.length > 0
-          ? scores.reduce((sum, entry) => sum + entry.prevalencePer1000, 0) / scores.length
-          : null;
-
-      return { scores, weightedScore };
-    },
-  );
+  return { source: "live", payload: { scores, weightedScore } };
 }
 
 export function listAllGsiCountries(): GsiCountry[] {
