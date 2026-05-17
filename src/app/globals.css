@@ -3346,7 +3346,7 @@ td a {
 
 .laborlens-source-row {
   display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto;
+  grid-template-columns: auto minmax(0, 1fr);
   align-items: start;
   gap: 10px;
   border-radius: 14px;
@@ -3822,14 +3822,6 @@ td a {
 
   .voice-command-action-grid {
     grid-template-columns: 1fr;
-  }
-
-  .laborlens-source-row {
-    grid-template-columns: auto minmax(0, 1fr);
-  }
-
-  .laborlens-source-row .laborlens-status-pill {
-    grid-column: 2;
   }
 
   .laborlens-map-card,
