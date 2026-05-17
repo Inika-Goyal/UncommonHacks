@@ -1,37 +1,32 @@
-"""Static-HTML model report — all logic in this single .py file.
+"""Static-HTML model report — REAL DATA edition.
 
-No server, no telemetry, no first-run prompts. The script auto-detects
-the project venv (`ml/.venv/bin/python`) and re-execs itself there if
-the user invoked it under a python that's missing the ML deps, so the
-following invocation just works from anywhere:
+This file replaces the synthetic-era report (now `build_sample.py`).
+It reads the real-data artifacts produced by:
+
+    python -m ml.pipelines.train_geographic
+    python -m ml.pipelines.train_cluster
+
+and renders a single self-contained HTML file with no server,
+telemetry, or first-run prompts. The page reflects what the real
+model actually does: one prediction per country (cross-sectional),
+ILO-bucket splits as a constant proportion, a country dropdown for
+drill-down, and the data-quality + collinearity reports the trainer
+emitted.
+
+Run from the repo root (or anywhere — the script auto-relocates):
 
     python -m ml.app.build_report
-    # → wrote ml/artifacts/report/index.html
+    python -m ml.app.build_report --country KHM
+    python -m ml.app.build_report --serve         # also http.serve on :8765
+    python -m ml.app.build_report --inline-js     # offline ~4MB
+    python -m ml.app.build_report --refresh       # re-train both models first
 
-Optional flags:
-    --country C012     # adds a per-country detail block (year still selectable)
-    --year 2019        # initial year selected on the sliders (default: latest)
-    --serve            # also serves the report on :8765 via stdlib http.server
-    --inline-js        # embed plotly.js (~4MB) instead of loading from CDN
-
-The page bundles:
-  1. Model-health summary metrics + per-exploit validation table.
-  2. Year-sliderable country × exploit ranking heatmap (drag the slider
-     under the heatmap to switch which year-t features drive the
-     prediction; the country sort order recomputes per year).
-  3. Cluster panel: PCA scatter coloured by cluster + centroid table +
-     dominant-exploit-per-cluster table.
-  4. Optional per-country detail: year-sliderable prevalence bars with
-     80% uncertainty whiskers, year-sliderable NB class probabilities,
-     deterministic scores per year, similar-countries per year.
-  5. Source catalog grouped by role.
+Output: ml/artifacts/report/index.html
 """
 
 from __future__ import annotations
 
-# Self-relocate to the project venv if the user invoked us under a python
-# that doesn't have the ML deps. This means `python -m ml.app.build_report`
-# works from any python interpreter as long as ml/.venv exists.
+# --- venv self-relocate ----------------------------------------------------
 import os, sys
 from pathlib import Path as _Path
 _REPO_ROOT = _Path(__file__).resolve().parents[2]
@@ -39,14 +34,11 @@ _VENV_PY = _REPO_ROOT / "ml" / ".venv" / "bin" / "python"
 try:
     import joblib  # noqa: F401
 except ModuleNotFoundError:
-    # `sys.prefix` differs from `sys.base_prefix` only when running inside
-    # a venv — that's the reliable "are we already in the venv" check
-    # (resolving the python symlink doesn't work; the venv python is
-    # usually a symlink straight back to the system interpreter).
     _venv_root = _REPO_ROOT / "ml" / ".venv"
     _in_target_venv = _Path(sys.prefix).resolve() == _venv_root.resolve()
     if _VENV_PY.exists() and not _in_target_venv:
         print(f"re-exec under project venv: {_VENV_PY}", file=sys.stderr)
+        os.chdir(_REPO_ROOT)
         os.execv(str(_VENV_PY), [str(_VENV_PY), "-m", "ml.app.build_report", *sys.argv[1:]])
     print(
         "Missing dependency 'joblib'. Install the ML requirements first:\n"
@@ -57,10 +49,11 @@ except ModuleNotFoundError:
 
 import argparse
 import json
+import subprocess
 import webbrowser
 from html import escape
 from pathlib import Path
-from typing import Dict, List, Tuple
+from typing import Any, Dict, List
 
 import joblib
 import numpy as np
@@ -69,23 +62,17 @@ import plotly.express as px
 import plotly.graph_objects as go
 from sklearn.decomposition import PCA
 
-# Make `from ml.* import ...` work no matter where this is launched from.
 REPO_ROOT = _REPO_ROOT
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
-<<<<<<< HEAD
-from ml.data.synthetic import EXPLOIT_TYPES, PREDICTOR_COLS  # noqa: E402
-=======
-from ml.data.real import EXPLOIT_TYPES, PREDICTOR_COLS  # noqa: E402
->>>>>>> 12c61abd6cc14d4fd198d459269512f1e3c26eaa
+from ml.data.real import ILO_GLOBAL_PROPORTIONS, load_extended_panel  # noqa: E402
 from ml.models.cluster import TrainedClusterModel  # noqa: E402
 from ml.models.geographic import TrainedGeoModel  # noqa: E402
 
 
 GEO_DIR = REPO_ROOT / "ml" / "artifacts" / "geographic"
 CLUSTER_DIR = REPO_ROOT / "ml" / "artifacts" / "cluster"
-PANEL_PATH = REPO_ROOT / "ml" / "artifacts" / "synthetic" / "panel.csv"
 REPORT_DIR = REPO_ROOT / "ml" / "artifacts" / "report"
 
 
@@ -96,33 +83,44 @@ def _require(path: Path) -> None:
     if not path.exists():
         print(
             f"missing artifact: {path}\n"
-            "run training first:\n"
-            "  python -m ml.data.synthetic\n"
+            "run training first (from the repo root):\n"
             "  python -m ml.pipelines.train_geographic\n"
-            "  python -m ml.pipelines.train_cluster",
+            "  python -m ml.pipelines.train_cluster\n"
+            "or pass --refresh to do it now.",
             file=sys.stderr,
         )
         sys.exit(1)
 
 
+def _refresh_models() -> None:
+    """Re-train both models in-process via subprocess for clean stderr."""
+    for mod in ("ml.pipelines.train_geographic", "ml.pipelines.train_cluster"):
+        print(f"==> {mod}", file=sys.stderr)
+        result = subprocess.run(
+            [sys.executable, "-m", mod],
+            cwd=str(REPO_ROOT),
+            stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True,
+        )
+        print(result.stdout, end="", file=sys.stderr)
+        if result.returncode != 0:
+            print(f"training step {mod} failed (exit {result.returncode})", file=sys.stderr)
+            sys.exit(result.returncode)
+
+
 def load_everything():
-    _require(PANEL_PATH)
+    _require(GEO_DIR / "geo_model.joblib")
     _require(CLUSTER_DIR / "cluster_model.joblib")
-    geo: Dict[str, TrainedGeoModel] = {}
-    for e in EXPLOIT_TYPES:
-        path = GEO_DIR / f"geo_{e}.joblib"
-        _require(path)
-        geo[e] = joblib.load(path)
+    _require(CLUSTER_DIR / "panel.csv")
+    geo: TrainedGeoModel = joblib.load(GEO_DIR / "geo_model.joblib")
     cluster: TrainedClusterModel = joblib.load(CLUSTER_DIR / "cluster_model.joblib")
-    panel = pd.read_csv(PANEL_PATH)
-    wide = pd.read_csv(CLUSTER_DIR / "country_year_wide.csv")
+    panel = pd.read_csv(CLUSTER_DIR / "panel.csv")
     geo_summary = json.loads((GEO_DIR / "summary.json").read_text())
     clu_summary = json.loads((CLUSTER_DIR / "summary.json").read_text())
-    return geo, cluster, panel, wide, geo_summary, clu_summary
+    return geo, cluster, panel, geo_summary, clu_summary
 
 
 # ---------------------------------------------------------------------------
-# Chart builders — each returns the plotly figure as an HTML fragment.
+# Chart builders
 # ---------------------------------------------------------------------------
 def _fig_to_div(fig: go.Figure, include_plotlyjs: str | bool) -> str:
     return fig.to_html(
@@ -132,274 +130,187 @@ def _fig_to_div(fig: go.Figure, include_plotlyjs: str | bool) -> str:
     )
 
 
-def _predictions_for_year(
-    geo: Dict[str, TrainedGeoModel],
-    panel: pd.DataFrame,
-    year: int,
-) -> pd.DataFrame:
-    """Country × exploit predicted-prevalence table for a single year-t."""
-    year_rows = panel[panel["year"] == year].copy()
-    year_rows["lag_observed"] = year_rows["observed_prevalence_per_1k"].values
-
-    rows: Dict[str, Dict[str, float]] = {}
-    for exploit in EXPLOIT_TYPES:
-        sub = year_rows[year_rows["exploit_type"] == exploit]
-        preds = geo[exploit].predict(sub[PREDICTOR_COLS + ["lag_observed"]])["mean"]
-        for c, v in zip(sub["country"].values, preds):
-            rows.setdefault(c, {})[exploit] = float(v)
-    return pd.DataFrame.from_dict(rows, orient="index")[EXPLOIT_TYPES]
+def _predict_all(geo: TrainedGeoModel, panel: pd.DataFrame) -> np.ndarray:
+    """Overall predicted prevalence (per 1k) for every country in panel."""
+    X = panel[geo.feature_cols].copy().fillna(panel[geo.feature_cols].median(numeric_only=True))
+    return geo.predict(X)["mean"]
 
 
-def ranking_heatmap(
-    geo: Dict[str, TrainedGeoModel],
-    panel: pd.DataFrame,
-    years: List[int],
-    include_plotlyjs: str | bool,
-    initial_year: int | None = None,
+def country_ranking_chart(
+    panel: pd.DataFrame, preds: np.ndarray, include_plotlyjs: str | bool,
 ) -> str:
-    """One heatmap trace per year; a slider toggles which year is shown.
+    """Horizontal bar of all countries sorted by predicted prevalence."""
+    df = panel[["country", "country_name", "region"]].copy()
+    df["predicted"] = preds
+    df = df.sort_values("predicted", ascending=True)
 
-    Country rows are sorted by total predicted prevalence within each
-    year independently — so the "worst row first" ordering re-sorts as
-    you move the slider.
-    """
-    if initial_year is None:
-        initial_year = years[0]
-
-    fig = go.Figure()
-    sorted_indexes: List[List[str]] = []
-    for i, year in enumerate(years):
-        df = _predictions_for_year(geo, panel, year)
-        df = df.loc[df.sum(axis=1).sort_values(ascending=False).index]
-        sorted_indexes.append(df.index.tolist())
-        fig.add_trace(go.Heatmap(
-            z=df.values,
-            x=EXPLOIT_TYPES,
-            y=df.index.tolist(),
-            colorscale="Reds",
-            visible=(year == initial_year),
-            name=str(year),
-            colorbar=dict(title="pred /1k"),
-            hovertemplate=("country: %{y}<br>exploit: %{x}<br>"
-                           "predicted /1k: %{z:.3f}<extra></extra>"),
-        ))
-
-    # Slider — args swaps trace visibility + retitles the figure.
-    steps = []
-    for i, year in enumerate(years):
-        steps.append(dict(
-            method="update",
-            args=[
-                {"visible": [j == i for j in range(len(years))]},
-                {"title": f"Predicted prevalence per 1,000 "
-                          f"(year-t features = {year}, target = {year + 1})"},
-            ],
-            label=str(year),
-        ))
-    initial_idx = years.index(initial_year)
-    sliders = [dict(
-        active=initial_idx,
-        currentvalue={"prefix": "year-t features: "},
-        pad={"t": 40},
-        steps=steps,
-    )]
-
-    # Use the maximum row count across years to keep height stable.
-    max_rows = max(len(idx) for idx in sorted_indexes)
+    fig = go.Figure(go.Bar(
+        x=df["predicted"], y=df["country_name"],
+        orientation="h",
+        marker=dict(color=df["predicted"], colorscale="Reds",
+                    cmin=float(df["predicted"].min()),
+                    cmax=float(df["predicted"].max()),
+                    colorbar=dict(title="pred /1k")),
+        customdata=np.stack([df["country"], df["region"]], axis=1),
+        hovertemplate=("<b>%{y}</b><br>"
+                       "ISO3: %{customdata[0]}<br>"
+                       "Region: %{customdata[1]}<br>"
+                       "Predicted: %{x:.2f} /1k<extra></extra>"),
+    ))
+    # Cap chart height — 153 bars × 14px = 2142px otherwise dwarfs every
+    # other section. Scroll-within-chart via fixed yaxis height works
+    # better than a 2k-px page section.
+    n = len(df)
+    chart_height = min(900, max(420, 14 * n))
     fig.update_layout(
-        title=f"Predicted prevalence per 1,000 "
-              f"(year-t features = {initial_year}, target = {initial_year + 1})",
-        height=max(460, 14 * max_rows),
-        margin=dict(l=10, r=10, t=50, b=80),
-        sliders=sliders,
+        height=chart_height,
+        margin=dict(l=10, r=10, t=30, b=10),
+        title=f"Predicted overall modern-slavery prevalence per 1,000 ({n} countries)",
+        xaxis_title="prevalence per 1,000 population",
+        yaxis=dict(automargin=True),
     )
     return _fig_to_div(fig, include_plotlyjs)
 
 
 def cluster_pca_scatter(
-    cluster: TrainedClusterModel,
-    wide: pd.DataFrame,
+    cluster: TrainedClusterModel, panel: pd.DataFrame,
     include_plotlyjs: str | bool,
-    highlight: tuple[str, int] | None = None,
+    highlight: str | None = None,
 ) -> str:
-    """2-D PCA of all country-years, coloured by cluster."""
-    Xs = cluster.scaler.transform(wide[cluster.feature_cols])
+    """2-D PCA of all countries colored by cluster (same per-block weights as training)."""
+    Xs = cluster.transform(panel)
     labels = cluster.kmeans.predict(Xs)
-    pc = PCA(n_components=2).fit_transform(Xs)
+    pc = PCA(n_components=2, random_state=0).fit_transform(Xs)
     df = pd.DataFrame({
         "PC1": pc[:, 0], "PC2": pc[:, 1],
         "cluster": labels.astype(str),
-        "country": wide["country"], "year": wide["year"],
+        "country": panel["country"], "country_name": panel.get("country_name", panel["country"]),
+        "region": panel["region"] if "region" in panel.columns else "",
     })
-
     fig = px.scatter(
         df, x="PC1", y="PC2", color="cluster",
-        hover_data={"country": True, "year": True,
-                    "PC1": ":.2f", "PC2": ":.2f"},
-        height=460,
-        title="Country-years projected to 2 components, coloured by cluster",
+        hover_data={"country_name": True, "country": True, "region": True,
+                    "PC1": ":.2f", "PC2": ":.2f", "cluster": True},
+        height=440,
+        title=(f"Country clusters (k={cluster.k}, silhouette={cluster.silhouette:.3f}). "
+               "Per-block-weighted features, 2-D PCA projection."),
     )
-    if highlight is not None:
-        hc, hy = highlight
-        sel = df[(df["country"] == hc) & (df["year"] == hy)]
+    if highlight:
+        sel = df[df["country"] == highlight]
         if not sel.empty:
             fig.add_trace(go.Scatter(
-                x=sel["PC1"], y=sel["PC2"],
-                mode="markers",
-                marker=dict(symbol="star", size=20, color="#000",
+                x=sel["PC1"], y=sel["PC2"], mode="markers",
+                marker=dict(symbol="star", size=22, color="#000",
                             line=dict(color="#fff", width=1)),
-                name=f"selected ({hc}, {hy})",
-                hoverinfo="skip",
+                name=f"selected ({highlight})", hoverinfo="skip",
             ))
     fig.update_layout(margin=dict(l=10, r=10, t=40, b=10))
     return _fig_to_div(fig, include_plotlyjs)
 
 
-def country_detail_chart(
-    geo: Dict[str, TrainedGeoModel],
-    cluster: TrainedClusterModel,
-    panel: pd.DataFrame,
-    wide: pd.DataFrame,
-    country: str,
-    years: List[int],
-    include_plotlyjs: str | bool,
-    initial_year: int | None = None,
-) -> Tuple[str, str, str]:
-    """Per-country detail: one bar trace per year (slider-toggled),
-    NB-prob bar that also re-slides per year, and the most-recent
-    similar-countries / scores tables.
+def feature_importance_chart(
+    geo: TrainedGeoModel, include_plotlyjs: str | bool,
+) -> str:
+    """Mean GradientBoosting feature_importances_ across bagged trees."""
+    importances = np.mean([m.feature_importances_ for m in geo.tree_models], axis=0)
+    df = pd.DataFrame({"feature": geo.feature_cols, "importance": importances})
+    df = df.sort_values("importance", ascending=True)
+    fig = go.Figure(go.Bar(
+        x=df["importance"], y=df["feature"], orientation="h",
+        marker=dict(color=df["importance"], colorscale="Blues"),
+        hovertemplate="%{y}: %{x:.3f}<extra></extra>",
+    ))
+    fig.update_layout(
+        height=max(220, 26 * len(df)),
+        margin=dict(l=10, r=10, t=30, b=10),
+        title="Mean GradientBoosting feature importance (bagged)",
+        xaxis_title="importance (normalised)",
+    )
+    return _fig_to_div(fig, include_plotlyjs)
 
-    Returns (prevalence-bar-html, nb-prob-html, similar+scores-html).
-    """
-    if initial_year is None:
-        initial_year = years[-1]
 
-    # ----- Prevalence bar (one trace per year, year slider) -----
-    fig_bar = go.Figure()
-    score_rows = []
-    for year in years:
-        row = panel[(panel["country"] == country) & (panel["year"] == year)]
-        if row.empty:
-            # Add an empty placeholder so trace indices stay aligned with years.
-            fig_bar.add_trace(go.Bar(x=EXPLOIT_TYPES, y=[0] * len(EXPLOIT_TYPES),
-                                     visible=(year == initial_year), name=str(year)))
-            score_rows.append({"year": year, "severity": None, "credibility": None,
-                               "overall_risk": None})
-            continue
-        one = row.iloc[[0]].copy()
-        one["lag_observed"] = one["observed_prevalence_per_1k"].values
-        means, lows, ups = [], [], []
-        for e in EXPLOIT_TYPES:
-            out = geo[e].predict(one[PREDICTOR_COLS + ["lag_observed"]])
-            means.append(float(out["mean"][0]))
-            lows.append(float(out["lower"][0]))
-            ups.append(float(out["upper"][0]))
-        fig_bar.add_trace(go.Bar(
-            x=EXPLOIT_TYPES, y=means, marker_color="#b04a3a",
-            error_y=dict(type="data", symmetric=False,
-                         array=np.array(ups) - np.array(means),
-                         arrayminus=np.array(means) - np.array(lows),
-                         color="#333"),
-            visible=(year == initial_year), name=str(year),
-        ))
-        # Scores per year for the table below.
-        max_pred = max(means)
-        mean_spread = float(np.mean(np.array(ups) - np.array(lows))) / 2
-        sev = int(min(5, max(1, round(1 + max_pred * 4))))
-        cred = int(min(5, max(1, round(5 - mean_spread * 4))))
-        ovr = int(min(100, max(0, round(sev * 12 + sum(means) * 15 + cred * 4))))
-        score_rows.append({"year": year, "severity": sev,
-                           "credibility": cred, "overall_risk": ovr})
+def region_breakdown_chart(
+    panel: pd.DataFrame, preds: np.ndarray, include_plotlyjs: str | bool,
+) -> str:
+    """Box plot of predicted prevalence grouped by GSI region."""
+    df = panel[["country", "country_name", "region"]].copy()
+    df["predicted"] = preds
+    order = (
+        df.groupby("region")["predicted"].median().sort_values(ascending=False).index.tolist()
+    )
+    fig = px.box(
+        df, x="region", y="predicted", points="all",
+        category_orders={"region": order},
+        hover_data={"country_name": True, "country": True, "predicted": ":.2f"},
+        height=380,
+        title="Predicted prevalence per 1,000 by region (median-sorted)",
+    )
+    fig.update_layout(margin=dict(l=10, r=10, t=40, b=10),
+                      xaxis_tickangle=-25)
+    return _fig_to_div(fig, include_plotlyjs)
 
-    bar_steps = []
-    for i, year in enumerate(years):
-        bar_steps.append(dict(
-            method="update",
-            args=[
-                {"visible": [j == i for j in range(len(years))]},
-                {"title": f"Predicted prevalence with 80% uncertainty — "
-                          f"{country} (year-t={year}, target={year + 1})"},
-            ],
-            label=str(year),
-        ))
+
+def country_detail_block(
+    geo: TrainedGeoModel, cluster: TrainedClusterModel,
+    panel: pd.DataFrame, country: str, include_plotlyjs: str | bool,
+) -> tuple[str, str, str]:
+    """Per-country bar of ILO-bucket prevalence + similar-country table + observed-vs-predicted note."""
+    row = panel[panel["country"] == country]
+    if row.empty:
+        msg = f"<p><em>{escape(country)} is not in the trained panel.</em></p>"
+        return msg, "", ""
+
+    row = row.iloc[[0]].copy()
+    pred = geo.predict(row[geo.feature_cols])
+    overall = float(pred["mean"][0])
+    lower = float(pred["lower"][0])
+    upper = float(pred["upper"][0])
+
+    # Per-ILO-bucket bars with uncertainty whiskers scaled by the same proportion.
+    buckets = list(ILO_GLOBAL_PROPORTIONS.keys())
+    means = [overall * ILO_GLOBAL_PROPORTIONS[b] for b in buckets]
+    err_lo = [(overall - lower) * ILO_GLOBAL_PROPORTIONS[b] for b in buckets]
+    err_hi = [(upper - overall) * ILO_GLOBAL_PROPORTIONS[b] for b in buckets]
+
+    fig_bar = go.Figure(go.Bar(
+        x=buckets, y=means, marker_color="#b04a3a",
+        error_y=dict(type="data", symmetric=False,
+                     array=err_hi, arrayminus=err_lo, color="#333"),
+    ))
     fig_bar.update_layout(
-        height=340, margin=dict(l=10, r=10, t=50, b=80),
-        yaxis_title="prevalence /1k",
-        title=f"Predicted prevalence with 80% uncertainty — "
-              f"{country} (year-t={initial_year}, target={initial_year + 1})",
-        sliders=[dict(active=years.index(initial_year),
-                      currentvalue={"prefix": "year-t features: "},
-                      pad={"t": 40}, steps=bar_steps)],
+        height=320, margin=dict(l=10, r=10, t=40, b=10),
+        yaxis_title="predicted prevalence per 1,000",
+        title=(f"{country} — per-bucket prevalence (overall {overall:.2f} /1k, "
+               f"80% band {lower:.2f}–{upper:.2f})"),
     )
+    bar_html = _fig_to_div(fig_bar, include_plotlyjs)
 
-    # ----- NB class probabilities (one trace per year, year slider) -----
-    fig_nb = go.Figure()
-    for year in years:
-        target_row = wide[(wide["country"] == country) & (wide["year"] == year)]
-        if target_row.empty:
-            fig_nb.add_trace(go.Bar(x=[0], y=["—"], orientation="h",
-                                    visible=(year == initial_year), name=str(year)))
-            continue
-        nb_out = cluster.predict_exploit(target_row[cluster.feature_cols])
-        proba_df = pd.DataFrame({
-            "exploit": list(nb_out["classes"]),
-            "probability": nb_out["proba"][0],
-        }).sort_values("probability", ascending=True)
-        fig_nb.add_trace(go.Bar(
-            x=proba_df["probability"], y=proba_df["exploit"], orientation="h",
-            marker=dict(color=proba_df["probability"], colorscale="Reds",
-                        cmin=0, cmax=1),
-            visible=(year == initial_year), name=str(year),
-        ))
-    nb_steps = []
-    for i, year in enumerate(years):
-        nb_steps.append(dict(
-            method="update",
-            args=[
-                {"visible": [j == i for j in range(len(years))]},
-                {"title": f"Naive-Bayes dominant-exploit probability — "
-                          f"{country} (year {year})"},
-            ],
-            label=str(year),
-        ))
-    fig_nb.update_layout(
-        height=280, margin=dict(l=10, r=10, t=50, b=80),
-        title=f"Naive-Bayes dominant-exploit probability — "
-              f"{country} (year {initial_year})",
-        xaxis_range=[0, 1],
-        sliders=[dict(active=years.index(initial_year),
-                      currentvalue={"prefix": "year: "},
-                      pad={"t": 40}, steps=nb_steps)],
-    )
-
-    # ----- Tables: scores per year + similar countries (latest available year) -----
-    scores_df = pd.DataFrame(score_rows)
-    scores_html = (
-        "<h3>Deterministic scores (CLI formula, by year)</h3>"
-        + scores_df.to_html(index=False, classes="data-table", border=0,
-                            na_rep="—")
-    )
-
-    similar_html_parts = []
-    for year in years:
-        if not ((wide["country"] == country) & (wide["year"] == year)).any():
-            continue
-        sim = cluster.similar_countries(wide, country, year, top_n=8)
-        if sim.empty:
-            continue
-        cols = ["country", "distance_to_target"] + cluster.feature_cols[:4]
-        sim_table = sim[cols].round(3).to_html(index=False, classes="data-table", border=0)
-        similar_html_parts.append(
-            f"<details {'open' if year == initial_year else ''}>"
-            f"<summary>Similar countries — year {year}</summary>{sim_table}</details>"
+    # Similar-countries table.
+    similar = cluster.similar_countries(panel, country, top_n=8)
+    if similar.empty:
+        sim_html = "<p><em>No other countries in this cluster.</em></p>"
+    else:
+        cols = ["country", "country_name", "region", "distance_to_target"]
+        cols = [c for c in cols if c in similar.columns]
+        sim_html = similar[cols].round(3).to_html(
+            index=False, classes="data-table", border=0,
         )
-    similar_html = "\n".join(similar_html_parts) or "<p><em>No similar countries available.</em></p>"
 
-    return (
-        _fig_to_div(fig_bar, include_plotlyjs),
-        _fig_to_div(fig_nb, False),
-        scores_html + "<h3>Similar countries (per year)</h3>" + similar_html,
-    )
+    # Observed vs predicted note.
+    note_parts: list[str] = []
+    if "observed_prevalence_per_1k" in row.columns and not pd.isna(row["observed_prevalence_per_1k"].iloc[0]):
+        observed = float(row["observed_prevalence_per_1k"].iloc[0])
+        delta = overall - observed
+        note_parts.append(
+            f"GSI observed: <b>{observed:.2f} /1k</b>. "
+            f"Model predicted: <b>{overall:.2f} /1k</b>. "
+            f"Delta: {delta:+.2f}."
+        )
+    cluster_id = int(cluster.assign_cluster(row[cluster.feature_cols])[0])
+    note_parts.append(f"Cluster id: <b>{cluster_id}</b>.")
+    note_html = "<p>" + " &nbsp;·&nbsp; ".join(note_parts) + "</p>"
+
+    return bar_html, sim_html, note_html
 
 
 # ---------------------------------------------------------------------------
@@ -408,8 +319,7 @@ def country_detail_chart(
 CSS = """
 * { box-sizing: border-box; }
 body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
-       margin: 0; padding: 32px 48px; max-width: 1280px; color: #1a1a1a;
-       background: #fafafa; }
+       margin: 0; padding: 32px 48px; max-width: 1280px; color: #1a1a1a; background: #fafafa; }
 h1 { font-size: 28px; margin-bottom: 4px; }
 h2 { font-size: 20px; margin-top: 40px; border-bottom: 1px solid #ddd; padding-bottom: 6px; }
 h3 { font-size: 16px; margin-top: 24px; }
@@ -420,9 +330,10 @@ section { background: #fff; padding: 16px 20px; margin-top: 12px;
 .metric { padding: 12px 16px; background: #f5f5f5; border-radius: 4px; }
 .metric .label { font-size: 12px; color: #666; text-transform: uppercase; letter-spacing: 0.05em; }
 .metric .value { font-size: 22px; font-weight: 600; margin-top: 4px; }
+.metric .sub   { font-size: 11px; color: #777; margin-top: 2px; }
 table.data-table { border-collapse: collapse; width: 100%; font-size: 13px; }
 table.data-table th, table.data-table td { border-bottom: 1px solid #eee; padding: 6px 8px;
-                                            text-align: left; }
+                                           text-align: left; }
 table.data-table th { background: #f5f5f5; font-weight: 600; }
 .two-col { display: grid; grid-template-columns: 2fr 3fr; gap: 16px; }
 details summary { cursor: pointer; font-weight: 600; padding: 4px 0; }
@@ -431,108 +342,143 @@ details { margin-top: 8px; }
 ul.source-list { padding-left: 20px; }
 ul.source-list li { margin-bottom: 6px; font-size: 13px; }
 ul.source-list a { color: #b04a3a; }
+.pill { display: inline-block; padding: 2px 8px; border-radius: 999px;
+        font-size: 11px; background: #eee; color: #333; margin-right: 4px; }
+.pill.warn { background: #f9e4b6; color: #6b4a00; }
+.pill.bad  { background: #f6cccc; color: #7a1f1f; }
+.pill.ok   { background: #d8eedb; color: #1f5a2b; }
 """
 
 
+def _coverage_pill(empirical: float, nominal: float = 0.80) -> str:
+    if empirical >= nominal - 0.02:
+        return f"<span class='pill ok'>coverage {empirical * 100:.0f}% / nominal {nominal * 100:.0f}%</span>"
+    if empirical >= nominal - 0.08:
+        return f"<span class='pill warn'>coverage {empirical * 100:.0f}% / nominal {nominal * 100:.0f}%</span>"
+    return f"<span class='pill bad'>coverage {empirical * 100:.0f}% / nominal {nominal * 100:.0f}%</span>"
+
+
+def _quality_pills(geo_summary: Dict[str, Any]) -> str:
+    dq = geo_summary.get("data_quality") or {}
+    parts: list[str] = []
+    dropped = (geo_summary.get("collinearity") or {}).get("dropped") or []
+    if dropped:
+        parts.append(f"<span class='pill warn'>collinearity drops: {', '.join(dropped)}</span>")
+    vif = dq.get("high_vif_columns") or []
+    if vif:
+        parts.append(f"<span class='pill warn'>{len(vif)} high-VIF predictor(s)</span>")
+    high_corr = dq.get("high_correlation_pairs") or []
+    if high_corr:
+        parts.append(f"<span class='pill warn'>{len(high_corr)} correlated pair(s)</span>")
+    if geo_summary.get("target_transform") == "log1p":
+        parts.append("<span class='pill ok'>target transform: log1p</span>")
+    cols_dropped_high_na = (dq.get("columns_to_drop") or [])
+    if cols_dropped_high_na:
+        parts.append(f"<span class='pill warn'>dropped (high NaN): {', '.join(cols_dropped_high_na)}</span>")
+    return " ".join(parts) or "<span class='pill ok'>no quality flags</span>"
+
+
 def render_html(
-    geo: Dict[str, TrainedGeoModel],
+    geo: TrainedGeoModel,
     cluster: TrainedClusterModel,
     panel: pd.DataFrame,
-    wide: pd.DataFrame,
     geo_summary: dict,
     clu_summary: dict,
     include_plotlyjs: str | bool,
     country: str | None = None,
-    year: int | None = None,
 ) -> str:
-    # Only years that have a year-(t+1) target available are useful for
-    # the geographic model. Drop the last year of the panel.
-    all_years = sorted(panel["year"].unique().tolist())
-    trainable_years = all_years[:-1]
-    initial_year = year if year in trainable_years else trainable_years[-1]
+    preds = _predict_all(geo, panel)
 
-    # Headline metrics.
-    geo_exp = geo_summary["exploit_types"]
+    # ---- headline metrics ----
     metric_html = (
         "<div class='metric-row'>"
-        f"<div class='metric'><div class='label'>Geographic CV MAE (mean)</div>"
-        f"<div class='value'>{np.mean([v['cv_mae'] for v in geo_exp.values()]):.3f}</div></div>"
-        f"<div class='metric'><div class='label'>Geographic CV R² (mean)</div>"
-        f"<div class='value'>{np.mean([v['cv_r2'] for v in geo_exp.values()]):+.3f}</div></div>"
+        f"<div class='metric'><div class='label'>Geographic CV MAE</div>"
+        f"<div class='value'>{geo_summary['cv_mae']:.3f}</div>"
+        f"<div class='sub'>/1k, 5-fold KFold</div></div>"
+
+        f"<div class='metric'><div class='label'>Geographic CV R²</div>"
+        f"<div class='value'>{geo_summary['cv_r2']:+.3f}</div>"
+        f"<div class='sub'>cross-sectional, 1 row/country</div></div>"
+
+        f"<div class='metric'><div class='label'>Conformal half-width</div>"
+        f"<div class='value'>±{geo_summary['conformal_half_width']:.2f}</div>"
+        f"<div class='sub'>nominal {int((1 - 0.20) * 100)}% coverage; "
+        f"empirical {geo_summary['empirical_coverage_80'] * 100:.0f}%</div></div>"
+
         f"<div class='metric'><div class='label'>Cluster silhouette</div>"
-        f"<div class='value'>{clu_summary['silhouette']:.3f}</div></div>"
-        f"<div class='metric'><div class='label'>NB holdout accuracy</div>"
-        f"<div class='value'>{clu_summary['nb_holdout_accuracy']:.3f}</div></div>"
+        f"<div class='value'>{clu_summary['silhouette']:.3f}</div>"
+        f"<div class='sub'>k={clu_summary['k']}, "
+        f"{clu_summary['n_countries']} countries</div></div>"
         "</div>"
     )
 
-    # Per-exploit validation table.
-    validation_df = pd.DataFrame([
-        {"exploit": e, **v} for e, v in geo_exp.items()
-    ])[["exploit", "cv_mae", "cv_r2", "spearman_vs_gsi", "top10_jaccard_vs_gsi"]]
-    validation_html = validation_df.to_html(index=False, classes="data-table", border=0)
+    # ---- data-quality summary table ----
+    dq = geo_summary.get("data_quality") or {}
+    dq_rows = []
+    for col, frac in (dq.get("missingness") or {}).items():
+        dq_rows.append({
+            "predictor": col,
+            "missing %": f"{frac * 100:.1f}%",
+            "outliers (|z|>3)": (dq.get("outliers") or {}).get(col, 0),
+            "in final model": "yes" if col in geo.feature_cols else "no",
+        })
+    dq_table = pd.DataFrame(dq_rows).to_html(index=False, classes="data-table", border=0) \
+        if dq_rows else "<p><em>no per-column quality details available.</em></p>"
 
-    # Cluster centroids + dominant-exploit table.
-    centroids_df = pd.DataFrame(clu_summary["centroids"])
-    centroids_html = centroids_df.to_html(index=False, classes="data-table", border=0,
-                                          float_format=lambda x: f"{x:.2f}")
-    dominant_df = pd.DataFrame([
-        {"cluster": k, "dominant_exploit": v}
-        for k, v in clu_summary["cluster_dominant_exploit"].items()
-    ])
-    dominant_html = dominant_df.to_html(index=False, classes="data-table", border=0)
+    # ---- collinearity dropped table ----
+    coll = geo_summary.get("collinearity") or {}
+    coll_dropped = coll.get("dropped") or []
+    coll_table = ""
+    if coll_dropped:
+        reps = coll.get("kept_representatives") or {}
+        kept_for = {drop: kept for kept, drops in reps.items() for drop in drops}
+        coll_table = pd.DataFrame([
+            {"dropped": d, "kept representative": kept_for.get(d, "—")}
+            for d in coll_dropped
+        ]).to_html(index=False, classes="data-table", border=0)
 
-    # Ranking heatmap — all years pre-rendered, year slider switches view.
-    heatmap_html = ranking_heatmap(
-        geo, panel, trainable_years, include_plotlyjs, initial_year=initial_year,
-    )
+    # ---- charts ----
+    ranking_html = country_ranking_chart(panel, preds, include_plotlyjs)
+    feat_html = feature_importance_chart(geo, False)
+    region_html = region_breakdown_chart(panel, preds, False)
+    cluster_html = cluster_pca_scatter(cluster, panel, False, highlight=country)
 
-    # Cluster PCA scatter — pull in plotly.js only once (already loaded above).
-    scatter_html = cluster_pca_scatter(
-        cluster, wide, False,
-        highlight=(country, initial_year) if country else None,
-    )
-
-    # Optional per-country detail section (also year-sliderable).
+    # ---- per-country block ----
     country_section = ""
     if country:
-        bar_html, nb_html, tables_html = country_detail_chart(
-            geo, cluster, panel, wide, country,
-            trainable_years, include_plotlyjs=False,
-            initial_year=initial_year,
+        bar_html, sim_html, note_html = country_detail_block(
+            geo, cluster, panel, country, False,
         )
         country_section = f"""
 <h2>Country detail — {escape(country)}</h2>
 <section>
-  <div class='two-col'>
-    <div>{bar_html}</div>
-    <div>{nb_html}</div>
-  </div>
-  {tables_html}
+  {note_html}
+  {bar_html}
+  <h3>Similar countries (same cluster, nearest in feature space)</h3>
+  {sim_html}
 </section>
 """
 
-    # Sources panel.
+    # ---- sources ----
+    src = geo_summary.get("sources") or {}
     src_html_parts = []
-    for label, key in [
-        ("Predicted variables", "predicted"),
-        ("Predictors", "predictors"),
-        ("Bias adjuster", "bias_adjuster"),
-    ]:
-        items = geo_summary["sources"][key]
+    for label, key in [("Predicted (target)", "predicted"),
+                       ("Predictors", "predictors")]:
+        items = src.get(key) or []
         lis = "".join(
-            f"<li><strong>{escape(s['name'])}</strong> — {escape(s['publisher'])} "
-            f"<br><a href='{escape(s['url'])}'>{escape(s['url'])}</a></li>"
+            f"<li><strong>{escape(s.get('name', ''))}</strong> — {escape(s.get('publisher', ''))}<br>"
+            f"<a href='{escape(s.get('url', ''))}'>{escape(s.get('url', ''))}</a></li>"
             for s in items
         )
-        src_html_parts.append(
-            f"<details><summary>{label} ({len(items)})</summary>"
-            f"<ul class='source-list'>{lis}</ul></details>"
-        )
+        if items:
+            src_html_parts.append(
+                f"<details><summary>{label} ({len(items)})</summary>"
+                f"<ul class='source-list'>{lis}</ul></details>"
+            )
     sources_html = "\n".join(src_html_parts)
 
     head_country = (
-        f" (showing detail for <strong>{escape(country)}</strong>)"
+        f" — showing detail for <strong>{escape(country)}</strong>"
         if country else ""
     )
 
@@ -540,74 +486,73 @@ def render_html(
 <html lang='en'>
 <head>
   <meta charset='utf-8'>
-<<<<<<< HEAD
-  <title>UnExploited ML — model report</title>
-  <style>{CSS}</style>
-</head>
-<body>
-  <h1>UnExploited ML — model report</h1>
-=======
-  <title>LaborLens ML — model report</title>
+  <title>LaborLens ML — model report (real data)</title>
   <style>{CSS}</style>
 </head>
 <body>
   <h1>LaborLens ML — model report</h1>
->>>>>>> 12c61abd6cc14d4fd198d459269512f1e3c26eaa
   <p class='subtitle'>
-    Generated from <code>ml/artifacts/</code>. Geographic targets are year-(t+1) prevalence.
-    Use the year slider on the heatmap below to switch which year's
-    features drive the prediction.{head_country}
+    Built from <code>ml/artifacts/{{geographic,cluster}}/</code> on
+    real public data (GSI 2023 · WDI 2021 · RSF 2021 + optional WGI /
+    CPI / WJP / UNHCR / ACLED if their CSVs are present).{head_country}
   </p>
+  <p>{_quality_pills(geo_summary)} {_coverage_pill(geo_summary['empirical_coverage_80'])}</p>
 
   <h2>Model health</h2>
   <section>
     {metric_html}
     <p class='caption'>
-      Validation: GroupKFold by country (year-t features → year-(t+1) target).
-      Spearman / Jaccard compare model ranking to the synthetic GSI-proxy ranking —
-      external sanity check, not a training signal.
+      Geographic: bagged GradientBoosting + Ridge averaged, conformal intervals.
+      Cluster: KMeans with per-block-weighted features.
     </p>
-    <h3>Per-exploit validation</h3>
-    {validation_html}
   </section>
 
   <h2>Geographic ranking</h2>
   <section>
     <p class='caption'>
-      Rows are countries (worst total first), columns are exploit types,
-      colour intensity is predicted prevalence per 1,000.
+      All {len(panel)} countries in the trained panel, sorted by predicted
+      overall modern-slavery prevalence per 1,000. Hover for ISO3 + region.
     </p>
-    {heatmap_html}
+    {ranking_html}
+  </section>
+
+  <h2>Regional distribution</h2>
+  <section>{region_html}</section>
+
+  <h2>Feature importance</h2>
+  <section>
+    {feat_html}
+    <p class='caption'>
+      Mean across {len(geo.tree_models)} bootstrap-sampled GradientBoosting
+      regressors. Ridge coefficients are not shown — they would need
+      back-projection through the StandardScaler to be comparable.
+    </p>
   </section>
 
   <h2>Cluster panel</h2>
-  <section>
-    {scatter_html}
-    <div class='two-col' style='margin-top:16px;'>
-      <div>
-        <h3>Dominant exploit per cluster</h3>
-        {dominant_html}
-      </div>
-      <div>
-        <h3>Cluster centroids</h3>
-        {centroids_html}
-      </div>
-    </div>
-    <p class='caption'>
-      k chosen by silhouette over k=3..8. Centroids reported on the
-      original (unscaled) feature scale. Dominant exploit is the modal
-      argmax label inside the cluster.
-    </p>
-  </section>
+  <section>{cluster_html}</section>
 
   {country_section}
 
+  <h2>Data quality</h2>
+  <section>
+    <h3>Per-predictor missingness + outliers</h3>
+    {dq_table}
+    {('<h3>Collinearity drops</h3>' + coll_table) if coll_table else ''}
+    <p class='caption'>
+      Columns with NaN fraction above 40% are dropped automatically.
+      Collinearity reduction is greedy on |r| ≥ 0.85 pairs; the
+      kept column has lower mean correlation against the rest.
+    </p>
+  </section>
+
   <h2>Sources</h2>
-  <section>{sources_html}</section>
+  <section>{sources_html or '<em>no sources recorded.</em>'}</section>
 
   <p class='caption' style='margin-top:40px;'>
-    Single self-contained HTML — no server, no telemetry. Re-run
-    <code>python -m ml.app.build_report</code> after retraining to refresh.
+    Single self-contained HTML — no server, no telemetry.
+    Re-run <code>python -m ml.app.build_report --refresh</code> to
+    retrain the models and regenerate the page.
   </p>
 </body>
 </html>
@@ -615,11 +560,10 @@ def render_html(
 
 
 # ---------------------------------------------------------------------------
-# Serve helper — purely optional, stdlib only.
+# Optional serve helper
 # ---------------------------------------------------------------------------
 def serve(directory: Path, port: int = 8765) -> None:
     import functools, http.server, socketserver
-
     handler = functools.partial(http.server.SimpleHTTPRequestHandler, directory=str(directory))
     with socketserver.TCPServer(("127.0.0.1", port), handler) as httpd:
         url = f"http://127.0.0.1:{port}/index.html"
@@ -634,40 +578,28 @@ def serve(directory: Path, port: int = 8765) -> None:
 # ---------------------------------------------------------------------------
 # CLI
 # ---------------------------------------------------------------------------
-def main():
-<<<<<<< HEAD
-=======
-    # The HTML report generator was written for the synthetic
-    # per-exploit-per-year panel. The real-data tier (GSI 2023 + WDI
-    # 2021 + RSF 2021) is cross-sectional and single-output, so this
-    # generator no longer matches the artifact layout. Until it is
-    # rewritten, fail loudly rather than producing a misleading report.
-    print(
-        "ml.app.build_report has not been updated for the real-data, "
-        "single-output cross-sectional pipeline. See ml/README.md.",
-        file=sys.stderr,
-    )
-    sys.exit(2)
->>>>>>> 12c61abd6cc14d4fd198d459269512f1e3c26eaa
-    p = argparse.ArgumentParser(description="Generate a static HTML model report.")
-    p.add_argument("--country", help="Optional country code to show detail for.")
-    p.add_argument("--year", type=int,
-                   help="Initial year selected on the year sliders. Default: latest trainable year.")
+def main() -> None:
+    p = argparse.ArgumentParser(description="Real-data model report.")
+    p.add_argument("--country", help="ISO3 code to add a per-country detail block.")
+    p.add_argument("--refresh", action="store_true",
+                   help="Re-train both models before building the report.")
     p.add_argument("--inline-js", action="store_true",
-                   help="Embed plotly.js inline (~4MB) instead of loading from CDN.")
+                   help="Embed plotly.js inline (~4MB) instead of CDN.")
     p.add_argument("--serve", action="store_true",
                    help="Also serve the report on http://127.0.0.1:8765/.")
     p.add_argument("--out", default=str(REPORT_DIR),
                    help="Output directory (default: ml/artifacts/report).")
     args = p.parse_args()
 
-    geo, cluster, panel, wide, geo_summary, clu_summary = load_everything()
+    if args.refresh:
+        _refresh_models()
+
+    geo, cluster, panel, geo_summary, clu_summary = load_everything()
 
     include_js = True if args.inline_js else "cdn"
     html = render_html(
-        geo, cluster, panel, wide, geo_summary, clu_summary,
-        include_plotlyjs=include_js,
-        country=args.country, year=args.year,
+        geo, cluster, panel, geo_summary, clu_summary,
+        include_plotlyjs=include_js, country=args.country,
     )
 
     out_dir = Path(args.out)

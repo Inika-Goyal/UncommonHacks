@@ -35,7 +35,7 @@ import joblib
 import numpy as np
 import pandas as pd
 
-from ..data.real import ILO_GLOBAL_PROPORTIONS, PREDICTOR_COLS
+from ..data.real import ILO_GLOBAL_PROPORTIONS
 from ..data.sources import sources_for
 from ..models.cluster import TrainedClusterModel
 from ..models.geographic import TrainedGeoModel
@@ -160,10 +160,15 @@ def _impute_from_cluster(
     panel: pd.DataFrame,
     target_country: str,
     cluster: TrainedClusterModel,
+    geo_model: TrainedGeoModel,
 ) -> Optional[pd.DataFrame]:
-    """Build a synthetic row for an ISO3 missing from the panel by
-    averaging the centroid of the closest cluster. Returns None if no
-    cluster centroids are available (shouldn't happen post-training).
+    """Build an imputed row for an ISO3 missing from the panel.
+
+    Starts from the nearest cluster centroid (best demographic+economic
+    guess) then fills *every column the geo model needs* with the panel
+    median. Without this, optional-block columns (WGI / CPI / UNHCR /
+    ACLED) would be NaN for unknown countries and the geo model's
+    predict would KeyError or produce NaN.
     """
     centroids = cluster.cluster_centroids
     if centroids.empty:
@@ -175,11 +180,11 @@ def _impute_from_cluster(
     diffs = np.linalg.norm(centroids[cluster.feature_cols].values - panel_mean, axis=1)
     nearest = int(np.argmin(diffs))
     imputed_row: Dict[str, Any] = {col: float(centroids.iloc[nearest][col]) for col in cluster.feature_cols}
-    # Fill the remaining PREDICTOR_COLS from the global panel median —
-    # these columns are NOT cluster features (governance/vulnerability)
-    # but the geo model needs them.
-    for col in PREDICTOR_COLS:
-        if col not in imputed_row:
+    # Fill every geo-model predictor (including optional-block columns
+    # like wgi_*, cpi_*, refugee_stock_per_1k) from the panel median if
+    # not already supplied by the cluster centroid.
+    for col in geo_model.feature_cols:
+        if col not in imputed_row and col in panel.columns:
             imputed_row[col] = float(panel[col].median())
     imputed_row["country"] = target_country
     imputed_row["country_name"] = target_country
@@ -196,7 +201,10 @@ def _country_payload(
     imputed: bool,
     warnings: List[str],
 ) -> Dict[str, Any]:
-    geo_pred = geo_model.predict(row[PREDICTOR_COLS])
+    # Use the model's own feature_cols — these may include optional-block
+    # columns and may exclude collinearity-dropped ones. The base
+    # PREDICTOR_COLS list is no longer authoritative.
+    geo_pred = geo_model.predict(row[geo_model.feature_cols])
 
     overall_mean = float(geo_pred["mean"][0])
     overall_lower = float(geo_pred["lower"][0])
@@ -320,12 +328,17 @@ def _country_payload(
     }
 
 
-def _country_for(country: str, panel: pd.DataFrame, cluster: TrainedClusterModel) -> Tuple[pd.DataFrame, bool, List[str]]:
+def _country_for(
+    country: str,
+    panel: pd.DataFrame,
+    cluster: TrainedClusterModel,
+    geo_model: TrainedGeoModel,
+) -> Tuple[pd.DataFrame, bool, List[str]]:
     warnings: List[str] = []
     row = _lookup_country_row(panel, country)
     if row is not None:
         return row, False, warnings
-    imputed = _impute_from_cluster(panel, country, cluster)
+    imputed = _impute_from_cluster(panel, country, cluster, geo_model)
     if imputed is None:
         raise ValueError(
             f"Country {country!r} is not in the trained GSI+WDI+RSF panel "
@@ -430,7 +443,7 @@ def predict(payload: dict) -> dict:
 
     by_country: Dict[str, Dict[str, Any]] = {}
     for c in countries:
-        row, imputed, warns = _country_for(c, panel, cluster)
+        row, imputed, warns = _country_for(c, panel, cluster, geo_model)
         payload_c = _country_payload(
             c, row, geo_model, cluster, panel, imputed, warns + global_warnings
         )

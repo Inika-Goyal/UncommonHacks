@@ -41,6 +41,7 @@ from ..data.real import (
     HELP_COLS,
     MIGRATION_COLS,
 )
+from ..features.imputation import impute, ImputationReport
 
 
 # In the GSI+WDI+RSF tier only demographic + economic blocks have
@@ -72,9 +73,32 @@ class TrainedClusterModel:
     # Kept for back-compat with downstream consumers expecting the
     # field on the dataclass; never populated since the NB was removed.
     cluster_dominant_exploit: Optional[pd.Series] = field(default=None)
+    # New (optional, default None for old joblib compat):
+    block_assignments: Dict[str, List[str]] = field(default_factory=dict)
+    block_weights: Dict[str, float] = field(default_factory=dict)
+    imputation_report: Optional[ImputationReport] = None
+
+    def column_weights(self) -> np.ndarray:
+        """Per-column 1/sqrt(block_size) weight vector used at training.
+
+        Public because eval/performance.py and app/build_report.py both
+        need to reproduce the exact training feature space; reaching into
+        a private name from outside the class was fragile.
+        """
+        if not self.block_weights or not self.block_assignments:
+            return np.ones(len(self.feature_cols))
+        return np.array([
+            self.block_weights.get(name, 1.0)
+            for name, cols in self.block_assignments.items()
+            for _ in cols
+        ])
+
+    def transform(self, X: pd.DataFrame) -> np.ndarray:
+        """Standardise + apply block weights, matching training."""
+        return self.scaler.transform(X[self.feature_cols]) * self.column_weights()
 
     def assign_cluster(self, X: pd.DataFrame) -> np.ndarray:
-        return self.kmeans.predict(self.scaler.transform(X[self.feature_cols]))
+        return self.kmeans.predict(self.transform(X))
 
     def similar_countries(
         self,
@@ -87,8 +111,8 @@ class TrainedClusterModel:
         if target.empty:
             return panel.iloc[0:0]
 
-        Xs_all = self.scaler.transform(panel[self.feature_cols])
-        Xs_target = self.scaler.transform(target[self.feature_cols])
+        Xs_all = self.transform(panel)
+        Xs_target = self.transform(target)
         cluster_of_target = self.kmeans.predict(Xs_target)[0]
         cluster_of_all = self.kmeans.predict(Xs_all)
 
@@ -121,22 +145,60 @@ def train_cluster_model(
     feature_blocks: Optional[Dict[str, List[str]]] = None,
     k_range: Tuple[int, ...] = (3, 4, 5, 6, 7, 8),
     seed: int = 0,
+    equal_block_weighting: bool = True,
 ) -> TrainedClusterModel:
-    blocks = feature_blocks or DEFAULT_BLOCKS
-    feature_cols = _selected_features(blocks)
-    if not feature_cols:
+    """Fit KMeans on per-block-rescaled features.
+
+    Why per-block rescaling: a block with 6 features (e.g. governance:
+    WGI×4 + CPI + WJP) would otherwise contribute 6× as much variance
+    to Euclidean distance as a block with one feature. We standardise
+    everything to z-scores, then divide each column by sqrt(block_size)
+    so every conceptual block contributes equal expected variance.
+
+    Missing values are filled via region-aware median impute so we don't
+    silently drop countries that are missing one optional source.
+    """
+    blocks_in = feature_blocks or DEFAULT_BLOCKS
+    # Filter each block to columns actually present in the panel
+    # (lets the optional source loaders be no-ops without breaking us).
+    blocks = {name: [c for c in cols if c in panel.columns]
+              for name, cols in blocks_in.items()}
+    blocks = {name: cols for name, cols in blocks.items() if cols}
+    if not blocks:
         raise ValueError(
             "No cluster features available — all configured feature blocks "
-            "are empty. Check data.real.{DEMOGRAPHIC,ECONOMIC,...}_COLS."
+            "are empty after filtering against the panel."
         )
 
-    rows = panel.dropna(subset=feature_cols).reset_index(drop=True)
+    feature_cols = _selected_features(blocks)
+
+    # Region-aware impute then drop the rare row that still lacks data
+    # in a column with zero observed values.
+    imputed, imp_report = impute(panel, columns=feature_cols)
+    rows = imputed.dropna(subset=feature_cols).reset_index(drop=True)
+
     scaler = StandardScaler().fit(rows[feature_cols])
     Xs = scaler.transform(rows[feature_cols])
+
+    # Build per-column weights from block sizes (1/sqrt(block_size)) so
+    # KMeans distance is balanced across blocks. Stored on the dataclass
+    # so the dashboard / similar-countries view can re-apply at inference.
+    block_weights: Dict[str, float] = {}
+    if equal_block_weighting:
+        for name, cols in blocks.items():
+            block_weights[name] = 1.0 / np.sqrt(len(cols))
+        col_weight = np.array([
+            block_weights[name]
+            for name, cols in blocks.items()
+            for _ in cols
+        ])
+        Xs = Xs * col_weight
 
     k, sil, km = _select_k(Xs, k_range)
 
     with_cluster = rows.assign(cluster=km.labels_)
+    # Centroids reported on the ORIGINAL unscaled features so the UI
+    # can display real numbers, not z-scores.
     centroids = with_cluster.groupby("cluster")[feature_cols].mean().round(3)
 
     return TrainedClusterModel(
@@ -147,4 +209,7 @@ def train_cluster_model(
         silhouette=float(sil),
         cluster_centroids=centroids,
         n_countries=int(len(rows)),
+        block_assignments=blocks,
+        block_weights=block_weights,
+        imputation_report=imp_report,
     )
