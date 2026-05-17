@@ -72,7 +72,7 @@ export async function withCache<T>(
   loader: () => Promise<T>,
 ): Promise<CacheLookup<T>> {
   const fresh = await readCache<T>(source, key);
-  if (fresh.hit && fresh.ageMs <= options.ttlMs) {
+  if (process.env.AGENT_SOURCE_CACHE === "prefer" && fresh.hit && fresh.ageMs <= options.ttlMs) {
     return { source: "cache", payload: fresh.payload, ageMs: fresh.ageMs };
   }
 

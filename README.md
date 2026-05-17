@@ -4,7 +4,7 @@ UnExploited is an Uncommon Hacks MVP for turning a company or geographic-region 
 
 The current `main` implementation has two operating modes:
 
-- **Demo mode** (`NEXT_PUBLIC_DEMO_MODE=true`): uses labeled fixture reports for the Shein company brief and Cambodia garment-sector region brief.
+- **Demo mode** (`NEXT_PUBLIC_DEMO_MODE=true`): uses labeled fixture reports for the Shein company brief and Cambodia garment-sector region brief through `/dashboard` and `/api/reports`. Landing-page submissions stay wired to the live swarm path and show a configuration message in demo mode.
 - **Live swarm mode** (`NEXT_PUBLIC_DEMO_MODE` not set to `true`): creates a Supabase report shell, runs a LangGraph agent swarm, streams agent progress to `/swarm/[id]`, then redirects to the persisted dashboard.
 
 ## Current Product Surface
@@ -55,10 +55,13 @@ Optional live integrations:
 ```bash
 OPENAI_EXTRACTION_MODEL=
 OPENAI_SYNTHESIS_MODEL=
+AGENT_SOURCE_CACHE=
 ELEVENLABS_API_KEY=
 ELEVENLABS_AGENT_ID=
 COURTLISTENER_API_TOKEN=
 ```
+
+Live source lookups are attempted first by default. Set `AGENT_SOURCE_CACHE=prefer` when you want repeated local runs to use fresh cache rows before making network requests.
 
 ## ElevenLabs Client Tools
 

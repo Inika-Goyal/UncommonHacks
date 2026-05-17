@@ -2378,7 +2378,7 @@ td a {
 }
 
 .launch-backdrop::before {
-  top: 64px;
+  display: none;
 }
 
 .launch-backdrop::after {
@@ -2422,9 +2422,9 @@ td a {
 
 .launch-stage {
   max-width: 1180px;
-  min-height: calc(100dvh - 72px);
+  min-height: 100dvh;
   height: auto;
-  padding: clamp(10px, 1.4vw, 20px) clamp(16px, 4vw, 48px) clamp(14px, 1.8vw, 24px);
+  padding: clamp(24px, 4vw, 48px) clamp(16px, 4vw, 48px) clamp(14px, 1.8vw, 24px);
   gap: clamp(8px, 1vw, 12px);
   grid-template-rows: auto auto auto auto;
   align-content: start;
@@ -2723,7 +2723,7 @@ td a {
 }
 
 .launch-loading-shell {
-  min-height: calc(100dvh - 72px);
+  min-height: 100dvh;
   display: grid;
   place-items: center;
   padding: 24px clamp(16px, 4vw, 48px) 48px;
@@ -2806,7 +2806,7 @@ td a {
 
   .launch-stage {
     align-content: start;
-    padding-top: 18px;
+    padding-top: 28px;
   }
 
   .launch-titlebar {
@@ -3072,13 +3072,19 @@ td a {
 
 .lumina-report-card {
   align-self: start;
+  min-width: 0;
+  max-height: calc(100dvh - 106px);
+  overflow: hidden;
+  padding: 0;
+}
+
+.lumina-report-card-scroll {
   display: flex;
   flex-direction: column;
   gap: 22px;
-  min-width: 0;
-  max-height: calc(100dvh - 106px);
-  overscroll-behavior: contain;
+  max-height: inherit;
   overflow-y: auto;
+  overscroll-behavior: contain;
   padding: clamp(20px, 2.4vw, 30px);
   scrollbar-gutter: stable;
 }
@@ -3418,6 +3424,11 @@ td a {
   .lumina-report-card {
     position: static;
     max-height: none;
+  }
+
+  .lumina-report-card-scroll {
+    max-height: none;
+    overflow-y: visible;
   }
 }
 
