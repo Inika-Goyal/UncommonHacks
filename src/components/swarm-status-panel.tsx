@@ -12,6 +12,7 @@ import {
   Gauge,
   MapPinned,
   Sparkles,
+  Search,
 } from "lucide-react";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 
@@ -36,6 +37,7 @@ export const DEFAULT_SWARM_STATE: SwarmState = {
   news: { status: "pending" },
   watchlist: { status: "pending" },
   supplier: { status: "pending" },
+  web_research: { status: "pending" },
   pipeline: { status: "pending" },
   legal: { status: "pending" },
   risk_index: { status: "pending" },
@@ -45,6 +47,7 @@ const AGENT_ICONS: Record<AgentName, ReactNode> = {
   news: <Newspaper aria-hidden="true" size={18} />,
   watchlist: <ShieldCheck aria-hidden="true" size={18} />,
   supplier: <Factory aria-hidden="true" size={18} />,
+  web_research: <Search aria-hidden="true" size={18} />,
   pipeline: <MapPinned aria-hidden="true" size={18} />,
   legal: <ScrollText aria-hidden="true" size={18} />,
   risk_index: <Gauge aria-hidden="true" size={18} />,

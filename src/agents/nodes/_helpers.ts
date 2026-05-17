@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { randomUUID } from "node:crypto";
 
-import type { Finding, MapPoint, SourceStatus } from "@/lib/report-types";
+import type { Finding, MapArc, MapPoint, SourceStatus } from "@/lib/report-types";
 
 import { createChatModel } from "@/agents/llm";
 import { buildAgentSystemPrompt } from "@/agents/prompts";
@@ -50,6 +50,7 @@ export type RunAgentArgs = {
     detail: string;
     findings: Finding[];
     mapPoints?: MapPoint[];
+    mapArcs?: MapArc[];
     rawFeatures: Record<string, unknown>;
   }>;
 };
@@ -71,6 +72,7 @@ export async function runAgentNode({ agent, reportId, runner }: RunAgentArgs): P
       detail: outcome.detail,
       findings: outcome.findings,
       mapPoints: outcome.mapPoints ?? [],
+      mapArcs: outcome.mapArcs ?? [],
       rawFeatures: outcome.rawFeatures,
       startedAt,
       finishedAt: new Date().toISOString(),
@@ -84,10 +86,10 @@ export async function runAgentNode({ agent, reportId, runner }: RunAgentArgs): P
       detail: message.slice(0, 200),
       findings: [],
       mapPoints: [],
+      mapArcs: [],
       rawFeatures: { error: message },
       startedAt,
       finishedAt: new Date().toISOString(),
     };
   }
 }
-

@@ -10,6 +10,7 @@ import {
   MapPinned,
   Newspaper,
   ScrollText,
+  Search,
   ShieldCheck,
 } from "lucide-react";
 import Link from "next/link";
@@ -35,6 +36,7 @@ const AGENT_ICONS: Record<AgentName, ReactNode> = {
   news: <Newspaper aria-hidden="true" size={16} />,
   watchlist: <ShieldCheck aria-hidden="true" size={16} />,
   supplier: <Factory aria-hidden="true" size={16} />,
+  web_research: <Search aria-hidden="true" size={16} />,
   pipeline: <MapPinned aria-hidden="true" size={16} />,
   legal: <ScrollText aria-hidden="true" size={16} />,
   risk_index: <Gauge aria-hidden="true" size={16} />,
@@ -172,7 +174,7 @@ export function SwarmLaunch({ reportId }: Props) {
             {done ? "Evidence synthesis complete" : "Investigating public evidence"}
           </h1>
           <p className="launch-subtitle">
-            Six specialist agents are collecting source signals, reconciling citations, and
+            Seven specialist agents are collecting source signals, reconciling citations, and
             assembling the risk brief that opens next.
           </p>
         </div>

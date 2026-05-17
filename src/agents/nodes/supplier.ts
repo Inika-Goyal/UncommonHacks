@@ -9,6 +9,7 @@ import {
   type NikeManufacturingFacility,
 } from "@/agents/tools/nike-manufacturing-map";
 import { runAgentNode, extractFindingsWithLlm } from "@/agents/nodes/_helpers";
+import { SUPPLY_CHAIN_STAGE_ORDER } from "@/agents/supply-chain-graph";
 
 // Supplier-agent records can come from live corporate-footprint lookup or a
 // source-backed facility disclosure source. The map should plot factory/facility
@@ -186,20 +187,11 @@ function facilityExploitType(facility: ResolvedFacility): ExploitCategory {
 
 function facilityStage(facility: ResolvedFacility): MapPointStage {
   const name = facility.name.toLowerCase();
-  if (name.includes("headquarters")) return "consumer";
+  if (name.includes("headquarters")) return "consumer_market";
   if (facility.origin === "wikidata" && facility.sectors.length === 0) return "distribution";
-  if (LABOR_RISK_SECTORS.test(facility.sectors.join(" "))) return "factory";
-  return "labor";
+  if (LABOR_RISK_SECTORS.test(facility.sectors.join(" "))) return "assembly";
+  return "component_or_processing";
 }
-
-const STAGE_ORDER: Record<MapPointStage, number> = {
-  origin: 0,
-  labor: 1,
-  factory: 2,
-  transit: 3,
-  distribution: 4,
-  consumer: 5,
-};
 
 function facilityCauses(
   facility: ResolvedFacility,
@@ -292,7 +284,7 @@ export async function supplierNode(state: OrchestratorState): Promise<Orchestrat
             exploitType: facilityExploitType(f),
             severity: facilitySeverity(risk),
             stage,
-            order: STAGE_ORDER[stage],
+            order: SUPPLY_CHAIN_STAGE_ORDER[stage],
             causes: facilityCauses(f, relevantCountries),
             sources: [
               {

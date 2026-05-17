@@ -1,18 +1,29 @@
 "use client";
 
-import { forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState } from "react";
+import {
+  forwardRef,
+  useCallback,
+  useEffect,
+  useImperativeHandle,
+  useMemo,
+  useRef,
+  useState,
+  type CSSProperties,
+} from "react";
 import { ExternalLink, Minus, Plus, RotateCcw, X } from "lucide-react";
 import * as THREE from "three";
 
 import {
   EXPLOIT_CATEGORY_LABELS,
   type ExploitCategory,
+  type MapArc,
   type MapPoint,
   type MapPointStage,
 } from "@/lib/report-types";
 
 export type WorldGlobeProps = {
   points: MapPoint[];
+  arcs?: MapArc[];
 };
 
 export type WorldGlobePan = {
@@ -73,6 +84,35 @@ type ArcLink = {
   color: [string, string];
 };
 
+type LabelAnchor = {
+  point: MapPoint;
+  x: number;
+  y: number;
+  depth: number;
+};
+
+type LabelCluster = {
+  id: string;
+  x: number;
+  y: number;
+  side: "left" | "right";
+  anchors: LabelAnchor[];
+};
+
+type LabelRect = {
+  left: number;
+  right: number;
+  top: number;
+  bottom: number;
+};
+
+type LegendGroup = {
+  stage: MapPointStage | "signal";
+  label: string;
+  description: string;
+  points: MapPoint[];
+};
+
 const GLOBE_RADIUS = 2.4;
 const ARC_HEIGHT = 0.26;
 const ARC_HEIGHT_MIN_FACTOR = 0.18;
@@ -87,6 +127,12 @@ const MAX_PAN_OFFSET = 1.42;
 const PAN_SENSITIVITY = 0.0062;
 const WHEEL_ZOOM_SENSITIVITY = 0.0012;
 const POINTER_ZOOM_PAN_SENSITIVITY = 1.05;
+const CAMERA_PAN_DAMPING = 0.24;
+const CAMERA_ZOOM_DAMPING = 0.2;
+const ROTATION_TARGET_DAMPING = 0.18;
+const ROTATION_INERTIA_DECAY = 0.78;
+const AUTO_ROTATE_SPEED = 0.00006;
+const AUTO_ROTATE_IDLE_DELAY_MS = 5200;
 
 // Exploit-type → translucent neon hex. Aligned with model-intelligence-panel
 // so the dashboard reads one categorical color language end-to-end.
@@ -114,7 +160,15 @@ function severityColor(severity: number): string {
   return "#ef4444";
 }
 
+function pointSeverity(point: MapPoint): number {
+  return point.severity ?? (point.risk === "high" ? 4 : point.risk === "medium" ? 3 : 2);
+}
+
 const STAGE_LABEL: Record<MapPointStage, string> = {
+  raw_material: "Raw Material",
+  component_or_processing: "Component",
+  assembly: "Assembly",
+  consumer_market: "Market",
   origin: "Origin",
   labor: "Labor",
   factory: "Factory",
@@ -122,6 +176,32 @@ const STAGE_LABEL: Record<MapPointStage, string> = {
   distribution: "Distribution",
   consumer: "Consumer",
 };
+
+const STAGE_DESCRIPTION: Record<MapPointStage, string> = {
+  raw_material: "Inputs or materials traced to an origin region.",
+  component_or_processing: "Parts, processors, or upstream supplier activity.",
+  assembly: "Where goods are assembled or manufactured.",
+  consumer_market: "Representative markets where products are sold.",
+  origin: "Source locations tied to the supply-chain evidence.",
+  labor: "Worker conditions, labor risk, or labor-rights reporting.",
+  factory: "Named production facilities or manufacturing suppliers.",
+  transit: "Ports, logistics hubs, or shipment waypoints.",
+  distribution: "Distribution, import, or retail market evidence.",
+  consumer: "End markets or consumer-facing sales locations.",
+};
+
+const STAGE_ORDER: MapPointStage[] = [
+  "raw_material",
+  "component_or_processing",
+  "origin",
+  "labor",
+  "factory",
+  "assembly",
+  "transit",
+  "distribution",
+  "consumer_market",
+  "consumer",
+];
 
 const RAY_VERTEX_SHADER = `
   varying float vT;
@@ -183,31 +263,188 @@ function clampPan(pan: WorldGlobePan): WorldGlobePan {
   };
 }
 
-// Build the exploitation chain: walk points in `order` (or list order as a
-// fallback) and connect each consecutive pair. Each arc's color gradient
-// interpolates between the two endpoints' severity so amber→red instantly
-// reads "this leg got worse."
-function makeArcLinks(points: readonly MapPoint[]): ArcLink[] {
+function makeArcLink(from: MapPoint, to: MapPoint): ArcLink {
+  const fromSeverity = from.severity ?? (from.risk === "high" ? 4 : from.risk === "medium" ? 3 : 2);
+  const toSeverity = to.severity ?? (to.risk === "high" ? 4 : to.risk === "medium" ? 3 : 2);
+  return {
+    startLat: from.latitude,
+    startLng: from.longitude,
+    endLat: to.latitude,
+    endLng: to.longitude,
+    color: [severityColor(fromSeverity), severityColor(toSeverity)],
+  };
+}
+
+// Build the exploitation graph. Persisted arcs are authoritative; when older
+// reports only have ordered points, connect each stage group to the next stage
+// group so parallel destinations branch from the same source instead of being
+// forced into a false one-by-one chain.
+function makeArcLinks(points: readonly MapPoint[], arcs: readonly MapArc[] = []): ArcLink[] {
   if (points.length < 2) {
     return [];
   }
 
+  const byId = new Map(points.map((point) => [point.id, point]));
+  if (arcs.length > 0) {
+    return arcs
+      .map((arc) => {
+        const from = byId.get(arc.fromPointId);
+        const to = byId.get(arc.toPointId);
+        return from && to ? makeArcLink(from, to) : null;
+      })
+      .filter((link): link is ArcLink => Boolean(link));
+  }
+
   const ordered = [...points].sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+  const grouped = new Map<number, MapPoint[]>();
+  ordered.forEach((point, index) => {
+    const key = point.order ?? index;
+    grouped.set(key, [...(grouped.get(key) ?? []), point]);
+  });
+
   const links: ArcLink[] = [];
-  for (let index = 0; index < ordered.length - 1; index += 1) {
-    const from = ordered[index];
-    const to = ordered[index + 1];
-    const fromSeverity = from.severity ?? (from.risk === "high" ? 4 : from.risk === "medium" ? 3 : 2);
-    const toSeverity = to.severity ?? (to.risk === "high" ? 4 : to.risk === "medium" ? 3 : 2);
-    links.push({
-      startLat: from.latitude,
-      startLng: from.longitude,
-      endLat: to.latitude,
-      endLng: to.longitude,
-      color: [severityColor(fromSeverity), severityColor(toSeverity)],
-    });
+  const orderKeys = [...grouped.keys()].sort((a, b) => a - b);
+  for (let index = 0; index < orderKeys.length - 1; index += 1) {
+    const fromGroup = grouped.get(orderKeys[index]) ?? [];
+    const toGroup = grouped.get(orderKeys[index + 1]) ?? [];
+    for (const from of fromGroup) {
+      for (const to of toGroup) {
+        if (from.id !== to.id) {
+          links.push(makeArcLink(from, to));
+        }
+      }
+    }
   }
   return links;
+}
+
+function clampValue(value: number, min: number, max: number): number {
+  return Math.min(Math.max(value, min), max);
+}
+
+function clusterLabelAnchors(
+  anchors: readonly LabelAnchor[],
+  frame: { width: number; height: number },
+): LabelCluster[] {
+  const clusters: LabelAnchor[][] = [];
+  const pointThreshold = 54;
+  const cardWidth = frame.width < 520 ? 132 : 164;
+  const cardHeight = frame.width < 520 ? 66 : 72;
+  const cardGap = frame.width < 520 ? 10 : 14;
+  const viewportPadding = 12;
+  const sorted = [...anchors].sort((a, b) => a.y - b.y || a.x - b.x);
+  const sideForX = (x: number): "left" | "right" =>
+    x > frame.width - cardWidth - cardGap - viewportPadding ? "left" : "right";
+  const rectForAnchor = (anchor: LabelAnchor): LabelRect => {
+    const side = sideForX(anchor.x);
+    const left = side === "left" ? anchor.x - cardGap - cardWidth : anchor.x + cardGap;
+    return {
+      left,
+      right: left + cardWidth + 22,
+      top: anchor.y - cardHeight / 2,
+      bottom: anchor.y + cardHeight / 2 + 20,
+    };
+  };
+  const rectForCluster = (cluster: readonly LabelAnchor[]): LabelRect =>
+    cluster.map(rectForAnchor).reduce(
+      (rect, next) => ({
+        left: Math.min(rect.left, next.left),
+        right: Math.max(rect.right, next.right),
+        top: Math.min(rect.top, next.top),
+        bottom: Math.max(rect.bottom, next.bottom),
+      }),
+      { left: Infinity, right: -Infinity, top: Infinity, bottom: -Infinity },
+    );
+  const rectsOverlap = (a: LabelRect, b: LabelRect) =>
+    a.left < b.right + 12 && a.right > b.left - 12 && a.top < b.bottom + 8 && a.bottom > b.top - 8;
+
+  for (const anchor of sorted) {
+    const anchorRect = rectForAnchor(anchor);
+    const cluster = clusters.find((candidate) => {
+      const centerX = candidate.reduce((sum, item) => sum + item.x, 0) / candidate.length;
+      const centerY = candidate.reduce((sum, item) => sum + item.y, 0) / candidate.length;
+      return (
+        Math.hypot(anchor.x - centerX, anchor.y - centerY) < pointThreshold ||
+        rectsOverlap(anchorRect, rectForCluster(candidate))
+      );
+    });
+
+    if (cluster) {
+      cluster.push(anchor);
+    } else {
+      clusters.push([anchor]);
+    }
+  }
+
+  const buildLabelCluster = (cluster: readonly LabelAnchor[]): LabelCluster => {
+    const x = cluster.reduce((sum, anchor) => sum + anchor.x, 0) / cluster.length;
+    const y = cluster.reduce((sum, anchor) => sum + anchor.y, 0) / cluster.length;
+    const shouldFlipLeft = x > frame.width - cardWidth - cardGap - viewportPadding;
+    const side = shouldFlipLeft ? "left" : "right";
+    const minX = side === "left" ? cardWidth + cardGap + viewportPadding : viewportPadding;
+    const maxX = side === "left"
+      ? frame.width - viewportPadding
+      : Math.max(viewportPadding, frame.width - cardWidth - cardGap - viewportPadding);
+    return {
+      id: cluster.map((anchor) => anchor.point.id).sort().join("-"),
+      x: clampValue(x, minX, maxX),
+      y: clampValue(y, 82, Math.max(82, frame.height - 94)),
+      side,
+      anchors: [...cluster].sort((a, b) => a.depth - b.depth),
+    };
+  };
+  const rectForLabelCluster = (cluster: LabelCluster): LabelRect => {
+    const left = cluster.side === "left" ? cluster.x - cardGap - cardWidth : cluster.x + cardGap;
+    return {
+      left,
+      right: left + cardWidth + 22,
+      top: cluster.y - cardHeight / 2,
+      bottom: cluster.y + cardHeight / 2 + 20,
+    };
+  };
+
+  const labelClusters = clusters.map(buildLabelCluster);
+  let didMerge = true;
+  while (didMerge) {
+    didMerge = false;
+    for (let index = 0; index < labelClusters.length; index += 1) {
+      for (let nextIndex = index + 1; nextIndex < labelClusters.length; nextIndex += 1) {
+        if (rectsOverlap(rectForLabelCluster(labelClusters[index]), rectForLabelCluster(labelClusters[nextIndex]))) {
+          labelClusters[index] = buildLabelCluster([...labelClusters[index].anchors, ...labelClusters[nextIndex].anchors]);
+          labelClusters.splice(nextIndex, 1);
+          didMerge = true;
+          break;
+        }
+      }
+      if (didMerge) break;
+    }
+  }
+
+  return labelClusters;
+}
+
+function groupLegendPoints(points: readonly MapPoint[]): LegendGroup[] {
+  const grouped = new Map<MapPointStage | "signal", MapPoint[]>();
+
+  for (const point of points) {
+    const stage = point.stage ?? "signal";
+    grouped.set(stage, [...(grouped.get(stage) ?? []), point]);
+  }
+
+  return [...grouped.entries()]
+    .sort(([stageA], [stageB]) => {
+      const indexA = stageA === "signal" ? STAGE_ORDER.length : STAGE_ORDER.indexOf(stageA);
+      const indexB = stageB === "signal" ? STAGE_ORDER.length : STAGE_ORDER.indexOf(stageB);
+      const normalizedA = indexA === -1 ? STAGE_ORDER.length : indexA;
+      const normalizedB = indexB === -1 ? STAGE_ORDER.length : indexB;
+      return normalizedA - normalizedB;
+    })
+    .map(([stage, groupPoints]) => ({
+      stage,
+      label: stage === "signal" ? "Other Signals" : STAGE_LABEL[stage],
+      description: stage === "signal" ? "Signals that do not fit a specific supply-chain stage." : STAGE_DESCRIPTION[stage],
+      points: [...groupPoints].sort((a, b) => pointSeverity(b) - pointSeverity(a) || (a.order ?? 0) - (b.order ?? 0)),
+    }));
 }
 
 function makeArcPoints(link: ArcLink) {
@@ -401,14 +638,17 @@ function canCreateWebGLContext() {
   return true;
 }
 
-export const WorldGlobe = forwardRef<WorldGlobeHandle, WorldGlobeProps>(function WorldGlobe({ points }, ref) {
+export const WorldGlobe = forwardRef<WorldGlobeHandle, WorldGlobeProps>(function WorldGlobe({ points, arcs = [] }, ref) {
   const mountRef = useRef<HTMLDivElement | null>(null);
   const zoomLevelRef = useRef(1);
   const panOffsetRef = useRef({ x: 0, y: 0 });
   const rotationTargetRef = useRef<Required<WorldGlobeRotation> | null>(null);
   const currentRotationRef = useRef<Required<WorldGlobeRotation>>({ x: 0, y: 0 });
+  const labelHoverRef = useRef(false);
   const [selectedPointId, setSelectedPointId] = useState<string | null>(null);
   const [zoomLevel, setZoomLevel] = useState(1);
+  const [labelAnchors, setLabelAnchors] = useState<LabelAnchor[]>([]);
+  const [labelFrame, setLabelFrame] = useState({ width: 0, height: 0 });
   const [geographyState, setGeographyState] = useState<GeographyState>({ status: "loading" });
   const [rendererError, setRendererError] = useState<string | null>(null);
 
@@ -416,11 +656,17 @@ export const WorldGlobe = forwardRef<WorldGlobeHandle, WorldGlobeProps>(function
     () => [...points].sort((a, b) => (a.order ?? 0) - (b.order ?? 0)),
     [points],
   );
+  const activeArcs = useMemo(() => arcs, [arcs]);
 
   const selectedPoint = useMemo(
     () => activePoints.find((point) => point.id === selectedPointId) ?? null,
     [activePoints, selectedPointId],
   );
+  const labelClusters = useMemo(
+    () => clusterLabelAnchors(labelAnchors, labelFrame),
+    [labelAnchors, labelFrame],
+  );
+  const legendGroups = useMemo(() => groupLegendPoints(activePoints), [activePoints]);
 
   useEffect(() => {
     zoomLevelRef.current = zoomLevel;
@@ -544,6 +790,7 @@ export const WorldGlobe = forwardRef<WorldGlobeHandle, WorldGlobeProps>(function
     const countryFeatures = geographyState.features;
     let isDisposed = false;
     let disposeScene: (() => void) | undefined;
+    setLabelAnchors([]);
 
     async function setupScene() {
       setRendererError(null);
@@ -619,7 +866,7 @@ export const WorldGlobe = forwardRef<WorldGlobeHandle, WorldGlobeProps>(function
       const arcGroup = new THREE.Group();
       const arcPulseMaterials: THREE.ShaderMaterial[] = [];
       const arcBaseMaterials: THREE.ShaderMaterial[] = [];
-      makeArcLinks(activePoints).forEach((link, index) => {
+      makeArcLinks(activePoints, activeArcs).forEach((link, index) => {
         const signalArc = makeSignalArc(link, index);
         arcGroup.add(signalArc.group);
         arcPulseMaterials.push(...signalArc.pulseMaterials);
@@ -846,13 +1093,15 @@ export const WorldGlobe = forwardRef<WorldGlobeHandle, WorldGlobeProps>(function
       let startPanX = 0;
       let startPanY = 0;
       let dragMode: "rotate" | "pan" = "rotate";
-      const rotationVelocity = new THREE.Vector2(0, 0.00028);
+      const rotationVelocity = new THREE.Vector2(0, 0);
+      let lastInteractionTime = performance.now();
 
       const resize = () => {
         const { width, height } = mountElement.getBoundingClientRect();
         renderer.setSize(width, height, false);
         camera.aspect = width / Math.max(height, 1);
         camera.updateProjectionMatrix();
+        setLabelFrame({ width, height });
       };
 
       const resizeObserver = new ResizeObserver(resize);
@@ -894,6 +1143,7 @@ export const WorldGlobe = forwardRef<WorldGlobeHandle, WorldGlobeProps>(function
         if (event.metaKey || event.ctrlKey) {
           event.preventDefault();
         }
+        lastInteractionTime = performance.now();
         isDragging = true;
         dragStartX = event.clientX;
         dragStartY = event.clientY;
@@ -914,6 +1164,7 @@ export const WorldGlobe = forwardRef<WorldGlobeHandle, WorldGlobeProps>(function
           return;
         }
 
+        lastInteractionTime = performance.now();
         const dx = event.clientX - dragStartX;
         const dy = event.clientY - dragStartY;
         if (dragMode === "pan" || event.metaKey || event.ctrlKey) {
@@ -935,12 +1186,14 @@ export const WorldGlobe = forwardRef<WorldGlobeHandle, WorldGlobeProps>(function
           x: globeGroup.rotation.x,
           y: globeGroup.rotation.y,
         };
-        rotationVelocity.set(dy * 0.00005, dx * 0.00008);
+        rotationVelocity.set(dy * 0.000025, dx * 0.00004);
       };
 
       const handlePointerUp = (event: PointerEvent) => {
         const moved = Math.abs(event.clientX - dragStartX) + Math.abs(event.clientY - dragStartY);
+        lastInteractionTime = performance.now();
         isDragging = false;
+        rotationVelocity.multiplyScalar(0.12);
         renderer.domElement.releasePointerCapture(event.pointerId);
 
         if (moved < 8) {
@@ -950,6 +1203,7 @@ export const WorldGlobe = forwardRef<WorldGlobeHandle, WorldGlobeProps>(function
 
       const handleWheel = (event: WheelEvent) => {
         event.preventDefault();
+        lastInteractionTime = performance.now();
         const oldZoom = zoomLevelRef.current;
         const nextZoom = THREE.MathUtils.clamp(
           oldZoom - event.deltaY * WHEEL_ZOOM_SENSITIVITY,
@@ -980,19 +1234,78 @@ export const WorldGlobe = forwardRef<WorldGlobeHandle, WorldGlobeProps>(function
       renderer.domElement.addEventListener("wheel", handleWheel, { passive: false });
       renderer.domElement.addEventListener("contextmenu", handleContextMenu);
 
+      const updateLabelAnchors = () => {
+        const width = renderer.domElement.clientWidth;
+        const height = renderer.domElement.clientHeight;
+        if (width <= 0 || height <= 0) {
+          return;
+        }
+
+        camera.updateMatrixWorld();
+        globeGroup.updateMatrixWorld();
+        const cameraPosition = new THREE.Vector3();
+        camera.getWorldPosition(cameraPosition);
+        const nextAnchors: LabelAnchor[] = [];
+
+        for (const point of activePoints) {
+          const localSurface = latLngToVector3(point.latitude, point.longitude, GLOBE_RADIUS);
+          const worldSurface = localSurface.clone().applyMatrix4(globeGroup.matrixWorld);
+          const normal = localSurface.clone().normalize().transformDirection(globeGroup.matrixWorld);
+          const cameraDirection = cameraPosition.clone().sub(worldSurface).normalize();
+          const facing = normal.dot(cameraDirection);
+          if (facing < 0.04) {
+            continue;
+          }
+
+          const projected = worldSurface.clone().project(camera);
+          if (projected.z < -1 || projected.z > 1) {
+            continue;
+          }
+
+          const x = (projected.x * 0.5 + 0.5) * width;
+          const y = (-projected.y * 0.5 + 0.5) * height;
+          if (x < -36 || x > width + 36 || y < -36 || y > height + 36) {
+            continue;
+          }
+
+          nextAnchors.push({
+            point,
+            x: Number(x.toFixed(2)),
+            y: Number(y.toFixed(2)),
+            depth: projected.z,
+          });
+        }
+
+        setLabelFrame((previous) =>
+          Math.abs(previous.width - width) > 1 || Math.abs(previous.height - height) > 1
+            ? { width, height }
+            : previous,
+        );
+        setLabelAnchors(nextAnchors);
+      };
+
       const animate = () => {
+        const now = performance.now();
         const zoomAmount = (zoomLevelRef.current - MIN_ZOOM) / (MAX_ZOOM - MIN_ZOOM);
         const targetCameraDistance = THREE.MathUtils.lerp(8.6, 5.45, zoomAmount);
         const panInfluence = 0.55 + zoomAmount * 0.8;
         const targetCameraX = panOffsetRef.current.x * panInfluence;
         const targetCameraY = 0.2 + panOffsetRef.current.y * panInfluence;
-        camera.position.x = THREE.MathUtils.lerp(camera.position.x, targetCameraX, 0.14);
-        camera.position.y = THREE.MathUtils.lerp(camera.position.y, targetCameraY, 0.14);
-        camera.position.z = THREE.MathUtils.lerp(camera.position.z, targetCameraDistance, 0.12);
+        camera.position.x = THREE.MathUtils.lerp(camera.position.x, targetCameraX, CAMERA_PAN_DAMPING);
+        camera.position.y = THREE.MathUtils.lerp(camera.position.y, targetCameraY, CAMERA_PAN_DAMPING);
+        camera.position.z = THREE.MathUtils.lerp(camera.position.z, targetCameraDistance, CAMERA_ZOOM_DAMPING);
 
         if (!isDragging && rotationTargetRef.current) {
-          globeGroup.rotation.x = THREE.MathUtils.lerp(globeGroup.rotation.x, rotationTargetRef.current.x, 0.1);
-          globeGroup.rotation.y = THREE.MathUtils.lerp(globeGroup.rotation.y, rotationTargetRef.current.y, 0.1);
+          globeGroup.rotation.x = THREE.MathUtils.lerp(
+            globeGroup.rotation.x,
+            rotationTargetRef.current.x,
+            ROTATION_TARGET_DAMPING,
+          );
+          globeGroup.rotation.y = THREE.MathUtils.lerp(
+            globeGroup.rotation.y,
+            rotationTargetRef.current.y,
+            ROTATION_TARGET_DAMPING,
+          );
           if (
             Math.abs(globeGroup.rotation.x - rotationTargetRef.current.x) < 0.0006 &&
             Math.abs(globeGroup.rotation.y - rotationTargetRef.current.y) < 0.0006
@@ -1001,11 +1314,16 @@ export const WorldGlobe = forwardRef<WorldGlobeHandle, WorldGlobeProps>(function
             globeGroup.rotation.y = rotationTargetRef.current.y;
             rotationTargetRef.current = null;
           }
-        } else if (!isDragging && !reducedMotion && zoomLevelRef.current <= MIN_ZOOM + 0.02) {
-          globeGroup.rotation.y += rotationVelocity.y;
-          globeGroup.rotation.x += rotationVelocity.x;
-          rotationVelocity.multiplyScalar(0.992);
-          rotationVelocity.y = Math.max(rotationVelocity.y, 0.00028);
+        } else if (!isDragging && !labelHoverRef.current && !reducedMotion && zoomLevelRef.current <= MIN_ZOOM + 0.02) {
+          const recentlyInteracted = now - lastInteractionTime < AUTO_ROTATE_IDLE_DELAY_MS;
+          if (rotationVelocity.lengthSq() > 0.000000002) {
+            globeGroup.rotation.y += rotationVelocity.y;
+            globeGroup.rotation.x += rotationVelocity.x;
+            rotationVelocity.multiplyScalar(ROTATION_INERTIA_DECAY);
+          } else if (!recentlyInteracted) {
+            rotationVelocity.set(0, AUTO_ROTATE_SPEED);
+            globeGroup.rotation.y += AUTO_ROTATE_SPEED;
+          }
         }
         currentRotationRef.current = {
           x: globeGroup.rotation.x,
@@ -1014,7 +1332,6 @@ export const WorldGlobe = forwardRef<WorldGlobeHandle, WorldGlobeProps>(function
 
         if (!reducedMotion) {
           stars.rotation.y += 0.00018;
-          const now = performance.now();
           const seconds = now * 0.001;
 
           arcBaseMaterials.forEach((material, index) => {
@@ -1070,6 +1387,7 @@ export const WorldGlobe = forwardRef<WorldGlobeHandle, WorldGlobeProps>(function
           });
         }
 
+        updateLabelAnchors();
         renderer.render(scene, camera);
         frameId = requestAnimationFrame(animate);
       };
@@ -1112,7 +1430,7 @@ export const WorldGlobe = forwardRef<WorldGlobeHandle, WorldGlobeProps>(function
       isDisposed = true;
       disposeScene?.();
     };
-  }, [activePoints, geographyState, setPan, setZoom]);
+  }, [activeArcs, activePoints, geographyState, setPan, setZoom]);
 
   return (
     <div className="globe-stage" aria-label="3D geographic report signals">
@@ -1164,6 +1482,21 @@ export const WorldGlobe = forwardRef<WorldGlobeHandle, WorldGlobeProps>(function
             <strong>{geographyState.message}</strong>
           </div>
         ) : null}
+        {!rendererError && labelClusters.length > 0 ? (
+          <div className="globe-node-layer" aria-label="Globe node cards">
+            {labelClusters.map((cluster) => (
+              <NodeCardCluster
+                key={cluster.id}
+                cluster={cluster}
+                selectedPointId={selectedPointId}
+                onSelect={setSelectedPointId}
+                onHoverChange={(isHovering) => {
+                  labelHoverRef.current = isHovering;
+                }}
+              />
+            ))}
+          </div>
+        ) : null}
         {selectedPoint ? (
           <PointDetailCard point={selectedPoint} onClose={() => setSelectedPointId(null)} />
         ) : null}
@@ -1175,34 +1508,187 @@ export const WorldGlobe = forwardRef<WorldGlobeHandle, WorldGlobeProps>(function
         </div>
       ) : null}
       <div className="globe-legend" aria-label="Mapped exploitation signals">
-        {activePoints.map((point) => {
-          const color = exploitColor(point);
-          const stageLabel = point.stage ? STAGE_LABEL[point.stage] : null;
-          return (
-            <button
-              key={point.id}
-              className={point.id === selectedPoint?.id ? "legend-row legend-row-active" : "legend-row"}
-              type="button"
-              data-map-point-id={point.id}
-              onClick={() => setSelectedPointId(point.id)}
-            >
-              <span className="legend-dot" style={{ background: color, boxShadow: `0 0 10px ${color}` }} />
-              <span className="legend-row-main">
-                <span className="legend-row-label">{point.label}</span>
-                {stageLabel ? <span className="legend-row-stage">{stageLabel}</span> : null}
+        {legendGroups.map((group) => (
+          <section className="legend-group" key={group.stage}>
+            <header className="legend-group-head">
+              <span className="legend-group-title">
+                <span>{group.label}</span>
+                <em>{group.description}</em>
               </span>
-              {point.severity ? (
-                <span className="legend-row-severity" style={{ color: severityColor(point.severity) }}>
-                  S{point.severity}
-                </span>
-              ) : null}
-            </button>
-          );
-        })}
+              <small>{group.points.length}</small>
+            </header>
+            <div className="legend-group-grid">
+              {group.points.map((point) => {
+                const color = exploitColor(point);
+                const severity = pointSeverity(point);
+                const typeLabel = point.exploitType ? EXPLOIT_CATEGORY_LABELS[point.exploitType] : null;
+                return (
+                  <button
+                    key={point.id}
+                    className={point.id === selectedPoint?.id ? "legend-row legend-row-active" : "legend-row"}
+                    type="button"
+                    data-map-point-id={point.id}
+                    onClick={() => setSelectedPointId(point.id)}
+                  >
+                    <span className="legend-dot" style={{ background: color, boxShadow: `0 0 10px ${color}` }} />
+                    <span className="legend-row-main">
+                      <span className="legend-row-label">{point.label}</span>
+                      {typeLabel ? <span className="legend-row-stage">{typeLabel}</span> : null}
+                    </span>
+                    <span className="legend-row-severity" style={{ color: severityColor(severity) }}>
+                      S{severity}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          </section>
+        ))}
       </div>
     </div>
   );
 });
+
+function NodeCardCluster({
+  cluster,
+  selectedPointId,
+  onSelect,
+  onHoverChange,
+}: {
+  cluster: LabelCluster;
+  selectedPointId: string | null;
+  onSelect: (pointId: string) => void;
+  onHoverChange: (isHovering: boolean) => void;
+}) {
+  const selectedIndex = cluster.anchors.findIndex((anchor) => anchor.point.id === selectedPointId);
+  const [activeIndex, setActiveIndex] = useState(Math.max(0, selectedIndex));
+  const [isStackActive, setIsStackActive] = useState(false);
+  const safeActiveIndex = cluster.anchors.length > 0
+    ? (selectedIndex >= 0 ? selectedIndex : activeIndex) % cluster.anchors.length
+    : 0;
+  const deckAnchors = Array.from(
+    { length: Math.min(4, cluster.anchors.length) },
+    (_, index) => cluster.anchors[(safeActiveIndex + index) % cluster.anchors.length],
+  );
+  const hiddenCount = cluster.anchors.length - deckAnchors.length;
+  const stackStyle = {
+    transform:
+      cluster.side === "left"
+        ? `translate3d(${cluster.x}px, ${cluster.y}px, 0) translate(calc(-100% - var(--stack-gap)), -50%)`
+        : `translate3d(${cluster.x}px, ${cluster.y}px, 0) translate(var(--stack-gap), -50%)`,
+  };
+  const activePoint = cluster.anchors[safeActiveIndex]?.point;
+
+  function cycleStack(direction: 1 | -1) {
+    if (cluster.anchors.length < 2) {
+      return;
+    }
+    const next = (safeActiveIndex + direction + cluster.anchors.length) % cluster.anchors.length;
+    setActiveIndex(next);
+    onSelect(cluster.anchors[next].point.id);
+  }
+
+  return (
+    <div
+      className={[
+        "globe-node-card-stack",
+        `globe-node-card-stack-${cluster.side}`,
+        isStackActive ? "globe-node-card-stack-active" : "",
+      ]
+        .filter(Boolean)
+        .join(" ")}
+      style={stackStyle}
+      tabIndex={0}
+      role="group"
+      aria-label={
+        activePoint
+          ? `${activePoint.label} stack. Press Tab to switch between cards in this stack.`
+          : "Map signal stack"
+      }
+      onPointerEnter={(event) => {
+        setIsStackActive(true);
+        onHoverChange(true);
+        event.currentTarget.focus({ preventScroll: true });
+      }}
+      onPointerLeave={(event) => {
+        const hasFocusInside = event.currentTarget.contains(document.activeElement);
+        setIsStackActive(hasFocusInside);
+        onHoverChange(hasFocusInside);
+      }}
+      onFocus={() => {
+        setIsStackActive(true);
+        onHoverChange(true);
+      }}
+      onBlur={(event) => {
+        const nextTarget = event.relatedTarget instanceof Node ? event.relatedTarget : null;
+        const hasFocusInside = nextTarget ? event.currentTarget.contains(nextTarget) : false;
+        setIsStackActive(hasFocusInside);
+        onHoverChange(hasFocusInside);
+      }}
+      onKeyDown={(event) => {
+        if (event.key === "Escape") {
+          event.currentTarget.blur();
+          setIsStackActive(false);
+          onHoverChange(false);
+          return;
+        }
+        if (event.key !== "Tab" || cluster.anchors.length < 2) {
+          return;
+        }
+        event.preventDefault();
+        cycleStack(event.shiftKey ? -1 : 1);
+      }}
+    >
+      {deckAnchors.map((anchor, index) => {
+        const point = anchor.point;
+        const color = exploitColor(point);
+        const stageLabel = point.stage ? STAGE_LABEL[point.stage] : "Signal";
+        const severity = point.severity ?? (point.risk === "high" ? 4 : point.risk === "medium" ? 3 : 2);
+        const cardStyle = {
+          "--stack-index": index,
+          "--node-color": color,
+        } as CSSProperties;
+        const isFront = index === 0;
+        return (
+          <button
+            key={point.id}
+            type="button"
+            className={[
+              "globe-node-card",
+              isFront ? "globe-node-card-front" : "globe-node-card-back",
+              isFront && isStackActive ? "globe-node-card-active" : "",
+              point.id === selectedPointId ? "globe-node-card-selected" : "",
+            ]
+              .filter(Boolean)
+              .join(" ")}
+            style={cardStyle}
+            title={point.label}
+            tabIndex={isFront ? 0 : -1}
+            aria-hidden={!isFront}
+            onClick={() => {
+              setActiveIndex(cluster.anchors.findIndex((candidate) => candidate.point.id === point.id));
+              onSelect(point.id);
+            }}
+          >
+            <span className="globe-node-card-pip" aria-hidden="true" />
+            <span className="globe-node-card-main">
+              <strong>{point.label}</strong>
+              <span>
+                {stageLabel} · S{severity}
+              </span>
+            </span>
+          </button>
+        );
+      })}
+      {hiddenCount > 0 ? <span className="globe-node-card-count">+{hiddenCount}</span> : null}
+      {cluster.anchors.length > 1 ? (
+        <span className={isStackActive ? "globe-node-card-hint globe-node-card-hint-active" : "globe-node-card-hint"}>
+          Press Tab to switch cards
+        </span>
+      ) : null}
+    </div>
+  );
+}
 
 function PointDetailCard({ point, onClose }: { point: MapPoint; onClose: () => void }) {
   const color = exploitColor(point);

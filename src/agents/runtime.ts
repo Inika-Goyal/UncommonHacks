@@ -153,7 +153,7 @@ function handleNodeUpdate(reportId: string, node: string, update: Record<string,
   }
 
   if (node === "ingest") {
-    for (const name of ["news", "watchlist", "supplier", "legal", "risk_index"] as const) {
+    for (const name of ["news", "watchlist", "supplier", "web_research", "legal", "risk_index"] as const) {
       emit(reportId, { type: "agent", name, status: "running" });
     }
   }
