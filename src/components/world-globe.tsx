@@ -54,6 +54,7 @@ export type WorldGlobeAmbientArc = {
 };
 
 const EMPTY_AMBIENT_ARCS: WorldGlobeAmbientArc[] = [];
+const EMPTY_MAP_ARCS: MapArc[] = [];
 
 export type WorldGlobePan = {
   x: number;
@@ -689,7 +690,7 @@ function canCreateWebGLContext() {
 export const WorldGlobe = forwardRef<WorldGlobeHandle, WorldGlobeProps>(function WorldGlobe(
   {
     points,
-    arcs = [],
+    arcs = EMPTY_MAP_ARCS,
     ambientArcs = EMPTY_AMBIENT_ARCS,
     visiblePointIds,
     trackedPointId = null,
@@ -1388,6 +1389,10 @@ export const WorldGlobe = forwardRef<WorldGlobeHandle, WorldGlobeProps>(function
       renderer.domElement.addEventListener("contextmenu", handleContextMenu);
 
       const updateLabelAnchors = () => {
+        if (!showChrome) {
+          return;
+        }
+
         const width = renderer.domElement.clientWidth;
         const height = renderer.domElement.clientHeight;
         if (width <= 0 || height <= 0) {
@@ -1640,7 +1645,7 @@ export const WorldGlobe = forwardRef<WorldGlobeHandle, WorldGlobeProps>(function
       isDisposed = true;
       disposeScene?.();
     };
-  }, [activeArcs, activePoints, ambientArcLinks, autoRotateWhileZoomed, geographyState, idleRotationSpeed, setPan, setZoom, showPointArcs]);
+  }, [activeArcs, activePoints, ambientArcLinks, autoRotateWhileZoomed, geographyState, idleRotationSpeed, setPan, setZoom, showChrome, showPointArcs]);
 
   return (
     <div className="globe-stage" aria-label="3D geographic report signals">
