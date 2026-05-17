@@ -152,7 +152,7 @@ export function ModelIntelligencePanel({ report }: ModelIntelligencePanelProps) 
       initial={{ opacity: 0, y: 14 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.6, delay: 0.3, ease: "easeOut" }}
-      className="lumina-model-intel"
+      className="laborlens-model-intel"
       aria-label="Model intelligence"
     >
       {ml ? (
@@ -163,9 +163,9 @@ export function ModelIntelligencePanel({ report }: ModelIntelligencePanelProps) 
         </>
       ) : (
         <>
-          <header className="lumina-model-intel-head">
+          <header className="laborlens-model-intel-head">
             <div>
-              <p className="lumina-overline">Model intelligence</p>
+              <p className="laborlens-overline">Model intelligence</p>
               <h2>Country-risk model</h2>
             </div>
             <p>No country-level estimate is available for this report.</p>
@@ -192,34 +192,34 @@ function MlVerdictCard({ report, ml }: { report: Report; ml: MlPrediction }) {
 
   return (
     <article
-      className={`liquid-glass lumina-model-card lumina-verdict-card lumina-verdict-${band.toLowerCase()}`}
+      className={`liquid-glass laborlens-model-card laborlens-verdict-card laborlens-verdict-${band.toLowerCase()}`}
     >
-      <div className="lumina-verdict-score-block">
-        <span className="lumina-verdict-band">{BAND_TONE[band].label}</span>
-        <strong className="lumina-verdict-overall">
+      <div className="laborlens-verdict-score-block">
+        <span className="laborlens-verdict-band">{BAND_TONE[band].label}</span>
+        <strong className="laborlens-verdict-overall">
           {report.overallRisk}
           <small>/100</small>
         </strong>
-        <span className="lumina-verdict-sub">
+        <span className="laborlens-verdict-sub">
           severity {report.severity}/5 · credibility {report.credibility}/5
         </span>
       </div>
-      <div className="lumina-verdict-body">
-        <header className="lumina-verdict-context">
-          <p className="lumina-overline">Model intelligence</p>
+      <div className="laborlens-verdict-body">
+        <header className="laborlens-verdict-context">
+          <p className="laborlens-overline">Model intelligence</p>
           <h2>
             {countryCount > 1
               ? `Worst link: ${worst.country_name}`
               : worst.country_name}
           </h2>
-          <p className="lumina-verdict-meta">
+          <p className="laborlens-verdict-meta">
             {countryCount > 1
               ? `${countryCount}-country supply chain · country-keyed model`
               : "Country-keyed model"}
           </p>
         </header>
-        <p className="lumina-verdict-insight">{insight}</p>
-        <dl className="lumina-verdict-stats">
+        <p className="laborlens-verdict-insight">{insight}</p>
+        <dl className="laborlens-verdict-stats">
           <div>
             <dt>Workers at risk</dt>
             <dd>
@@ -245,7 +245,7 @@ function MlVerdictCard({ report, ml }: { report: Report; ml: MlPrediction }) {
           </div>
         </dl>
         {ml.adjustments?.floorReason === "uflpa_match" ? (
-          <p className="lumina-verdict-note">
+          <p className="laborlens-verdict-note">
             <AlertTriangle size={12} aria-hidden /> Severity raised by UFLPA Entity-List exposure.
           </p>
         ) : null}
@@ -269,23 +269,23 @@ function SupplyChainPlainSummary({ ml }: { ml: MlPrediction }) {
   if (countries.length === 0) return null;
 
   return (
-    <section className="lumina-supply-section">
-      <header className="lumina-supply-head">
+    <section className="laborlens-supply-section">
+      <header className="laborlens-supply-head">
         <div>
-          <p className="lumina-overline">Supply-chain footprint</p>
+          <p className="laborlens-overline">Supply-chain footprint</p>
           <h3>
             {countries.length === 1
               ? "Single-country footprint"
               : `${countries.length} countries · worst link first`}
           </h3>
         </div>
-        <span className="lumina-supply-legend">
-          <em className="lumina-band-dot lumina-band-high" /> high
-          <em className="lumina-band-dot lumina-band-moderate" /> moderate
-          <em className="lumina-band-dot lumina-band-lower" /> lower
+        <span className="laborlens-supply-legend">
+          <em className="laborlens-band-dot laborlens-band-high" /> high
+          <em className="laborlens-band-dot laborlens-band-moderate" /> moderate
+          <em className="laborlens-band-dot laborlens-band-lower" /> lower
         </span>
       </header>
-      <div className="lumina-supply-grid">
+      <div className="laborlens-supply-grid">
         {countries.map((c) => {
           const w = weights[c.country];
           const pct = typeof w === "number" ? Math.round(w * 100) : null;
@@ -318,41 +318,41 @@ function CountryTile({
 
   return (
     <article
-      className={`liquid-glass lumina-country-tile lumina-country-${band.toLowerCase()}`}
+      className={`liquid-glass laborlens-country-tile laborlens-country-${band.toLowerCase()}`}
     >
-      <header className="lumina-country-head">
-        <div className="lumina-country-id">
-          <span className="lumina-country-iso">{country.country}</span>
-          <span className="lumina-country-name">{country.country_name}</span>
+      <header className="laborlens-country-head">
+        <div className="laborlens-country-id">
+          <span className="laborlens-country-iso">{country.country}</span>
+          <span className="laborlens-country-name">{country.country_name}</span>
         </div>
-        <span className="lumina-country-band">{BAND_TONE[band].label.replace(" RISK", "")}</span>
+        <span className="laborlens-country-band">{BAND_TONE[band].label.replace(" RISK", "")}</span>
       </header>
-      <div className="lumina-country-metric">
+      <div className="laborlens-country-metric">
         <strong>{prev < 5 ? prev.toFixed(1) : prev.toFixed(0)}</strong>
         <span>workers / 1,000</span>
       </div>
       {weightPct != null && totalCountries > 1 ? (
-        <div className="lumina-country-weight">
-          <span className="lumina-country-weight-label">share of supply chain</span>
-          <div className="lumina-country-weight-track" aria-hidden>
+        <div className="laborlens-country-weight">
+          <span className="laborlens-country-weight-label">share of supply chain</span>
+          <div className="laborlens-country-weight-track" aria-hidden>
             <span
-              className="lumina-country-weight-fill"
+              className="laborlens-country-weight-fill"
               style={{ width: `${weightPct}%` }}
             />
           </div>
-          <span className="lumina-country-weight-value">{weightPct}%</span>
+          <span className="laborlens-country-weight-value">{weightPct}%</span>
         </div>
       ) : null}
       {driver ? (
-        <p className="lumina-country-driver">
-          <span className="lumina-country-driver-label">Biggest factor</span>
+        <p className="laborlens-country-driver">
+          <span className="laborlens-country-driver-label">Biggest factor</span>
           <span>
             {driver.direction === "up" ? "↑" : "↓"} {plainDriverLabel(driver.label)}
           </span>
         </p>
       ) : null}
       {country.imputed ? (
-        <p className="lumina-country-note">
+        <p className="laborlens-country-note">
           <Info size={11} aria-hidden /> Predictors imputed — wider uncertainty.
         </p>
       ) : null}
@@ -366,23 +366,23 @@ function CountryTile({
 
 function TechnicalDetailsDisclosure({ report, ml }: { report: Report; ml: MlPrediction }) {
   return (
-    <details className="lumina-details-disclosure">
-      <summary className="lumina-details-summary">
+    <details className="laborlens-details-disclosure">
+      <summary className="laborlens-details-summary">
         <ChevronDown size={14} aria-hidden />
         <span>Technical model details</span>
-        <span className="lumina-details-hint">
+        <span className="laborlens-details-hint">
           prevalence range · agent adjustments · drivers · validation
         </span>
       </summary>
-      <div className="lumina-details-body">
-        <p className="lumina-details-intro">
+      <div className="laborlens-details-body">
+        <p className="laborlens-details-intro">
           The breakdown the prevalence estimate is built from — confidence range, agent-signal
           adjustments to the country baseline, exploitation-type split, model validation,
           predictive drivers, and where the model disagrees with public GSI data.
         </p>
         <PrevalenceFeature ml={ml} />
         {ml.adjustments ? <AdjustmentsCard ml={ml} report={report} /> : null}
-        <div className="lumina-model-intel-grid">
+        <div className="laborlens-model-intel-grid">
           <ExploitBreakdownCard ml={ml} />
           <SimilarCountriesCard ml={ml} />
           <ModelTransparencyCard ml={ml} />
@@ -412,31 +412,31 @@ function PrevalenceFeature({ ml }: { ml: MlPrediction }) {
   const delta = ml.predicted_vs_observed_delta ?? null;
 
   return (
-    <article className="liquid-glass lumina-model-card lumina-prevalence-feature">
-      <p className="lumina-tech-preamble" hidden>
+    <article className="liquid-glass laborlens-model-card laborlens-prevalence-feature">
+      <p className="laborlens-tech-preamble" hidden>
         Estimated worker-exposure rate for {ml.country_name}. The shaded band shows the
         model&apos;s 80%-confidence range.
       </p>
-      <div className="lumina-prevalence-feature-grid">
-        <div className="lumina-prevalence-headline">
+      <div className="laborlens-prevalence-feature-grid">
+        <div className="laborlens-prevalence-headline">
           <CardHeading
             icon={<Gauge size={14} />}
             title="Workers at risk per 1,000"
             hint={ml.country_name}
           />
-          <div className="lumina-prevalence-number">
-            <span className="lumina-prevalence-mean">{mean.toFixed(2)}</span>
-            <span className="lumina-prevalence-unit">/ 1,000</span>
+          <div className="laborlens-prevalence-number">
+            <span className="laborlens-prevalence-mean">{mean.toFixed(2)}</span>
+            <span className="laborlens-prevalence-unit">/ 1,000</span>
           </div>
-          <p className="lumina-prevalence-band-text">
+          <p className="laborlens-prevalence-band-text">
             range (80% confidence) <strong>{lo.toFixed(2)} – {hi.toFixed(2)}</strong> · global
             typical ≈ {GLOBAL_MEDIAN_PER_1K.toFixed(1)}
           </p>
           {observed !== null && delta !== null ? (
-            <p className="lumina-prevalence-foot">
+            <p className="laborlens-prevalence-foot">
               Observed GSI <strong>{observed.toFixed(2)}</strong> · model is{" "}
               <span
-                className={delta > 0 ? "lumina-delta-up" : "lumina-delta-down"}
+                className={delta > 0 ? "laborlens-delta-up" : "laborlens-delta-down"}
                 title={delta > 0 ? "Model estimates higher than observed" : "Model estimates lower than observed"}
               >
                 {delta > 0 ? "+" : ""}
@@ -444,7 +444,7 @@ function PrevalenceFeature({ ml }: { ml: MlPrediction }) {
               </span>
             </p>
           ) : null}
-          <p className="lumina-prevalence-foot">
+          <p className="laborlens-prevalence-foot">
             {((coverage || 0) * 100).toFixed(0)}% empirical coverage · model fit R²{" "}
             {cvR2.toFixed(2)} · ± {halfWidth.toFixed(2)} half-width
           </p>
@@ -480,7 +480,7 @@ function PrevalenceDial({
 
   return (
     <svg
-      className="lumina-prevalence-dial"
+      className="laborlens-prevalence-dial"
       viewBox={`0 0 ${width} ${height}`}
       role="img"
       aria-label="Predicted prevalence with confidence range"
@@ -544,8 +544,8 @@ function AdjustmentsCard({ ml, report }: { ml: MlPrediction; report: Report }) {
   if (Math.abs(sevDelta) < 0.05 && Math.abs(credDelta) < 0.05 && !adj.floorReason) return null;
 
   return (
-    <article className="liquid-glass lumina-model-card lumina-adjustments-card">
-      <p className="lumina-tech-preamble" hidden>
+    <article className="liquid-glass laborlens-model-card laborlens-adjustments-card">
+      <p className="laborlens-tech-preamble" hidden>
         How agent findings (watchlist hits, court cases, news) adjusted the country baseline.
       </p>
       <CardHeading
@@ -553,7 +553,7 @@ function AdjustmentsCard({ ml, report }: { ml: MlPrediction; report: Report }) {
         title="Agent-signal adjustments"
         hint="ML baseline + agent boost"
       />
-      <div className="lumina-adjustments-grid">
+      <div className="laborlens-adjustments-grid">
         <AdjustmentRow
           label="Severity"
           baseline={adj.severityFromMl}
@@ -569,7 +569,7 @@ function AdjustmentsCard({ ml, report }: { ml: MlPrediction; report: Report }) {
           suffix="/5"
         />
       </div>
-      <p className="lumina-model-disclaimer">
+      <p className="laborlens-model-disclaimer">
         <Info size={11} aria-hidden /> {adj.rationale}
       </p>
     </article>
@@ -591,18 +591,18 @@ function AdjustmentRow({
 }) {
   const positive = delta > 0;
   return (
-    <div className="lumina-adjustment-row">
-      <span className="lumina-adjustment-label">{label}</span>
-      <span className="lumina-adjustment-baseline">
+    <div className="laborlens-adjustment-row">
+      <span className="laborlens-adjustment-label">{label}</span>
+      <span className="laborlens-adjustment-baseline">
         ML {Math.round(baseline)}
         {suffix}
       </span>
-      <span className={`lumina-adjustment-delta ${positive ? "up" : delta < 0 ? "down" : ""}`}>
+      <span className={`laborlens-adjustment-delta ${positive ? "up" : delta < 0 ? "down" : ""}`}>
         {positive ? <ArrowUpRight size={11} /> : delta < 0 ? <ArrowDownRight size={11} /> : null}
         agents {positive ? "+" : ""}
         {delta.toFixed(1)}
       </span>
-      <span className="lumina-adjustment-final">
+      <span className="laborlens-adjustment-final">
         → <strong>{finalValue}</strong>
         {suffix}
       </span>
@@ -627,8 +627,8 @@ function ExploitBreakdownCard({ ml }: { ml: MlPrediction }) {
   );
 
   return (
-    <article className="liquid-glass lumina-model-card">
-      <p className="lumina-tech-preamble" hidden>
+    <article className="liquid-glass laborlens-model-card">
+      <p className="laborlens-tech-preamble" hidden>
         Estimated split across the four ILO exploitation types. Country prediction × global share.
       </p>
       <CardHeading
@@ -636,24 +636,24 @@ function ExploitBreakdownCard({ ml }: { ml: MlPrediction }) {
         title="By exploitation type"
         hint="based on ILO 2022 global shares"
       />
-      <ul className="lumina-exploit-bars">
+      <ul className="laborlens-exploit-bars">
         {entries.map(({ category, value }) => {
           const meanPct = max > 0 ? (value.predicted_prevalence_per_1k / max) * 100 : 0;
           const loPct = max > 0 ? (value.uncertainty_band_p10_p90[0] / max) * 100 : 0;
           const hiPct = max > 0 ? (value.uncertainty_band_p10_p90[1] / max) * 100 : 0;
           return (
-            <li key={category} className="lumina-exploit-bar-row">
-              <div className="lumina-exploit-bar-head">
-                <span className="lumina-exploit-swatch" style={{ background: CATEGORY_COLORS[category] }} />
-                <span className="lumina-exploit-name">{EXPLOIT_CATEGORY_LABELS[category]}</span>
-                <span className="lumina-exploit-value">
+            <li key={category} className="laborlens-exploit-bar-row">
+              <div className="laborlens-exploit-bar-head">
+                <span className="laborlens-exploit-swatch" style={{ background: CATEGORY_COLORS[category] }} />
+                <span className="laborlens-exploit-name">{EXPLOIT_CATEGORY_LABELS[category]}</span>
+                <span className="laborlens-exploit-value">
                   {value.predicted_prevalence_per_1k.toFixed(2)}
                   <small>/ 1,000</small>
                 </span>
               </div>
-              <div className="lumina-exploit-bar-track">
+              <div className="laborlens-exploit-bar-track">
                 <span
-                  className="lumina-exploit-bar-band"
+                  className="laborlens-exploit-bar-band"
                   style={{
                     left: `${loPct}%`,
                     width: `${Math.max(hiPct - loPct, 1)}%`,
@@ -663,7 +663,7 @@ function ExploitBreakdownCard({ ml }: { ml: MlPrediction }) {
                   title={`80% range ${value.uncertainty_band_p10_p90[0].toFixed(2)} – ${value.uncertainty_band_p10_p90[1].toFixed(2)}`}
                 />
                 <span
-                  className="lumina-exploit-bar-mean"
+                  className="laborlens-exploit-bar-mean"
                   style={{ left: `${meanPct}%`, background: CATEGORY_COLORS[category] }}
                 />
               </div>
@@ -671,7 +671,7 @@ function ExploitBreakdownCard({ ml }: { ml: MlPrediction }) {
           );
         })}
       </ul>
-      <p className="lumina-model-disclaimer">
+      <p className="laborlens-model-disclaimer">
         <Info size={11} aria-hidden /> Categories split by fixed global shares (forced labour 55%,
         illegal profits 28%, sexual exploitation 10%, children 7%). Not learned per-country.
       </p>
@@ -688,8 +688,8 @@ function SimilarCountriesCard({ ml }: { ml: MlPrediction }) {
   const max = list.reduce((m, c) => Math.max(m, c.distance), 0);
 
   return (
-    <article className="liquid-glass lumina-model-card">
-      <p className="lumina-tech-preamble" hidden>
+    <article className="liquid-glass laborlens-model-card">
+      <p className="laborlens-tech-preamble" hidden>
         Countries with similar economic and demographic profiles — useful as peer comparisons.
       </p>
       <CardHeading
@@ -697,31 +697,31 @@ function SimilarCountriesCard({ ml }: { ml: MlPrediction }) {
         title="Similar countries"
         hint={`peers of ${ml.country_name}`}
       />
-      <ul className="lumina-similar-list">
+      <ul className="laborlens-similar-list">
         {list.length === 0 ? (
-          <li className="lumina-empty">No similar countries available.</li>
+          <li className="laborlens-empty">No similar countries available.</li>
         ) : (
           list.map((country) => {
             const widthPct = max > 0 ? Math.min(100, (country.distance / max) * 100) : 0;
             return (
-              <li key={country.country} className="lumina-similar-row">
-                <span className="lumina-similar-iso">{country.country}</span>
-                <span className="lumina-similar-name" title={country.country_name}>
+              <li key={country.country} className="laborlens-similar-row">
+                <span className="laborlens-similar-iso">{country.country}</span>
+                <span className="laborlens-similar-name" title={country.country_name}>
                   {country.country_name}
                 </span>
-                <span className="lumina-similar-bar-track" aria-hidden="true">
+                <span className="laborlens-similar-bar-track" aria-hidden="true">
                   <span
-                    className="lumina-similar-bar-fill"
+                    className="laborlens-similar-bar-fill"
                     style={{ width: `${widthPct}%` }}
                   />
                 </span>
-                <span className="lumina-similar-distance">{country.distance.toFixed(2)}</span>
+                <span className="laborlens-similar-distance">{country.distance.toFixed(2)}</span>
               </li>
             );
           })
         )}
       </ul>
-      <p className="lumina-model-disclaimer">
+      <p className="laborlens-model-disclaimer">
         <Info size={11} aria-hidden /> Similarity score is the distance in standardised
         economic + demographic feature space. Smaller = more similar.
       </p>
@@ -741,8 +741,8 @@ function ModelTransparencyCard({ ml }: { ml: MlPrediction }) {
   const coverageDelta = coverage - nominal;
 
   return (
-    <article className="liquid-glass lumina-model-card">
-      <p className="lumina-tech-preamble" hidden>
+    <article className="liquid-glass laborlens-model-card">
+      <p className="laborlens-tech-preamble" hidden>
         How well the model fits the data. R² near 1.0 = perfect; near 0 = no better than guessing.
       </p>
       <CardHeading
@@ -750,7 +750,7 @@ function ModelTransparencyCard({ ml }: { ml: MlPrediction }) {
         title="Model quality"
         hint="cross-validation metrics"
       />
-      <ul className="lumina-metric-list">
+      <ul className="laborlens-metric-list">
         <MetricRow
           icon={<TrendingUp size={12} />}
           label="Model fit (R²)"
@@ -777,7 +777,7 @@ function ModelTransparencyCard({ ml }: { ml: MlPrediction }) {
           tone={Math.abs(coverageDelta) > 0.1 ? "warn" : "ok"}
         />
       </ul>
-      <p className="lumina-model-disclaimer">
+      <p className="laborlens-model-disclaimer">
         <Info size={11} aria-hidden /> Trained on 153 countries (cross-sectional). Honest numbers,
         not tuned to look better than they are.
       </p>
@@ -799,11 +799,11 @@ function MetricRow({
   tone?: "ok" | "warn";
 }) {
   return (
-    <li className={`lumina-metric-row${tone ? ` lumina-metric-${tone}` : ""}`}>
-      <span className="lumina-metric-icon">{icon}</span>
-      <span className="lumina-metric-label">{label}</span>
-      <span className="lumina-metric-value">{value}</span>
-      {hint ? <span className="lumina-metric-hint">{hint}</span> : null}
+    <li className={`laborlens-metric-row${tone ? ` laborlens-metric-${tone}` : ""}`}>
+      <span className="laborlens-metric-icon">{icon}</span>
+      <span className="laborlens-metric-label">{label}</span>
+      <span className="laborlens-metric-value">{value}</span>
+      {hint ? <span className="laborlens-metric-hint">{hint}</span> : null}
     </li>
   );
 }
@@ -816,8 +816,8 @@ function DriversCard({ drivers, countryName }: { drivers: MlDriver[]; countryNam
   const max = drivers.reduce((m, d) => Math.max(m, d.contribution_score), 0);
 
   return (
-    <article className="liquid-glass lumina-model-card">
-      <p className="lumina-tech-preamble" hidden>
+    <article className="liquid-glass laborlens-model-card">
+      <p className="laborlens-tech-preamble" hidden>
         The country features that push this estimate up (or down) the most.
       </p>
       <CardHeading
@@ -825,29 +825,29 @@ function DriversCard({ drivers, countryName }: { drivers: MlDriver[]; countryNam
         title="What drives the estimate"
         hint={`top factors for ${countryName}`}
       />
-      <ul className="lumina-driver-list">
+      <ul className="laborlens-driver-list">
         {drivers.map((d) => {
           const pct = max > 0 ? (d.contribution_score / max) * 100 : 0;
           const up = d.direction === "up";
           return (
-            <li key={d.feature} className="lumina-driver-row">
-              <div className="lumina-driver-head">
-                <span className="lumina-driver-label">{d.label}</span>
+            <li key={d.feature} className="laborlens-driver-row">
+              <div className="laborlens-driver-head">
+                <span className="laborlens-driver-label">{d.label}</span>
                 <span
-                  className={`lumina-driver-dir ${up ? "up" : "down"}`}
+                  className={`laborlens-driver-dir ${up ? "up" : "down"}`}
                   title={up ? "Pushes the estimate up" : "Pushes the estimate down"}
                 >
                   {up ? <ArrowUpRight size={11} /> : <ArrowDownRight size={11} />}
                   {up ? "raises risk" : "lowers risk"}
                 </span>
               </div>
-              <div className="lumina-driver-bar-track" aria-hidden="true">
+              <div className="laborlens-driver-bar-track" aria-hidden="true">
                 <span
-                  className={`lumina-driver-bar-fill ${up ? "up" : "down"}`}
+                  className={`laborlens-driver-bar-fill ${up ? "up" : "down"}`}
                   style={{ width: `${Math.max(pct, 4)}%` }}
                 />
               </div>
-              <div className="lumina-driver-foot">
+              <div className="laborlens-driver-foot">
                 <span>
                   vs global avg: {d.z_score >= 0 ? "+" : ""}
                   {d.z_score.toFixed(1)} std dev
@@ -884,8 +884,8 @@ function GapInsightsCard({ byCountry }: { byCountry: Record<string, MlCountryPay
   if (!showCard) return null;
 
   return (
-    <article className="liquid-glass lumina-model-card lumina-gap-card">
-      <p className="lumina-tech-preamble" hidden>
+    <article className="liquid-glass laborlens-model-card laborlens-gap-card">
+      <p className="laborlens-tech-preamble" hidden>
         Where the model disagrees with the public Global Slavery Index — the &quot;new insight&quot; angle.
       </p>
       <CardHeading
@@ -894,18 +894,18 @@ function GapInsightsCard({ byCountry }: { byCountry: Record<string, MlCountryPay
         hint="estimated vs observed"
       />
       {gaps.length > 0 ? (
-        <ul className="lumina-gap-list">
+        <ul className="laborlens-gap-list">
           {gaps.map(({ country, observed, delta, predicted }) => (
-            <li key={country.country} className="lumina-gap-row">
-              <span className="lumina-gap-iso">{country.country}</span>
-              <span className="lumina-gap-name">{country.country_name}</span>
-              <span className="lumina-gap-numbers">
+            <li key={country.country} className="laborlens-gap-row">
+              <span className="laborlens-gap-iso">{country.country}</span>
+              <span className="laborlens-gap-name">{country.country_name}</span>
+              <span className="laborlens-gap-numbers">
                 <strong>{predicted.toFixed(2)}</strong>
                 <small>vs</small>
                 {observed !== null ? observed.toFixed(2) : "—"}
               </span>
               <span
-                className={`lumina-gap-delta ${delta! > 0 ? "up" : "down"}`}
+                className={`laborlens-gap-delta ${delta! > 0 ? "up" : "down"}`}
                 title={
                   delta! > 0
                     ? "Model estimates higher than observed GSI"
@@ -920,7 +920,7 @@ function GapInsightsCard({ byCountry }: { byCountry: Record<string, MlCountryPay
         </ul>
       ) : null}
       {missingObserved.length > 0 ? (
-        <p className="lumina-gap-missing">
+        <p className="laborlens-gap-missing">
           <Info size={11} aria-hidden /> {missingObserved.length} of these countries had no
           observed GSI value — the model fills those gaps with its own estimate.
         </p>
@@ -943,10 +943,10 @@ function CardHeading({
   hint?: string;
 }) {
   return (
-    <div className="lumina-model-card-head">
-      <span className="lumina-model-card-icon">{icon}</span>
+    <div className="laborlens-model-card-head">
+      <span className="laborlens-model-card-icon">{icon}</span>
       <h3>{title}</h3>
-      {hint ? <span className="lumina-model-card-hint">{hint}</span> : null}
+      {hint ? <span className="laborlens-model-card-hint">{hint}</span> : null}
     </div>
   );
 }
@@ -955,10 +955,10 @@ function MlEmptyState({ reason }: { reason: MlPredictionReason | null }) {
   const variant = describeReason(reason);
 
   return (
-    <article className="liquid-glass lumina-model-card lumina-ml-empty">
+    <article className="liquid-glass laborlens-model-card laborlens-ml-empty">
       <CardHeading icon={variant.icon} title={variant.title} />
       <p>{variant.message}</p>
-      <p className="lumina-model-disclaimer">
+      <p className="laborlens-model-disclaimer">
         <Info size={11} aria-hidden /> Severity, credibility, and overall risk above came from a
         deterministic fallback scorer instead of the country model.
       </p>

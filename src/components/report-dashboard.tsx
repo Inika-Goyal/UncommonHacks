@@ -9,7 +9,6 @@ import {
   ExternalLink,
   FileText,
   Loader2,
-  Radio,
   ShieldAlert,
 } from "lucide-react";
 import Link from "next/link";
@@ -21,7 +20,7 @@ import {
   type DashboardSection,
   type ElevenLabsDashboardTools,
 } from "@/components/elevenlabs-report-agent";
-import { LuminaLogo } from "@/components/lumina-brand";
+import { LaborLensLogo } from "@/components/laborlens-brand";
 import { ModelIntelligencePanel } from "@/components/model-intelligence-panel";
 import { ScoreScrambler } from "@/components/score-scrambler";
 import { VideoBackground } from "@/components/video-background";
@@ -35,13 +34,6 @@ type ReportDashboardProps = {
 };
 
 type Mode = "demo" | "supabase" | null;
-
-const sourceStatusLabel = {
-  ready: "Live",
-  snapshot: "Live",
-  blocked: "Blocked",
-  pending: "Pending",
-} satisfies Record<SourceStatus, string>;
 
 function displayStatus(status: SourceStatus): Exclude<SourceStatus, "snapshot"> {
   return status === "snapshot" ? "ready" : status;
@@ -141,8 +133,6 @@ export function ReportDashboard({ initialInputType, initialQuery, reportId }: Re
     return `/api/reports/${encodeURIComponent(report.id)}/complaint.pdf`;
   }, [report]);
 
-  const modeLabel = mode === "demo" ? "Demo fixtures" : mode === "supabase" ? "Live report" : "Loading";
-
   const scrollElementIntoView = useCallback((element: HTMLElement) => {
     element.scrollIntoView({ behavior: "smooth", block: "center" });
     element.focus({ preventScroll: true });
@@ -229,20 +219,16 @@ export function ReportDashboard({ initialInputType, initialQuery, reportId }: Re
   );
 
   return (
-    <main className="lumina-dashboard-page lumina-shell">
+    <main className="laborlens-dashboard-page laborlens-shell">
       <VideoBackground />
-      <div className="lumina-dashboard-scrim" aria-hidden="true" />
+      <div className="laborlens-dashboard-scrim" aria-hidden="true" />
 
-      <header className="lumina-dashboard-nav">
-        <Link className="lumina-dashboard-brand" href="/">
-          <LuminaLogo size={26} />
-          <span>LUMINA</span>
+      <header className="laborlens-dashboard-nav">
+        <Link className="laborlens-dashboard-brand" href="/">
+          <LaborLensLogo size={26} />
+          <span>LABORLENS</span>
         </Link>
-        <div className="lumina-dashboard-nav-actions">
-          <span className={`lumina-status-pill lumina-status-${mode === "demo" ? "snapshot" : "ready"}`}>
-            <Radio aria-hidden="true" size={13} />
-            {modeLabel}
-          </span>
+        <div className="laborlens-dashboard-nav-actions">
           {report ? (
             <ElevenLabsReportAgent
               report={report}
@@ -251,7 +237,7 @@ export function ReportDashboard({ initialInputType, initialQuery, reportId }: Re
               tools={voiceTools}
             />
           ) : null}
-          <Link className="lumina-nav-link" href="/">
+          <Link className="laborlens-nav-link" href="/">
             <ArrowLeft aria-hidden="true" size={14} />
             New analysis
           </Link>
@@ -262,15 +248,15 @@ export function ReportDashboard({ initialInputType, initialQuery, reportId }: Re
       {error ? <DashboardError message={error} /> : null}
 
       {report ? (
-        <section className="lumina-results-grid">
+        <section className="laborlens-results-grid">
           <motion.aside
             initial={{ opacity: 0, x: -18 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ duration: 0.65, ease: "easeOut" }}
-            className="lumina-side-rail"
+            className="laborlens-side-rail"
           >
-            <section className="liquid-glass lumina-panel lumina-investigation-card">
-              <p className="lumina-overline">
+            <section className="liquid-glass laborlens-panel laborlens-investigation-card">
+              <p className="laborlens-overline">
                 {report.inputType === "company" ? "Company report" : "Region report"}
               </p>
               <h1>{report.query}</h1>
@@ -279,24 +265,21 @@ export function ReportDashboard({ initialInputType, initialQuery, reportId }: Re
 
             <section
               ref={sourcesRef}
-              className="liquid-glass lumina-panel"
+              className="liquid-glass laborlens-panel"
               data-dashboard-section="sources"
               tabIndex={-1}
             >
               <SectionHeader icon={<ShieldAlert size={14} />} title="Source Status" />
-              <div className="lumina-source-stack">
+              <div className="laborlens-source-stack">
                 {report.sourceChecks.map((source) => {
                   const status = displayStatus(source.status);
                   return (
-                    <div key={source.name} className={`lumina-source-row lumina-source-${status}`}>
+                    <div key={source.name} className={`laborlens-source-row laborlens-source-${status}`}>
                       <StatusIcon status={source.status} />
                       <div>
                         <strong>{source.name}</strong>
                         <p>{source.detail}</p>
                       </div>
-                      <span className={`lumina-status-pill lumina-status-${status}`}>
-                        {sourceStatusLabel[source.status]}
-                      </span>
                     </div>
                   );
                 })}
@@ -309,12 +292,12 @@ export function ReportDashboard({ initialInputType, initialQuery, reportId }: Re
             initial={{ opacity: 0, y: 18 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.65, delay: 0.12, ease: "easeOut" }}
-            className="liquid-glass lumina-report-card"
+            className="liquid-glass laborlens-report-card"
           >
-            <div className="lumina-report-card-scroll">
+            <div className="laborlens-report-card-scroll">
               <section
                 ref={summaryRef}
-                className="lumina-report-summary"
+                className="laborlens-report-summary"
                 data-dashboard-section="summary"
                 tabIndex={-1}
               >
@@ -322,7 +305,7 @@ export function ReportDashboard({ initialInputType, initialQuery, reportId }: Re
                 <p>{report.summary}</p>
               </section>
 
-              <div className="lumina-score-grid">
+              <div className="laborlens-score-grid">
                 <ScoreTile label="Overall risk" value={report.overallRisk} suffix="/100" tone="danger" />
                 <ScoreTile label="Severity" value={report.severity} suffix="/5" tone="warning" />
                 <ScoreTile label="Credibility" value={report.credibility} suffix="/5" tone="info" />
@@ -330,7 +313,7 @@ export function ReportDashboard({ initialInputType, initialQuery, reportId }: Re
 
               <section ref={findingsRef} data-dashboard-section="findings" tabIndex={-1}>
                 <SectionHeader icon={<AlertTriangle size={14} />} title="Cited Findings" />
-                <div className="lumina-findings-list">
+                <div className="laborlens-findings-list">
                   {report.findings.map((finding, index) => (
                     <FindingRow
                       key={finding.id}
@@ -344,7 +327,7 @@ export function ReportDashboard({ initialInputType, initialQuery, reportId }: Re
 
               <section
                 ref={actionRef}
-                className="lumina-action-block"
+                className="laborlens-action-block"
                 data-dashboard-section="action"
                 tabIndex={-1}
               >
@@ -352,12 +335,12 @@ export function ReportDashboard({ initialInputType, initialQuery, reportId }: Re
                 <p>{report.recommendedAction}</p>
               </section>
 
-              <div className="lumina-report-actions">
-                <a ref={pdfLinkRef} className="liquid-glass lumina-primary-action" href={pdfHref}>
+              <div className="laborlens-report-actions">
+                <a ref={pdfLinkRef} className="liquid-glass laborlens-primary-action" href={pdfHref}>
                   <FileText aria-hidden="true" size={15} />
                   Generate Complaint PDF
                 </a>
-                <a className="lumina-secondary-action" href={pdfHref}>
+                <a className="laborlens-secondary-action" href={pdfHref}>
                   <Download aria-hidden="true" size={15} />
                   Download letter
                 </a>
@@ -370,11 +353,11 @@ export function ReportDashboard({ initialInputType, initialQuery, reportId }: Re
             initial={{ opacity: 0, x: 18 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ duration: 0.65, delay: 0.22, ease: "easeOut" }}
-            className="liquid-glass lumina-map-card"
+            className="liquid-glass laborlens-map-card"
             data-dashboard-section="map"
             tabIndex={-1}
           >
-            <div className="lumina-map-head">
+            <div className="laborlens-map-head">
               <SectionHeader icon={<ShieldAlert size={14} />} title="Signal Map" />
               <p>{report.mapPoints.length} mapped source signal{report.mapPoints.length === 1 ? "" : "s"}</p>
             </div>
@@ -390,7 +373,7 @@ export function ReportDashboard({ initialInputType, initialQuery, reportId }: Re
 
 function DashboardLoading() {
   return (
-    <div className="liquid-glass lumina-dashboard-state">
+    <div className="liquid-glass laborlens-dashboard-state">
       <Loader2 aria-hidden="true" className="spin-icon" size={24} />
       <div>
         <h1>Loading report</h1>
@@ -402,7 +385,7 @@ function DashboardLoading() {
 
 function DashboardError({ message }: { message: string }) {
   return (
-    <div className="liquid-glass lumina-dashboard-state lumina-dashboard-error" role="alert">
+    <div className="liquid-glass laborlens-dashboard-state laborlens-dashboard-error" role="alert">
       <AlertTriangle aria-hidden="true" size={24} />
       <div>
         <h1>Report load failed</h1>
@@ -414,7 +397,7 @@ function DashboardError({ message }: { message: string }) {
 
 function SectionHeader({ icon, title }: { icon?: ReactNode; title: string }) {
   return (
-    <div className="lumina-section-header">
+    <div className="laborlens-section-header">
       {icon ? <span>{icon}</span> : null}
       <h2>{title}</h2>
     </div>
@@ -435,19 +418,19 @@ function FindingRow({
       initial={{ opacity: 0, x: -8 }}
       animate={{ opacity: 1, x: 0 }}
       transition={{ delay: 0.25 + index * 0.06 }}
-      className={`lumina-finding-row${isActive ? " lumina-finding-row-active" : ""}`}
+      className={`laborlens-finding-row${isActive ? " laborlens-finding-row-active" : ""}`}
       data-finding-id={finding.id}
     >
-      <span className="lumina-finding-dot" style={{ background: riskColor(finding.severity) }} />
-      <div className="lumina-finding-main">
-        <div className="lumina-finding-head">
+      <span className="laborlens-finding-dot" style={{ background: riskColor(finding.severity) }} />
+      <div className="laborlens-finding-main">
+        <div className="laborlens-finding-head">
           <strong>{finding.signal}</strong>
           <span style={{ color: riskColor(finding.severity), background: `${riskColor(finding.severity)}20` }}>
             S{finding.severity} / C{finding.credibility}
           </span>
         </div>
         <p>{finding.evidence}</p>
-        <div className="lumina-finding-meta">
+        <div className="laborlens-finding-meta">
           <span>{finding.geography}</span>
           {finding.citations.map((citation) => (
             <a key={citation.url} href={citation.url} target="_blank" rel="noreferrer">
@@ -473,7 +456,7 @@ function ScoreTile({
   tone: "danger" | "warning" | "info";
 }) {
   return (
-    <div className={`lumina-score-tile lumina-score-${tone}`}>
+    <div className={`laborlens-score-tile laborlens-score-${tone}`}>
       <span>{label}</span>
       <strong>
         <ScoreScrambler value={value} />

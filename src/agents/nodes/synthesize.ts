@@ -161,6 +161,9 @@ async function getScores(
   mlPrediction: MlPrediction | null;
   mlReason: MlBridgeReason | null;
 }> {
+  // panelCountries is the canonical multi-country basket built by the
+  // enrich-countries node — supersedes the older single-country
+  // `state.countries[0] / bundle.supplier.countriesCovered[0]` fallback.
   const panelCountries = state.panelCountries ?? [];
   const weights = state.countryWeights ?? {};
 

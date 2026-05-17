@@ -1,8 +1,8 @@
-# UnExploited Design Context
+# LaborLens Design Context
 
 ## Design Register
 
-Product UI. The current `main` branch has moved beyond the original minimal dashboard-only direction and now contains three distinct visual surfaces: a LUMINA-branded landing page, a cinematic swarm launch page, and the UnExploited report dashboard.
+Product UI. The current `main` branch has moved beyond the original minimal dashboard-only direction and now contains three distinct visual surfaces: a LaborLens-branded landing page, a cinematic swarm launch page, and the LaborLens report dashboard.
 
 ## Scene
 
@@ -12,7 +12,7 @@ A hackathon judge or teammate is using a laptop in normal indoor lighting and ne
 
 ### Landing Page
 
-- Uses `LUMINA` branding, an immersive video background, liquid-glass panels, animated entry states, and a footer with placeholder navigation links.
+- Uses `LaborLens` branding, an immersive video background, liquid-glass panels, animated entry states, and a footer with placeholder navigation links.
 - Supports company and region modes.
 - In demo mode, shows only the core query controls and links to the Shein and Cambodia demo dashboards.
 - In live mode, reveals onboarding controls for industry, time window, country weighting, reporter persona, and output goal.
@@ -27,7 +27,7 @@ A hackathon judge or teammate is using a laptop in normal indoor lighting and ne
 
 ### Report Dashboard
 
-- Uses `UnExploited` branding.
+- Uses `LaborLens` branding.
 - Prioritizes dense report review: left control panel, report header, score blocks, globe, source status list, evidence table, recommendation panel, PDF actions, and ElevenLabs voice panel.
 - The globe is interactive and includes country polygons, signal pins, animated arcs, zoom/pan/reset controls, legend rows, and an optional demo network toggle.
 - Source statuses render as user-facing live/pending/blocked states while preserving snapshot/cache distinctions in data.
@@ -40,7 +40,7 @@ The design is currently split:
 - Swarm launch: cinematic and technical, intended to make the agent pipeline feel tangible.
 - Dashboard: more utilitarian, evidence-first, and designed for repeated scanning.
 
-This split is acceptable for the hackathon demo if the narrative is intentional: landing creates interest, swarm proves technical depth, dashboard proves evidence utility. Before final polish, choose whether to resolve the brand around `UnExploited` or `LUMINA`.
+This split is acceptable for the hackathon demo if the narrative is intentional: landing creates interest, swarm proves technical depth, dashboard proves evidence utility.
 
 ## Components
 
@@ -78,7 +78,6 @@ This split is acceptable for the hackathon demo if the narrative is intentional:
 
 ## Open Design Gaps
 
-- Resolve `LUMINA` versus `UnExploited` naming.
 - Replace or wire placeholder footer links.
 - Decide whether the landing glass/video aesthetic should be kept or brought closer to the dashboard style.
 - Fill the benchmark panel with a real NGO report reference.

@@ -1,4 +1,4 @@
-const DEFAULT_USER_AGENT = "UnExploited/0.1 (+https://github.com/Inika-Goyal/UncommonHacks)";
+const DEFAULT_USER_AGENT = "LaborLens/0.1 (+https://github.com/Inika-Goyal/UncommonHacks)";
 
 export class HttpError extends Error {
   code = "HTTP_ERROR";
