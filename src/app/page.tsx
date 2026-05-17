@@ -3,10 +3,9 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { motion } from "motion/react";
-import { ChevronDown, Loader2, Search } from "lucide-react";
+import { ChevronDown, Loader2 } from "lucide-react";
 
 import { VideoBackground } from "@/components/video-background";
-import { LandingFooter } from "@/components/landing-footer";
 import { LaborLensLogo } from "@/components/laborlens-brand";
 
 type InputMode = "company" | "region";
@@ -93,25 +92,21 @@ export default function LandingPage() {
 
             {/* Centre block — hero + search + pills, vertically centred */}
             <div className="flex-1 flex flex-col justify-center gap-7 px-7 py-8">
-              {/* Badge */}
-              <div className="flex justify-center">
-                <div className="liquid-glass w-14 h-14 rounded-full flex items-center justify-center">
-                  <div className="w-5 h-5 rounded-full bg-white/15 ring-1 ring-white/20" />
-                </div>
-              </div>
-
               {/* Hero */}
-              <motion.h1
+              <motion.div
                 initial={{ opacity: 0, y: 14 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.25, duration: 0.8 }}
-                className="text-white text-5xl font-semibold leading-[1.08] tracking-[-0.03em] text-center"
+                className="text-center"
               >
-                Surface exploitation.{' '}
-                <span className="font-light opacity-70 italic">
-                  Before it surfaces you.
-                </span>
-              </motion.h1>
+                <h1 className="text-white text-[2.75rem] font-semibold leading-[1.05] tracking-[-0.03em]">
+                  Labour exploitation,{' '}
+                  <span className="font-light opacity-70 italic">made visible.</span>
+                </h1>
+                <p className="text-white/60 text-sm mt-4 max-w-[28rem] mx-auto leading-relaxed">
+                  Enter a company or region. Specialist agents pull news, watchlists, supplier disclosures and country-risk data into one cited report — in minutes, not weeks.
+                </p>
+              </motion.div>
 
               {/* Search */}
               <div className="liquid-glass rounded-2xl p-4">
@@ -228,46 +223,22 @@ export default function LandingPage() {
           </div>
         </motion.div>
 
-        {/* ── RIGHT PANEL ── */}
+        {/* ── RIGHT PANEL — keeps the Earth visible ── */}
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ duration: 0.9, delay: 0.15 }}
           className="w-[48%] flex flex-col p-6 min-h-screen"
         >
-          {/* Top bar */}
-          <div className="flex items-center gap-3 mb-4">
-            <div className="liquid-glass rounded-2xl px-4 py-2.5 flex items-center gap-4 flex-1 overflow-hidden">
-              <span className="text-white/25 text-[10px] tracking-[0.18em] uppercase shrink-0">
-                Agent Swarm — Ready
-              </span>
-              {['News', 'Watchlist', 'Supplier', 'Legal', 'Risk'].map((agent) => (
-                <div key={agent} className="flex items-center gap-1.5 min-w-0">
-                  <span className="relative flex h-2 w-2">
-                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75" />
-                    <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500" />
-                  </span>
-                  <span className="text-white/55 text-xs truncate max-w-[7rem]">{agent}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Spacer — planet shows through here */}
           <div className="flex-1" />
 
-          {/* Bottom link to dashboard */}
-          <div className="liquid-glass rounded-2xl p-4 mb-3">
-            <p className="text-white text-sm font-medium mb-2">Ready to Launch Analysis</p>
-            <p className="text-white/40 text-xs mb-3">Complete your search to begin agent swarm investigation</p>
-            <div className="text-white/20 text-xs text-center">
+          <div className="liquid-glass rounded-2xl px-5 py-4 mb-6 max-w-md ml-auto">
+            <p className="text-white/70 text-xs leading-relaxed">
               Analysis uses public data sources only. Not legal advice.
-            </div>
+            </p>
           </div>
         </motion.div>
       </div>
-
-      <LandingFooter />
     </div>
   );
 }
