@@ -78,9 +78,13 @@ class TrainedClusterModel:
     block_weights: Dict[str, float] = field(default_factory=dict)
     imputation_report: Optional[ImputationReport] = None
 
-    def _column_weights(self) -> np.ndarray:
-        """Build the same per-column weight vector used at training so
-        inference goes through the same feature space."""
+    def column_weights(self) -> np.ndarray:
+        """Per-column 1/sqrt(block_size) weight vector used at training.
+
+        Public because eval/performance.py and app/build_report.py both
+        need to reproduce the exact training feature space; reaching into
+        a private name from outside the class was fragile.
+        """
         if not self.block_weights or not self.block_assignments:
             return np.ones(len(self.feature_cols))
         return np.array([
@@ -89,11 +93,12 @@ class TrainedClusterModel:
             for _ in cols
         ])
 
-    def _transform(self, X: pd.DataFrame) -> np.ndarray:
-        return self.scaler.transform(X[self.feature_cols]) * self._column_weights()
+    def transform(self, X: pd.DataFrame) -> np.ndarray:
+        """Standardise + apply block weights, matching training."""
+        return self.scaler.transform(X[self.feature_cols]) * self.column_weights()
 
     def assign_cluster(self, X: pd.DataFrame) -> np.ndarray:
-        return self.kmeans.predict(self._transform(X))
+        return self.kmeans.predict(self.transform(X))
 
     def similar_countries(
         self,
@@ -106,8 +111,8 @@ class TrainedClusterModel:
         if target.empty:
             return panel.iloc[0:0]
 
-        Xs_all = self._transform(panel)
-        Xs_target = self._transform(target)
+        Xs_all = self.transform(panel)
+        Xs_target = self.transform(target)
         cluster_of_target = self.kmeans.predict(Xs_target)[0]
         cluster_of_all = self.kmeans.predict(Xs_all)
 

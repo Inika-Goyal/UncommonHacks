@@ -157,11 +157,17 @@ def country_ranking_chart(
                        "Region: %{customdata[1]}<br>"
                        "Predicted: %{x:.2f} /1k<extra></extra>"),
     ))
+    # Cap chart height — 153 bars × 14px = 2142px otherwise dwarfs every
+    # other section. Scroll-within-chart via fixed yaxis height works
+    # better than a 2k-px page section.
+    n = len(df)
+    chart_height = min(900, max(420, 14 * n))
     fig.update_layout(
-        height=max(420, 14 * len(df)),
+        height=chart_height,
         margin=dict(l=10, r=10, t=30, b=10),
-        title=f"Predicted overall modern-slavery prevalence per 1,000 ({len(df)} countries)",
+        title=f"Predicted overall modern-slavery prevalence per 1,000 ({n} countries)",
         xaxis_title="prevalence per 1,000 population",
+        yaxis=dict(automargin=True),
     )
     return _fig_to_div(fig, include_plotlyjs)
 
@@ -172,7 +178,7 @@ def cluster_pca_scatter(
     highlight: str | None = None,
 ) -> str:
     """2-D PCA of all countries colored by cluster (same per-block weights as training)."""
-    Xs = cluster._transform(panel)
+    Xs = cluster.transform(panel)
     labels = cluster.kmeans.predict(Xs)
     pc = PCA(n_components=2, random_state=0).fit_transform(Xs)
     df = pd.DataFrame({

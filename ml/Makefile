@@ -25,7 +25,8 @@ help:  ## Show available targets.
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(firstword $(MAKEFILE_LIST)) | \
 	  awk 'BEGIN{FS = ":.*?## "}; {printf "  make %-12s  %s\n", $$1, $$2}'
 	@echo ""
-	@echo "Run \`make models\` first if artifacts/ is empty."
+	@echo "First-time setup: \`make train\` to fit the models, or \`make models\`"
+	@echo "to also build the HTML report. Then \`make performance\` for the eval txts."
 
 train:  ## Retrain geographic + cluster models from the real-data panel (no report).
 	@echo "==> training geographic model"

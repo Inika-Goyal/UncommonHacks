@@ -34,8 +34,9 @@ ensure_venv("ml.eval.performance")
 import argparse
 import sys
 from pathlib import Path
-from typing import List
+from typing import List, Optional
 
+import joblib
 import numpy as np
 import pandas as pd
 from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
@@ -48,8 +49,30 @@ from ..data.real import (
     load_extended_panel,
 )
 from ..models.cluster import train_cluster_model
-from ..models.geographic import TARGET_COL, train_geographic
+from ..models.geographic import TARGET_COL, TrainedGeoModel, train_geographic
 from ._runtime import render_table, section, subsection
+
+
+PROD_GEO_ARTIFACT = (
+    Path(__file__).resolve().parents[1] / "artifacts" / "geographic" / "geo_model.joblib"
+)
+
+
+def _prod_feature_cols() -> Optional[List[str]]:
+    """Return the feature list of the trained production model, if any.
+
+    The held-out evaluation should describe the *deployed* model. Without
+    this, the collinearity reducer can drop different columns on the 80%
+    train subset than it did on the full panel, producing a perf report
+    on a model the system does not actually serve.
+    """
+    if not PROD_GEO_ARTIFACT.exists():
+        return None
+    try:
+        m: TrainedGeoModel = joblib.load(PROD_GEO_ARTIFACT)
+        return list(m.feature_cols)
+    except Exception:
+        return None
 
 
 def _safe_mape(y_true: np.ndarray, y_pred: np.ndarray) -> float:
@@ -70,6 +93,7 @@ def _build_geographic_report(
     predictor_cols: List[str],
     test_size: float,
     seed: int,
+    pin_production_features: bool = True,
 ) -> str:
     # Stratify by region so each fold sees the same regional mix. Drop
     # regions with <2 rows since stratified split needs at least 2.
@@ -86,7 +110,27 @@ def _build_geographic_report(
     train_df = train_df.reset_index(drop=True)
     test_df = test_df.reset_index(drop=True)
 
-    model = train_geographic(train_df, predictor_cols=predictor_cols, seed=seed)
+    # If a production model exists, use its exact feature list and
+    # disable in-trainer collinearity drop so the perf model has the
+    # same shape as what's deployed. Otherwise fall back to the full
+    # extended set + default in-trainer pruning.
+    prod_cols = _prod_feature_cols() if pin_production_features else None
+    if prod_cols:
+        feature_note = (
+            f"pinned to production model's {len(prod_cols)} feature(s); "
+            "collinearity drop disabled for this run"
+        )
+        model = train_geographic(
+            train_df, predictor_cols=prod_cols, seed=seed,
+            drop_collinear=False,
+        )
+    else:
+        feature_note = (
+            f"no production model found; trained from extended set "
+            f"({len(predictor_cols)} features) with default collinearity drop"
+        )
+        model = train_geographic(train_df, predictor_cols=predictor_cols, seed=seed)
+
     preds = model.predict(test_df[model.feature_cols])
     y_true = test_df[TARGET_COL].values
     y_pred = preds["mean"]
@@ -140,6 +184,7 @@ def _build_geographic_report(
     out: List[str] = []
     out.append(section("Geographic model — held-out test performance"))
     out.append(f"  Train rows: {len(train_df)}    Test rows: {len(test_df)}")
+    out.append(f"  Feature alignment: {feature_note}")
     out.append(f"  Predictors used: {len(model.feature_cols)}  ({', '.join(model.feature_cols)})")
     out.append(f"  Target transform: {'log1p' if model.log_target else 'identity'}")
     if model.collinearity_report and model.collinearity_report.dropped:
@@ -193,9 +238,11 @@ def _build_cluster_report(
     model = train_cluster_model(train_df, feature_blocks=blocks)
 
     # Assign held-out countries to clusters and compute distance to the
-    # nearest centroid.
+    # nearest centroid. Use the public `transform` so we share the exact
+    # training feature space (impute medians first, since transform does
+    # not impute).
     test_feats = test_df[model.feature_cols].fillna(test_df[model.feature_cols].median())
-    Xs = model.scaler.transform(test_feats) * model._column_weights()
+    Xs = model.transform(test_feats)
     centers = model.kmeans.cluster_centers_
     distances = np.linalg.norm(Xs[:, None, :] - centers[None, :, :], axis=2).min(axis=1)
 
@@ -220,6 +267,9 @@ def main() -> None:
                     help="Random seed for the split + training (default 0).")
     ap.add_argument("--out", type=str, default=None,
                     help="Also write the full report to this .txt file.")
+    ap.add_argument("--no-pin-production", action="store_true",
+                    help="Don't pin to the production model's feature list; "
+                         "let the in-trainer collinearity drop choose on the train split.")
     args = ap.parse_args()
 
     panel, blocks = load_extended_panel()
@@ -231,7 +281,10 @@ def main() -> None:
         f"  optional blocks loaded: "
         + (", ".join(f"{k}({len(v)})" for k, v in blocks.items() if v) or "none")
     )
-    parts.append(_build_geographic_report(panel, predictor_cols, args.test_size, args.seed))
+    parts.append(_build_geographic_report(
+        panel, predictor_cols, args.test_size, args.seed,
+        pin_production_features=not args.no_pin_production,
+    ))
     parts.append(_build_cluster_report(panel, args.test_size, args.seed))
     parts.append("")
 

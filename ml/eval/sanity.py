@@ -168,6 +168,12 @@ def _build_report(model: TrainedGeoModel, panel: pd.DataFrame, bin_width: float)
             country_max=df.iloc[bidx_max]["country"],
         ))
     parts.append(subsection("By ILO exploit bucket  (overall × global proportion)"))
+    parts.append(
+        "  NOTE: each bucket is `overall × constant ILO proportion`, so the "
+        "shape\n        of the distribution and the min/max country are "
+        "identical across\n        buckets by construction. Only the "
+        "magnitudes differ."
+    )
     parts.append(render_table(HEADERS[0], bucket_rows, align=HEADERS[1]))
 
     # ---- Per-country detail (top 5 highest predicted) -------------------
