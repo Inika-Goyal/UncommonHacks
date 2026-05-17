@@ -61,7 +61,8 @@ ILO_GLOBAL_PROPORTIONS = {
     "children": 0.07,
 }
 
-PREDICTOR_COLS = [
+# Raw predictors loaded from the underlying CSVs (no engineering).
+RAW_PREDICTOR_COLS = [
     "gdp_per_capita_log",
     "urban_share",
     "unemployment",
@@ -72,6 +73,43 @@ PREDICTOR_COLS = [
     "vulnerability_total",
     "govt_response_total",
 ]
+
+# Engineered features added by `_engineer_features` at load time. Naming
+# matches the engineering function below; keep this list in sync.
+ENGINEERED_PREDICTOR_COLS = [
+    "gdp_x_govt_response",       # interaction: weak governance compounds GDP-driven risk
+    "gdp_rank_pct_in_region",    # 0..1 percentile within region — captures "rich relative to peers"
+]
+
+# Region one-hots. Five GSI regions are hardcoded here so missing-region
+# rows fall through with zeros consistently across train/test.
+REGION_DUMMY_COLS = [
+    "region_Africa",
+    "region_Americas",
+    "region_Arab_States",
+    "region_Asia_and_the_Pacific",
+    "region_Europe_and_Central_Asia",
+]
+
+# What the rest of the package treats as "the base predictor list" —
+# raw + engineered + region one-hots.
+PREDICTOR_COLS = RAW_PREDICTOR_COLS + ENGINEERED_PREDICTOR_COLS + REGION_DUMMY_COLS
+
+# Countries excluded from geographic-model TRAINING because their
+# observed-prevalence is dominated by labor structures (the GCC kafala
+# system) that the observable features cannot represent. They are NOT
+# excluded from the cluster model (we still want to find similar
+# countries for them) and NOT excluded from inference — the predict CLI
+# still serves them, the model just predicts what the observable
+# features imply.
+KAFALA_STATES_TRAINING_EXCLUDE: tuple[str, ...] = (
+    "BHR",  # Bahrain
+    "KWT",  # Kuwait
+    "OMN",  # Oman
+    "QAT",  # Qatar
+    "SAU",  # Saudi Arabia
+    "ARE",  # United Arab Emirates
+)
 
 # Block tags used by the cluster model. The base predictor list above
 # only covers demographic + economic + the WalkFree vulnerability/
@@ -355,13 +393,53 @@ def load_extended_panel() -> tuple[pd.DataFrame, dict[str, list[str]]]:
     if "population" in panel.columns:
         panel = panel.drop(columns=["population"], errors="ignore")
 
+    panel = _engineer_features(panel)
     return panel.reset_index(drop=True), blocks
+
+
+def _engineer_features(panel: pd.DataFrame) -> pd.DataFrame:
+    """Add cheap derived features the trainer can pick up.
+
+    1. `gdp_x_govt_response` — interaction between log-GDP and Walk Free
+       government-response score. The signal: weak government response
+       compounds GDP-driven risk; trees capture this trivially, Ridge
+       benefits from having it explicit.
+    2. `gdp_rank_pct_in_region` — percentile rank of log-GDP within
+       region. Lets the model see "rich relative to peers" vs absolute
+       wealth — a 1.0 here = richest country in its region.
+    3. `region_*` one-hots — regional fixed effects. Without these the
+       model can't represent "this is a Gulf state" or "this is an OECD
+       country" beyond what visible features carry. One-hots are
+       expanded for all five GSI regions (zero-filled when a region is
+       absent from the panel) so train/test always have the same shape.
+    """
+    p = panel.copy()
+
+    if "gdp_per_capita_log" in p.columns and "govt_response_total" in p.columns:
+        p["gdp_x_govt_response"] = p["gdp_per_capita_log"] * p["govt_response_total"]
+
+    if "gdp_per_capita_log" in p.columns and "region" in p.columns:
+        p["gdp_rank_pct_in_region"] = (
+            p.groupby("region")["gdp_per_capita_log"].rank(pct=True)
+        )
+
+    if "region" in p.columns:
+        dummies = pd.get_dummies(p["region"], prefix="region").astype(int)
+        dummies.columns = [c.replace(" ", "_") for c in dummies.columns]
+        # Guarantee every expected dummy exists so train/test/inference
+        # always see the same column set (zero-filled for absent regions).
+        for col in REGION_DUMMY_COLS:
+            if col not in dummies.columns:
+                dummies[col] = 0
+        p = pd.concat([p, dummies[REGION_DUMMY_COLS]], axis=1)
+
+    return p
 
 
 def extended_predictor_cols(blocks: dict[str, list[str]]) -> list[str]:
     """Predictor list for the geographic model when training on the
-    extended panel. Base predictors + any optional block columns that
-    actually exist on disk."""
+    extended panel. Base predictors (raw + engineered + region one-hots)
+    + any optional block columns that actually exist on disk."""
     return list(PREDICTOR_COLS) + sum(blocks.values(), [])
 
 

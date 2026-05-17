@@ -69,6 +69,13 @@ def _summary_payload(model: TrainedGeoModel, blocks: dict[str, list[str]]) -> di
         "data_quality": model.quality_report.to_dict() if model.quality_report else None,
         "imputation": model.imputation_report.to_dict() if model.imputation_report else None,
         "collinearity": model.collinearity_report.to_dict() if model.collinearity_report else None,
+        "excluded_iso3_from_training": list(model.excluded_iso3),
+        "exclusion_reason": (
+            "Kafala-system Gulf economies: observable features (GDP, governance, "
+            "press freedom) don't represent the migrant labor structures that "
+            "drive their high observed prevalence, so training on them distorts "
+            "cross-country fit. They are still served at inference time."
+        ) if model.excluded_iso3 else None,
         "sources": {
             "predicted": sources_for(["gsi"]),
             "predictors": sources_for(_predictor_source_keys(model.feature_cols)),
@@ -104,6 +111,8 @@ def main() -> None:
     print(f"  features used ({len(model.feature_cols)}): {model.feature_cols}")
     if model.collinearity_report and model.collinearity_report.dropped:
         print(f"  dropped (collinear): {model.collinearity_report.dropped}")
+    if model.excluded_iso3:
+        print(f"  excluded from training: {model.excluded_iso3} (kafala-system structural outliers)")
     print(f"  CV MAE: {model.cv_mae:.3f}")
     print(f"  CV R^2: {model.cv_r2:+.3f}")
     print(f"  conformal half-width (80% nominal): {model.conformal_half_width:.3f}")

@@ -45,6 +45,7 @@ from sklearn.model_selection import train_test_split
 from ..data.real import (
     DEMOGRAPHIC_COLS,
     ECONOMIC_COLS,
+    KAFALA_STATES_TRAINING_EXCLUDE,
     extended_predictor_cols,
     load_extended_panel,
 )
@@ -158,16 +159,55 @@ def _build_geographic_report(
         ("Median band width (/1k)", float(np.median(upper - lower))),
     ]
 
-    # ---- Per-region MAE ------------------------------------------------
+    # ---- Per-region breakdown ------------------------------------------
+    # MAE works on any sample size. R² is volatile below ~5 rows so we
+    # only report it where it's meaningful; below the threshold we print
+    # "n/a" instead of a misleading 1-decimal-place number.
     region_rows = []
-    region_groups = (
-        pd.DataFrame({"region": test_df["region"], "abs_err": np.abs(residual)})
-        .groupby("region")
-        .agg(n=("abs_err", "size"), mae=("abs_err", "mean"))
-        .sort_values("mae", ascending=False)
-    )
-    for region, row in region_groups.iterrows():
-        region_rows.append((region, int(row["n"]), float(row["mae"])))
+    region_df = pd.DataFrame({
+        "region": test_df["region"].values,
+        "y_true": y_true,
+        "y_pred": y_pred,
+    })
+    for region, sub in region_df.groupby("region"):
+        n = len(sub)
+        mae = float(np.mean(np.abs(sub["y_pred"] - sub["y_true"])))
+        bias = float(np.mean(sub["y_pred"] - sub["y_true"]))
+        if n >= 5 and sub["y_true"].nunique() >= 2:
+            r2 = float(r2_score(sub["y_true"], sub["y_pred"]))
+        else:
+            r2 = None
+        region_rows.append((region, n, mae, bias, r2))
+    region_rows.sort(key=lambda r: -r[2])  # worst MAE first
+
+    # In-scope vs excluded structural outliers. Use the CONCEPTUAL list
+    # (the constant in real.py), not `model.excluded_iso3` — the latter
+    # only records countries removed from THIS training split, but the
+    # perf split may have left them in the test set, which is exactly
+    # what we want to report on here.
+    excluded = list(KAFALA_STATES_TRAINING_EXCLUDE)
+    excluded_test_mask = test_df["country"].isin(excluded) if excluded else None
+    excluded_rows: list[tuple] = []
+    in_scope_r2 = None
+    in_scope_mae = None
+    if excluded_test_mask is not None:
+        if excluded_test_mask.any():
+            ex_y_true = y_true[excluded_test_mask.values]
+            ex_y_pred = y_pred[excluded_test_mask.values]
+            for i in np.where(excluded_test_mask.values)[0]:
+                excluded_rows.append((
+                    test_df.iloc[int(i)]["country"],
+                    test_df.iloc[int(i)].get("country_name", ""),
+                    float(y_true[int(i)]),
+                    float(y_pred[int(i)]),
+                    float(y_pred[int(i)] - y_true[int(i)]),
+                ))
+        in_scope_mask = ~excluded_test_mask.values
+        if in_scope_mask.sum() >= 5:
+            in_scope_y_true = y_true[in_scope_mask]
+            in_scope_y_pred = y_pred[in_scope_mask]
+            in_scope_r2 = float(r2_score(in_scope_y_true, in_scope_y_pred))
+            in_scope_mae = float(np.mean(np.abs(in_scope_y_pred - in_scope_y_true)))
 
     # ---- Worst-5 named --------------------------------------------------
     worst_idx = np.argsort(-np.abs(residual))[:5]
@@ -206,8 +246,40 @@ def _build_geographic_report(
             f"see docs/statistical_resolutions.md item #8."
         )
 
-    out.append(subsection("Per-region MAE (test rows)"))
-    out.append(render_table(["region", "n", "MAE"], region_rows))
+    out.append(subsection("Per-region accuracy (test rows)"))
+    out.append(render_table(
+        ["region", "n", "MAE", "bias", "R²"], region_rows,
+        align=["l", "r", "r", "r", "r"],
+    ))
+    out.append(
+        "  Note: R² in regions with n<5 is not reported (too volatile). "
+        "The global R²\n  is a single number that hides this regional "
+        "heterogeneity; the table above\n  is the more honest read."
+    )
+
+    if excluded:
+        out.append(subsection("In-scope vs excluded structural outliers"))
+        in_scope_rows = [
+            ("In-scope test (excludes kafala states)",
+             None if in_scope_mae is None else in_scope_mae,
+             None if in_scope_r2 is None else in_scope_r2),
+            ("All test rows (includes them)",
+             float(mean_absolute_error(y_true, y_pred)),
+             float(r2_score(y_true, y_pred))),
+        ]
+        out.append(render_table(
+            ["scope", "MAE", "R²"], in_scope_rows,
+            align=["l", "r", "r"],
+        ))
+        if excluded_rows:
+            out.append(subsection(
+                "Structural-outlier test rows (model wasn't trained on these)"
+            ))
+            out.append(render_table(
+                ["iso3", "country", "observed", "predicted", "residual"],
+                excluded_rows,
+                align=["l", "l", "r", "r", "r"],
+            ))
 
     out.append(subsection("Worst 5 predictions (|residual| descending)"))
     out.append(render_table(
@@ -215,6 +287,45 @@ def _build_geographic_report(
         worst_rows,
         align=["l", "l", "r", "r", "r"],
     ))
+
+    # ---- Auto-generated conclusion -------------------------------------
+    overall_mae = float(mean_absolute_error(y_true, y_pred))
+    overall_r2 = float(r2_score(y_true, y_pred))
+    best_region = min(region_rows, key=lambda r: r[2]) if region_rows else None
+    worst_region = max(region_rows, key=lambda r: r[2]) if region_rows else None
+    cov = _coverage(y_true, lower, upper) * 100
+
+    conclusion_lines: list[str] = []
+    conclusion_lines.append(f"  Overall MAE {overall_mae:.2f}/1k, R² {overall_r2:+.3f} on {len(y_true)} held-out rows.")
+    if best_region and worst_region:
+        conclusion_lines.append(
+            f"  Per-region MAE ranges {best_region[2]:.2f} ({best_region[0]}, n={best_region[1]}) → "
+            f"{worst_region[2]:.2f} ({worst_region[0]}, n={worst_region[1]}); "
+            "regional heterogeneity is large."
+        )
+    if in_scope_r2 is not None and abs(in_scope_r2 - overall_r2) >= 0.03:
+        conclusion_lines.append(
+            f"  Excluding kafala states from the test set lifts R² {overall_r2:+.3f} → "
+            f"{in_scope_r2:+.3f} (MAE {overall_mae:.2f} → {in_scope_mae:.2f}). "
+            "Their residuals dominate the global R²."
+        )
+    if cov >= 75:
+        conclusion_lines.append(
+            f"  Conformal coverage {cov:.0f}% vs 80% nominal — uncertainty bands "
+            "honestly calibrated."
+        )
+    else:
+        conclusion_lines.append(
+            f"  Conformal coverage {cov:.0f}% under-shoots 80% nominal — treat "
+            "the uncertainty bands as approximate."
+        )
+    conclusion_lines.append(
+        "  Read this report by REGION, not by the single global R². See "
+        "ml/eval/performance_interpretation.md for the why."
+    )
+    out.append(subsection("Conclusion"))
+    out.append("\n".join(conclusion_lines))
+
     return "\n".join(out)
 
 

@@ -35,7 +35,7 @@ Design (post-real-data rewrite):
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Dict, List, Tuple
 
 import numpy as np
@@ -46,7 +46,7 @@ from sklearn.metrics import mean_absolute_error, r2_score
 from sklearn.model_selection import KFold, train_test_split
 from sklearn.preprocessing import StandardScaler
 
-from ..data.real import PREDICTOR_COLS
+from ..data.real import KAFALA_STATES_TRAINING_EXCLUDE, PREDICTOR_COLS
 from ..data.quality import run_quality_checks, QualityReport
 from ..features.imputation import impute, ImputationReport
 from ..features.multicollinearity import drop_redundant_columns, CollinearityReport
@@ -100,6 +100,7 @@ class TrainedGeoModel:
     imputation_report: ImputationReport | None = None
     collinearity_report: CollinearityReport | None = None
     log_target: bool = False  # train_geographic may switch to log1p(y)
+    excluded_iso3: List[str] = field(default_factory=list)  # rows removed pre-fit
 
     def predict(self, X: pd.DataFrame) -> Dict[str, np.ndarray]:
         Xs = self.scaler.transform(X[self.feature_cols])
@@ -177,6 +178,7 @@ def train_geographic(
     auto_log_target: bool = True,
     drop_collinear: bool = True,
     ridge_alpha: float | None = None,
+    exclude_iso3: tuple[str, ...] | None = KAFALA_STATES_TRAINING_EXCLUDE,
 ) -> TrainedGeoModel:
     """Fit one geographic model on (possibly expanded) predictors.
 
@@ -196,6 +198,17 @@ def train_geographic(
     `data.real.PREDICTOR_COLS`).
     """
     cols_in = list(predictor_cols) if predictor_cols is not None else list(PREDICTOR_COLS)
+
+    # Structural-outlier exclusion. Removes countries whose observed
+    # prevalence is dominated by unobservable labor structures (kafala
+    # in the GCC). Done BEFORE the quality scan so missingness /
+    # collinearity stats describe the actual training set.
+    excluded_present: List[str] = []
+    if exclude_iso3 and "country" in panel.columns:
+        present_mask = panel["country"].isin(exclude_iso3)
+        excluded_present = panel.loc[present_mask, "country"].tolist()
+        if excluded_present:
+            panel = panel.loc[~present_mask].reset_index(drop=True)
 
     # ---- 0. Quality scan -------------------------------------------------
     quality = run_quality_checks(panel, predictor_cols=cols_in, target_col=TARGET_COL)
@@ -306,4 +319,5 @@ def train_geographic(
         imputation_report=imp_report,
         collinearity_report=collin_report,
         log_target=log_target,
+        excluded_iso3=excluded_present,
     )

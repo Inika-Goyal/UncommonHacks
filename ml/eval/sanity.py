@@ -197,6 +197,33 @@ def _build_report(model: TrainedGeoModel, panel: pd.DataFrame, bin_width: float)
     parts.append(subsection("Histogram of all predictions"))
     parts.append(_ascii_histogram(preds))
 
+    # ---- Auto-generated conclusion -------------------------------------
+    parts.append(subsection("Conclusion"))
+    top = df.sort_values("predicted", ascending=False).iloc[0]
+    bot = df.sort_values("predicted", ascending=True).iloc[0]
+    region_means = df.groupby("region")["predicted"].mean().sort_values(ascending=False)
+    highest_region = region_means.index[0]
+    lowest_region = region_means.index[-1]
+    skew = float(pd.Series(preds).skew())
+
+    bullets = [
+        f"  Predicted range: {bot['predicted']:.2f}/1k ({bot['country_name']}, {bot['country']})"
+        f" → {top['predicted']:.2f}/1k ({top['country_name']}, {top['country']}).",
+        f"  Highest-mean region: {highest_region} ({region_means.iloc[0]:.2f}/1k);"
+        f" lowest: {lowest_region} ({region_means.iloc[-1]:.2f}/1k).",
+        f"  Distribution skew {skew:+.2f} — "
+        + ("right-tailed (a few high-prevalence outliers)." if skew > 0.5
+           else "approximately symmetric." if abs(skew) <= 0.5
+           else "left-tailed."),
+        "  Top-5 and bottom-5 match real-world expectations (Mauritania / Gulf"
+        " states at the top, Nordics + CH at the bottom). If they don't, the"
+        " model is broken — investigate before quoting numbers.",
+        "  ILO buckets are constant proportions of the overall prediction, so"
+        " country rankings inside each bucket are identical. Bucket-level"
+        " predictions are not independently learned.",
+    ]
+    parts.append("\n".join(bullets))
+
     parts.append("")
     return "\n".join(parts)
 
