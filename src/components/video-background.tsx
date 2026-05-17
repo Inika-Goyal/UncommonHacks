@@ -13,8 +13,24 @@ export function VideoBackground() {
         muted
         playsInline
         className="absolute inset-0 w-full h-full object-cover"
+        style={{ filter: "hue-rotate(200deg) saturate(1.4) brightness(0.7)" }}
       />
-      <div className="absolute inset-0 bg-black/40" />
+      <div
+        className="absolute inset-0"
+        style={{
+          zIndex: 1,
+          background:
+            "linear-gradient(to bottom, rgba(5, 10, 30, 0.5) 0%, rgba(180, 80, 40, 0.15) 50%, rgba(5, 10, 30, 0.7) 100%)",
+        }}
+      />
+      <div
+        className="absolute inset-0"
+        style={{
+          zIndex: 2,
+          background: "rgba(10, 15, 40, 0.25)",
+          mixBlendMode: "multiply",
+        }}
+      />
     </div>
   );
 }

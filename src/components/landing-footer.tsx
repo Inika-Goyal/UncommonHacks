@@ -2,6 +2,7 @@
 
 import { motion } from "motion/react";
 import { Music2, Share2, MessageCircle, Play, Camera } from "lucide-react";
+import { LuminaLogo } from "@/components/lumina-brand";
 
 const LINKS: Record<string, string[]> = {
   Discover: ["Overview", "How It Works", "Supply Chain Map", "Risk Index"],
@@ -26,7 +27,7 @@ export function LandingFooter() {
           </span>
         </div>
 
-        <div className="grid grid-cols-3 gap-8 mb-10">
+        <div className="lumina-footer-grid grid grid-cols-3 gap-8 mb-10">
           {Object.entries(LINKS).map(([heading, items]) => (
             <div key={heading}>
               <p className="text-white/50 text-xs tracking-widest uppercase mb-3">
@@ -48,7 +49,7 @@ export function LandingFooter() {
           ))}
         </div>
 
-        <div className="border-t border-white/10 pt-5 flex items-center justify-between">
+        <div className="lumina-footer-bottom border-t border-white/10 pt-5 flex items-center justify-between">
           <p className="text-white/30 text-xs">
             © 2026 Lumina. Advancing labour rights through technology.
           </p>
@@ -66,33 +67,5 @@ export function LandingFooter() {
         </div>
       </div>
     </motion.footer>
-  );
-}
-
-function LuminaLogo() {
-  return (
-    <svg width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
-      <circle cx="16" cy="16" r="15" stroke="rgba(255,255,255,0.6)" strokeWidth="1.2" />
-      <circle cx="16" cy="16" r="6" fill="rgba(255,255,255,0.15)" stroke="rgba(255,255,255,0.4)" strokeWidth="1" />
-      {[0, 60, 120, 180, 240, 300].map((deg) => {
-        const rad = (deg * Math.PI) / 180;
-        const x1 = (16 + 7 * Math.cos(rad)).toFixed(3);
-        const y1 = (16 + 7 * Math.sin(rad)).toFixed(3);
-        const x2 = (16 + 13 * Math.cos(rad)).toFixed(3);
-        const y2 = (16 + 13 * Math.sin(rad)).toFixed(3);
-        return (
-          <line
-            key={deg}
-            x1={x1}
-            y1={y1}
-            x2={x2}
-            y2={y2}
-            stroke="rgba(255,255,255,0.5)"
-            strokeWidth="1"
-          />
-        );
-      })}
-      <circle cx="16" cy="16" r="2" fill="white" />
-    </svg>
   );
 }

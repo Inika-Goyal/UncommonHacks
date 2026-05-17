@@ -2649,3 +2649,599 @@ td a {
     animation: none !important;
   }
 }
+
+/* -------------------------------------------------------------------------- */
+/* Lumina shared shell + results dashboard                                    */
+/* -------------------------------------------------------------------------- */
+
+.lumina-wordmark,
+.lumina-dashboard-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  color: #fff;
+  font-family: "Helvetica Regular", Helvetica, Arial, sans-serif;
+  font-weight: 300;
+  letter-spacing: 0.32em;
+  text-transform: uppercase;
+}
+
+.lumina-dashboard-page {
+  position: relative;
+  min-height: 100dvh;
+  overflow-x: hidden;
+  color: #ededed;
+  background: #0a0a0a;
+}
+
+.lumina-dashboard-scrim {
+  position: fixed;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  background:
+    radial-gradient(circle at 50% 12%, rgba(255, 255, 255, 0.12), transparent 28%),
+    linear-gradient(180deg, rgba(0, 0, 0, 0.18), rgba(0, 0, 0, 0.76) 62%, rgba(0, 0, 0, 0.92));
+}
+
+.lumina-dashboard-nav {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  padding: 18px clamp(18px, 3vw, 44px);
+}
+
+.lumina-dashboard-brand {
+  font-size: 15px;
+}
+
+.lumina-dashboard-nav-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.lumina-nav-link,
+.lumina-secondary-action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  color: rgba(255, 255, 255, 0.68);
+  font-size: 13px;
+  text-decoration: none;
+  transition: color 180ms ease-out, background 180ms ease-out, border-color 180ms ease-out;
+}
+
+.lumina-nav-link:hover,
+.lumina-secondary-action:hover {
+  color: #fff;
+}
+
+.lumina-status-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  width: fit-content;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.06);
+  color: rgba(255, 255, 255, 0.68);
+  padding: 4px 9px;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.lumina-status-ready {
+  border-color: rgba(34, 197, 94, 0.34);
+  background: rgba(34, 197, 94, 0.12);
+  color: rgba(187, 247, 208, 0.9);
+}
+
+.lumina-status-snapshot,
+.lumina-status-pending {
+  border-color: rgba(96, 165, 250, 0.34);
+  background: rgba(59, 130, 246, 0.12);
+  color: rgba(191, 219, 254, 0.9);
+}
+
+.lumina-status-blocked {
+  border-color: rgba(239, 68, 68, 0.38);
+  background: rgba(239, 68, 68, 0.13);
+  color: rgba(254, 202, 202, 0.9);
+}
+
+.lumina-results-grid {
+  position: relative;
+  z-index: 2;
+  display: grid;
+  grid-template-columns: minmax(240px, 300px) minmax(0, 1fr) minmax(320px, 430px);
+  gap: 16px;
+  min-height: calc(100dvh - 82px);
+  padding: 0 clamp(14px, 2vw, 28px) 24px;
+}
+
+.lumina-side-rail {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  min-width: 0;
+}
+
+.lumina-panel,
+.lumina-report-card,
+.lumina-map-card,
+.lumina-dashboard-state {
+  border-radius: 24px;
+  color: #fff;
+}
+
+.lumina-panel {
+  padding: 18px;
+}
+
+.lumina-investigation-card h1 {
+  margin: 4px 0 6px;
+  color: #fff;
+  font-size: clamp(22px, 2.2vw, 30px);
+  font-weight: 400;
+  letter-spacing: 0;
+  line-height: 1.08;
+}
+
+.lumina-investigation-card p:not(.lumina-overline) {
+  margin: 0;
+  color: rgba(255, 255, 255, 0.54);
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.lumina-overline {
+  margin: 0;
+  color: rgba(255, 255, 255, 0.38);
+  font-size: 11px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+}
+
+.lumina-section-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  padding-bottom: 9px;
+  color: rgba(255, 255, 255, 0.46);
+}
+
+.lumina-section-header h2 {
+  margin: 0;
+  color: rgba(255, 255, 255, 0.78);
+  font-size: 13px;
+  font-weight: 500;
+  letter-spacing: 0.03em;
+}
+
+.lumina-source-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 13px;
+}
+
+.lumina-source-row {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: start;
+  gap: 10px;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.045);
+  padding: 11px;
+}
+
+.lumina-source-row > svg {
+  margin-top: 2px;
+  color: rgba(255, 255, 255, 0.52);
+}
+
+.lumina-source-ready > svg {
+  color: #86efac;
+}
+
+.lumina-source-blocked > svg {
+  color: #fca5a5;
+}
+
+.lumina-source-pending > svg {
+  color: #bfdbfe;
+}
+
+.lumina-source-row strong {
+  display: block;
+  color: rgba(255, 255, 255, 0.86);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.lumina-source-row p {
+  margin: 3px 0 0;
+  color: rgba(255, 255, 255, 0.42);
+  font-size: 11px;
+  line-height: 1.35;
+}
+
+.lumina-report-card {
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+  min-width: 0;
+  max-height: calc(100dvh - 106px);
+  overflow-y: auto;
+  padding: clamp(20px, 2.4vw, 30px);
+}
+
+.lumina-report-summary h2 {
+  margin: 15px 0 10px;
+  color: #fff;
+  font-size: clamp(26px, 3vw, 42px);
+  font-weight: 350;
+  letter-spacing: 0;
+  line-height: 1.05;
+}
+
+.lumina-report-summary p,
+.lumina-action-block p {
+  margin: 0;
+  color: rgba(255, 255, 255, 0.68);
+  font-size: 14px;
+  line-height: 1.65;
+}
+
+.lumina-score-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.lumina-score-tile {
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.045);
+  padding: 14px 15px;
+}
+
+.lumina-score-danger {
+  border-color: rgba(239, 68, 68, 0.34);
+}
+
+.lumina-score-warning {
+  border-color: rgba(245, 158, 11, 0.34);
+}
+
+.lumina-score-info {
+  border-color: rgba(56, 189, 248, 0.3);
+}
+
+.lumina-score-tile span {
+  display: block;
+  margin-bottom: 8px;
+  color: rgba(255, 255, 255, 0.4);
+  font-size: 11px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.lumina-score-tile strong {
+  display: inline-flex;
+  align-items: baseline;
+  color: #fff;
+  font-size: clamp(25px, 3vw, 38px);
+  font-weight: 500;
+  letter-spacing: 0;
+  font-variant-numeric: tabular-nums;
+}
+
+.lumina-score-tile small {
+  margin-left: 2px;
+  color: rgba(255, 255, 255, 0.42);
+  font-size: 0.48em;
+  font-weight: 400;
+}
+
+.lumina-findings-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.lumina-finding-row {
+  display: flex;
+  gap: 13px;
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.05);
+  padding: 14px;
+}
+
+.lumina-finding-dot {
+  width: 7px;
+  height: 7px;
+  margin-top: 7px;
+  border-radius: 999px;
+  flex: 0 0 auto;
+  box-shadow: 0 0 18px currentColor;
+}
+
+.lumina-finding-main {
+  min-width: 0;
+  flex: 1;
+}
+
+.lumina-finding-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.lumina-finding-head strong {
+  color: rgba(255, 255, 255, 0.9);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.lumina-finding-head span {
+  border-radius: 999px;
+  padding: 3px 8px;
+  font-size: 11px;
+  font-weight: 650;
+  white-space: nowrap;
+}
+
+.lumina-finding-main p {
+  margin: 7px 0 0;
+  color: rgba(255, 255, 255, 0.63);
+  font-size: 12px;
+  line-height: 1.55;
+}
+
+.lumina-finding-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+  margin-top: 9px;
+}
+
+.lumina-finding-meta span,
+.lumina-finding-meta a {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: rgba(255, 255, 255, 0.38);
+  font-size: 11px;
+}
+
+.lumina-finding-meta a:hover {
+  color: #fff;
+}
+
+.lumina-action-block {
+  display: grid;
+  gap: 13px;
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.05);
+  padding: 16px;
+}
+
+.lumina-action-block span {
+  color: rgba(255, 255, 255, 0.36);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.lumina-report-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.lumina-primary-action,
+.lumina-secondary-action {
+  min-height: 44px;
+  border-radius: 16px;
+  padding: 0 16px;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.lumina-primary-action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  color: #fff;
+}
+
+.lumina-secondary-action {
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.035);
+}
+
+.lumina-map-card {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  max-height: calc(100dvh - 106px);
+  overflow: hidden;
+}
+
+.lumina-map-head {
+  flex: 0 0 auto;
+  padding: 18px 18px 0;
+}
+
+.lumina-map-head p {
+  margin: 10px 0 0;
+  color: rgba(255, 255, 255, 0.44);
+  font-size: 12px;
+}
+
+.lumina-map-card .globe-stage {
+  flex: 1;
+  min-height: 620px;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.lumina-map-card .globe-overlay,
+.lumina-map-card .globe-controls,
+.lumina-map-card .globe-legend {
+  background: rgba(10, 10, 10, 0.54);
+  border-color: rgba(255, 255, 255, 0.12);
+  color: rgba(255, 255, 255, 0.76);
+}
+
+.lumina-dashboard-state {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  width: min(560px, calc(100% - 32px));
+  margin: 18vh auto 0;
+  padding: 22px;
+}
+
+.lumina-dashboard-state h1 {
+  margin: 0 0 4px;
+  color: #fff;
+  font-size: 20px;
+  font-weight: 500;
+}
+
+.lumina-dashboard-state p {
+  margin: 0;
+  color: rgba(255, 255, 255, 0.58);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.lumina-dashboard-error {
+  border: 1px solid rgba(239, 68, 68, 0.34);
+}
+
+.lumina-dashboard-page .voice-agent-panel {
+  border: 0;
+  border-radius: 24px;
+  background: rgba(255, 255, 255, 0.01);
+  background-blend-mode: luminosity;
+  color: #fff;
+  box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.1);
+  padding: 18px;
+}
+
+.lumina-dashboard-page .voice-agent-panel .panel-heading {
+  border-bottom-color: rgba(255, 255, 255, 0.1);
+}
+
+.lumina-dashboard-page .voice-agent-panel h2,
+.lumina-dashboard-page .voice-agent-panel .panel-heading svg {
+  color: rgba(255, 255, 255, 0.78);
+}
+
+.lumina-dashboard-page .voice-agent-panel .eyebrow,
+.lumina-dashboard-page .voice-agent-copy,
+.lumina-dashboard-page .voice-agent-message {
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.lumina-dashboard-page .voice-agent-panel .primary-button,
+.lumina-dashboard-page .voice-agent-panel .secondary-button,
+.lumina-dashboard-page .voice-agent-panel .icon-button {
+  border-color: rgba(255, 255, 255, 0.14);
+  background: rgba(255, 255, 255, 0.06);
+  color: #fff;
+}
+
+@media (max-width: 1180px) {
+  .lumina-results-grid {
+    grid-template-columns: minmax(220px, 300px) minmax(0, 1fr);
+  }
+
+  .lumina-map-card {
+    grid-column: 1 / -1;
+    min-height: 720px;
+    max-height: none;
+  }
+
+  .lumina-report-card {
+    max-height: none;
+  }
+}
+
+@media (max-width: 820px) {
+  .lumina-dashboard-nav {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .lumina-dashboard-nav-actions {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .lumina-results-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .lumina-side-rail {
+    order: 0;
+  }
+
+  .lumina-report-card {
+    order: 1;
+  }
+
+  .lumina-map-card {
+    order: 2;
+    min-height: 660px;
+  }
+}
+
+@media (max-width: 620px) {
+  .lumina-score-grid,
+  .lumina-footer-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .lumina-footer-bottom {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  .lumina-dashboard-nav-actions,
+  .lumina-finding-head,
+  .lumina-report-actions {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .lumina-source-row {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+
+  .lumina-source-row .lumina-status-pill {
+    grid-column: 2;
+  }
+
+  .lumina-map-card,
+  .lumina-map-card .globe-stage {
+    min-height: 620px;
+  }
+}

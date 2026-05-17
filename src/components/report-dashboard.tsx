@@ -2,27 +2,35 @@
 
 import {
   AlertTriangle,
+  ArrowLeft,
   CheckCircle2,
+  CircleSlash,
   Download,
   ExternalLink,
   FileText,
+  Info,
   Loader2,
+  Radio,
   ShieldAlert,
 } from "lucide-react";
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { motion } from "motion/react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 
-import { SearchForm } from "@/components/search-form";
 import { ElevenLabsReportAgent } from "@/components/elevenlabs-report-agent";
+import { LuminaLogo } from "@/components/lumina-brand";
 import { ScoreScrambler } from "@/components/score-scrambler";
+import { VideoBackground } from "@/components/video-background";
 import { WorldGlobe } from "@/components/world-globe";
-import type { InputType, Report, ReportResponse, SourceStatus } from "@/lib/report-types";
+import type { Finding, InputType, Report, ReportResponse, SourceStatus } from "@/lib/report-types";
 
 type ReportDashboardProps = {
   initialInputType: InputType;
   initialQuery: string;
   reportId?: string;
 };
+
+type Mode = "demo" | "supabase" | null;
 
 const sourceStatusLabel = {
   ready: "Live",
@@ -31,11 +39,9 @@ const sourceStatusLabel = {
   pending: "Pending",
 } satisfies Record<SourceStatus, string>;
 
-function displayStatus(status: SourceStatus): SourceStatus {
+function displayStatus(status: SourceStatus): Exclude<SourceStatus, "snapshot"> {
   return status === "snapshot" ? "ready" : status;
 }
-
-type Mode = "demo" | "supabase" | null;
 
 export function ReportDashboard({ initialInputType, initialQuery, reportId }: ReportDashboardProps) {
   const [report, setReport] = useState<Report | null>(null);
@@ -112,175 +118,143 @@ export function ReportDashboard({ initialInputType, initialQuery, reportId }: Re
     return `/api/reports/${report.id}/complaint.pdf`;
   }, [report]);
 
-  const modeLabel =
-    mode === "demo" ? "Demo fixtures" : mode === "supabase" ? "Live · ready" : "Loading";
+  const modeLabel = mode === "demo" ? "Demo fixtures" : mode === "supabase" ? "Live report" : "Loading";
 
   return (
-    <main className="dashboard-page">
-      <header className="app-topbar">
-        <Link className="brand-mark" href="/">
-          <span className="brand-symbol">E</span>
-          UnExploited
+    <main className="lumina-dashboard-page lumina-shell">
+      <VideoBackground />
+      <div className="lumina-dashboard-scrim" aria-hidden="true" />
+
+      <header className="lumina-dashboard-nav">
+        <Link className="lumina-dashboard-brand" href="/">
+          <LuminaLogo size={26} />
+          <span>LUMINA</span>
         </Link>
-        <div className="topbar-status">
-          <span className={mode === "demo" ? "status-pill status-snapshot" : "status-pill"}>
+        <div className="lumina-dashboard-nav-actions">
+          <span className={`lumina-status-pill lumina-status-${mode === "demo" ? "snapshot" : "ready"}`}>
+            <Radio aria-hidden="true" size={13} />
             {modeLabel}
           </span>
+          <Link className="lumina-nav-link" href="/">
+            <ArrowLeft aria-hidden="true" size={14} />
+            New analysis
+          </Link>
         </div>
       </header>
 
-      <section className="dashboard-grid">
-        <aside className="control-panel">
-          <div>
-            <p className="eyebrow">Investigation</p>
-            <h1>Report workspace</h1>
-            <p className="muted-copy">
-              Company and region modes share the same report contract, so later sources can plug into one flow.
-            </p>
-          </div>
-          <SearchForm compact initialInputType={initialInputType} initialQuery={initialQuery} />
-          {report ? <ElevenLabsReportAgent report={report} mode={mode ?? "demo"} /> : null}
-          <div className="panel benchmark-panel">
-            <p className="eyebrow">Benchmark</p>
-            <h2>Demo comparison target needed</h2>
-            <p>
-              Pick one real NGO report, such as Verite, WRC, or FLA, then place it here beside the generated
-              report during the final video.
-            </p>
-          </div>
-        </aside>
+      {isLoading && !report ? <DashboardLoading /> : null}
+      {error ? <DashboardError message={error} /> : null}
 
-        <section className="report-panel">
-          {isLoading && !report ? <DashboardLoading /> : null}
-          {error ? <DashboardError message={error} /> : null}
+      {report ? (
+        <section className="lumina-results-grid">
+          <motion.aside
+            initial={{ opacity: 0, x: -18 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ duration: 0.65, ease: "easeOut" }}
+            className="lumina-side-rail"
+          >
+            <section className="liquid-glass lumina-panel lumina-investigation-card">
+              <p className="lumina-overline">
+                {report.inputType === "company" ? "Company report" : "Region report"}
+              </p>
+              <h1>{report.query}</h1>
+              <p>{report.title}</p>
+            </section>
 
-          {report ? (
-            <>
-              <div className="report-header panel">
-                <div>
-                  <p className="eyebrow">
-                    {report.inputType === "company" ? "Company report" : "Region report"}
-                  </p>
-                  <h2>{report.title}</h2>
-                  <p>{report.summary}</p>
-                </div>
-                <a className="secondary-button" href={pdfHref}>
-                  <Download aria-hidden="true" size={16} />
-                  Complaint PDF
-                </a>
-              </div>
-
-              <div className="score-grid">
-                <ScoreBlock label="Overall risk" value={report.overallRisk} suffix="/100" tone="danger" />
-                <ScoreBlock label="Severity" value={report.severity} suffix="/5" tone="warning" />
-                <ScoreBlock label="Credibility" value={report.credibility} suffix="/5" tone="info" />
-              </div>
-
-              <div className="dashboard-content-grid">
-                <section className="panel map-panel">
-                  <div className="panel-heading">
-                    <div>
-                      <p className="eyebrow">Geography</p>
-                      <h2>Signal map</h2>
-                    </div>
-                    <ShieldAlert aria-hidden="true" size={20} />
-                  </div>
-                  <WorldGlobe points={report.mapPoints} />
-                </section>
-
-                <section className="panel source-panel">
-                  <div className="panel-heading">
-                    <div>
-                      <p className="eyebrow">Sources</p>
-                      <h2>Access status</h2>
-                    </div>
-                    <CheckCircle2 aria-hidden="true" size={20} />
-                  </div>
-                  <div className="source-list">
-                    {report.sourceChecks.map((source) => (
-                      <div key={source.name} className="source-row">
-                        <div>
-                          <strong>{source.name}</strong>
-                          <p>{source.detail}</p>
-                        </div>
-                        <span className={`status-pill status-${displayStatus(source.status)}`}>
-                          {sourceStatusLabel[source.status]}
-                        </span>
+            <section className="liquid-glass lumina-panel">
+              <SectionHeader icon={<ShieldAlert size={14} />} title="Source Status" />
+              <div className="lumina-source-stack">
+                {report.sourceChecks.map((source) => {
+                  const status = displayStatus(source.status);
+                  return (
+                    <div key={source.name} className={`lumina-source-row lumina-source-${status}`}>
+                      <StatusIcon status={source.status} />
+                      <div>
+                        <strong>{source.name}</strong>
+                        <p>{source.detail}</p>
                       </div>
-                    ))}
-                  </div>
-                </section>
+                      <span className={`lumina-status-pill lumina-status-${status}`}>
+                        {sourceStatusLabel[source.status]}
+                      </span>
+                    </div>
+                  );
+                })}
               </div>
+            </section>
 
-              <section className="panel findings-panel">
-                <div className="panel-heading">
-                  <div>
-                    <p className="eyebrow">Evidence</p>
-                    <h2>Cited findings</h2>
-                  </div>
-                  <FileText aria-hidden="true" size={20} />
-                </div>
-                <div className="table-wrap">
-                  <table>
-                    <thead>
-                      <tr>
-                        <th>Signal</th>
-                        <th>Geography</th>
-                        <th>Score</th>
-                        <th>Evidence</th>
-                        <th>Source</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {report.findings.map((finding) => (
-                        <tr key={finding.id}>
-                          <td>{finding.signal}</td>
-                          <td>{finding.geography}</td>
-                          <td>
-                            S{finding.severity} / C{finding.credibility}
-                          </td>
-                          <td>{finding.evidence}</td>
-                          <td>
-                            {finding.citations.map((citation) => (
-                              <a key={citation.url} href={citation.url} target="_blank" rel="noreferrer">
-                                {citation.label}
-                                <ExternalLink aria-hidden="true" size={13} />
-                              </a>
-                            ))}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </section>
+            <ElevenLabsReportAgent report={report} mode={mode ?? "demo"} />
+          </motion.aside>
 
-              <section className="panel action-panel">
-                <div>
-                  <p className="eyebrow">Recommended action</p>
-                  <h2>{report.recommendedAction}</h2>
-                  <p>{report.sourceNote}</p>
-                </div>
-                <a className="primary-button" href={pdfHref}>
-                  <Download aria-hidden="true" size={16} />
-                  Generate letter
-                </a>
-              </section>
-            </>
-          ) : null}
+          <motion.section
+            initial={{ opacity: 0, y: 18 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.65, delay: 0.12, ease: "easeOut" }}
+            className="liquid-glass lumina-report-card"
+          >
+            <section className="lumina-report-summary">
+              <SectionHeader icon={<Info size={14} />} title="Executive Summary" />
+              <h2>{report.title}</h2>
+              <p>{report.summary}</p>
+            </section>
+
+            <div className="lumina-score-grid">
+              <ScoreTile label="Overall risk" value={report.overallRisk} suffix="/100" tone="danger" />
+              <ScoreTile label="Severity" value={report.severity} suffix="/5" tone="warning" />
+              <ScoreTile label="Credibility" value={report.credibility} suffix="/5" tone="info" />
+            </div>
+
+            <section>
+              <SectionHeader icon={<AlertTriangle size={14} />} title="Cited Findings" />
+              <div className="lumina-findings-list">
+                {report.findings.map((finding, index) => (
+                  <FindingRow key={finding.id} finding={finding} index={index} />
+                ))}
+              </div>
+            </section>
+
+            <section className="lumina-action-block">
+              <SectionHeader icon={<CheckCircle2 size={14} />} title="Recommended Action" />
+              <p>{report.recommendedAction}</p>
+              <span>{report.sourceNote}</span>
+            </section>
+
+            <div className="lumina-report-actions">
+              <a className="liquid-glass lumina-primary-action" href={pdfHref}>
+                <FileText aria-hidden="true" size={15} />
+                Generate Complaint PDF
+              </a>
+              <a className="lumina-secondary-action" href={pdfHref}>
+                <Download aria-hidden="true" size={15} />
+                Download letter
+              </a>
+            </div>
+          </motion.section>
+
+          <motion.aside
+            initial={{ opacity: 0, x: 18 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ duration: 0.65, delay: 0.22, ease: "easeOut" }}
+            className="liquid-glass lumina-map-card"
+          >
+            <div className="lumina-map-head">
+              <SectionHeader icon={<ShieldAlert size={14} />} title="Signal Map" />
+              <p>{report.mapPoints.length} mapped source signal{report.mapPoints.length === 1 ? "" : "s"}</p>
+            </div>
+            <WorldGlobe points={report.mapPoints} />
+          </motion.aside>
         </section>
-      </section>
+      ) : null}
     </main>
   );
 }
 
 function DashboardLoading() {
   return (
-    <div className="panel loading-panel">
+    <div className="liquid-glass lumina-dashboard-state">
       <Loader2 aria-hidden="true" className="spin-icon" size={24} />
       <div>
-        <h2>Loading report</h2>
-        <p>Fetching the persisted findings from Supabase.</p>
+        <h1>Loading report</h1>
+        <p>Fetching the persisted findings and source state.</p>
       </div>
     </div>
   );
@@ -288,17 +262,57 @@ function DashboardLoading() {
 
 function DashboardError({ message }: { message: string }) {
   return (
-    <div className="panel error-panel" role="alert">
+    <div className="liquid-glass lumina-dashboard-state lumina-dashboard-error" role="alert">
       <AlertTriangle aria-hidden="true" size={24} />
       <div>
-        <h2>Report load failed</h2>
+        <h1>Report load failed</h1>
         <p>{message}</p>
       </div>
     </div>
   );
 }
 
-function ScoreBlock({
+function SectionHeader({ icon, title }: { icon: ReactNode; title: string }) {
+  return (
+    <div className="lumina-section-header">
+      <span>{icon}</span>
+      <h2>{title}</h2>
+    </div>
+  );
+}
+
+function FindingRow({ finding, index }: { finding: Finding; index: number }) {
+  return (
+    <motion.article
+      initial={{ opacity: 0, x: -8 }}
+      animate={{ opacity: 1, x: 0 }}
+      transition={{ delay: 0.25 + index * 0.06 }}
+      className="lumina-finding-row"
+    >
+      <span className="lumina-finding-dot" style={{ background: riskColor(finding.severity) }} />
+      <div className="lumina-finding-main">
+        <div className="lumina-finding-head">
+          <strong>{finding.signal}</strong>
+          <span style={{ color: riskColor(finding.severity), background: `${riskColor(finding.severity)}20` }}>
+            S{finding.severity} / C{finding.credibility}
+          </span>
+        </div>
+        <p>{finding.evidence}</p>
+        <div className="lumina-finding-meta">
+          <span>{finding.geography}</span>
+          {finding.citations.map((citation) => (
+            <a key={citation.url} href={citation.url} target="_blank" rel="noreferrer">
+              {citation.label}
+              <ExternalLink aria-hidden="true" size={12} />
+            </a>
+          ))}
+        </div>
+      </div>
+    </motion.article>
+  );
+}
+
+function ScoreTile({
   label,
   value,
   suffix,
@@ -310,12 +324,29 @@ function ScoreBlock({
   tone: "danger" | "warning" | "info";
 }) {
   return (
-    <div className={`score-block score-${tone}`}>
+    <div className={`lumina-score-tile lumina-score-${tone}`}>
       <span>{label}</span>
       <strong>
         <ScoreScrambler value={value} />
-        {suffix}
+        <small>{suffix}</small>
       </strong>
     </div>
   );
+}
+
+function StatusIcon({ status }: { status: SourceStatus }) {
+  if (status === "blocked") {
+    return <CircleSlash aria-hidden="true" size={16} />;
+  }
+  if (status === "pending") {
+    return <Loader2 aria-hidden="true" className="spin-icon" size={16} />;
+  }
+  return <CheckCircle2 aria-hidden="true" size={16} />;
+}
+
+function riskColor(score: number) {
+  if (score >= 5) return "#ef4444";
+  if (score >= 4) return "#f97316";
+  if (score >= 3) return "#f59e0b";
+  return "#22c55e";
 }
