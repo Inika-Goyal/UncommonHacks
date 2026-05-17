@@ -3086,7 +3086,12 @@ td a {
   overflow-y: auto;
   overscroll-behavior: contain;
   padding: clamp(20px, 2.4vw, 30px);
-  scrollbar-gutter: stable;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.lumina-report-card-scroll::-webkit-scrollbar {
+  display: none;
 }
 
 .lumina-report-summary > h2 {
