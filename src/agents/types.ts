@@ -1,12 +1,13 @@
 import { z } from "zod";
 
-import type { Finding, InputType, MapPoint, SourceStatus } from "@/lib/report-types";
+import type { Finding, InputType, MapArc, MapPoint, SourceStatus } from "@/lib/report-types";
 import type { OnboardingAnswers } from "@/lib/onboarding-types";
 
 export const AGENT_NAMES = [
   "news",
   "watchlist",
   "supplier",
+  "web_research",
   "pipeline",
   "legal",
   "risk_index",
@@ -17,6 +18,7 @@ export const AGENT_LABELS: Record<AgentName, string> = {
   news: "News intelligence",
   watchlist: "Watchlist matches",
   supplier: "Supplier disclosure",
+  web_research: "Web supply-chain research",
   pipeline: "Pipeline mapping",
   legal: "Legal & complaints",
   risk_index: "Country risk index",
@@ -30,6 +32,7 @@ export type AgentResult = {
   detail: string;
   findings: Finding[];
   mapPoints: MapPoint[];
+  mapArcs: MapArc[];
   rawFeatures: Record<string, unknown>;
   startedAt: string;
   finishedAt: string;
@@ -76,10 +79,19 @@ export type FeatureBundle = {
     countriesCovered: string[];
     sectors: string[];
   };
+  webResearch: {
+    queryCount: number;
+    resultCount: number;
+    fetchedDocumentCount: number;
+    extractedStageCount: number;
+    mappedStageCount: number;
+    arcCount: number;
+  };
   pipeline: {
     pipelineStageCount: number;
     mappedStageCount: number;
     articleCount: number;
+    arcCount: number;
   };
   legal: {
     courtCaseCount: number;
@@ -114,6 +126,10 @@ export type StateUpdate =
       severity: number;
       credibility: number;
       overallRisk: number;
+    }
+  | {
+      type: "mappoint";
+      point: MapPoint;
     }
   | {
       type: "error";

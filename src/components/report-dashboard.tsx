@@ -356,7 +356,7 @@ export function ReportDashboard({ initialInputType, initialQuery, reportId }: Re
               <SectionHeader icon={<ShieldAlert size={14} />} title="Signal Map" />
               <p>{report.mapPoints.length} mapped source signal{report.mapPoints.length === 1 ? "" : "s"}</p>
             </div>
-            <WorldGlobe ref={globeRef} points={report.mapPoints} />
+            <WorldGlobe ref={globeRef} points={report.mapPoints} arcs={report.mapArcs} />
           </motion.aside>
 
           <ModelIntelligencePanel report={report} onFocusGeography={handleFocusGeography} />

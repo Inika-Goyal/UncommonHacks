@@ -1,7 +1,7 @@
 import type { NextRequest } from "next/server";
 
 import { subscribe } from "@/agents/runtime";
-import type { StateUpdate } from "@/agents/types";
+import { AGENT_NAMES, type StateUpdate } from "@/agents/types";
 
 export const runtime = "nodejs";
 
@@ -24,11 +24,7 @@ export async function GET(request: NextRequest) {
         controller.enqueue(encoder.encode(`data: ${JSON.stringify(event)}\n\n`));
       };
 
-      writeEvent({ type: "agent", name: "news", status: "pending" });
-      writeEvent({ type: "agent", name: "watchlist", status: "pending" });
-      writeEvent({ type: "agent", name: "supplier", status: "pending" });
-      writeEvent({ type: "agent", name: "legal", status: "pending" });
-      writeEvent({ type: "agent", name: "risk_index", status: "pending" });
+      AGENT_NAMES.forEach((name) => writeEvent({ type: "agent", name, status: "pending" }));
 
       heartbeat = setInterval(() => {
         try {

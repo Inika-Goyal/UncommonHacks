@@ -1,6 +1,6 @@
 import { Annotation } from "@langchain/langgraph";
 
-import type { MapPoint, MlPrediction, MlPredictionReason } from "@/lib/report-types";
+import type { MapArc, MapPoint, MlPrediction, MlPredictionReason } from "@/lib/report-types";
 import type { OnboardingAnswers } from "@/lib/onboarding-types";
 
 import type {
@@ -42,6 +42,10 @@ export const orchestratorAnnotation = Annotation.Root({
     default: () => ({}),
   }),
   mapPoints: Annotation<MapPoint[]>({
+    reducer: (prev, next) => [...prev, ...next],
+    default: () => [],
+  }),
+  mapArcs: Annotation<MapArc[]>({
     reducer: (prev, next) => [...prev, ...next],
     default: () => [],
   }),

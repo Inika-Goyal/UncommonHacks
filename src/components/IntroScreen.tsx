@@ -28,7 +28,7 @@ export default function IntroScreen({ onComplete }: IntroScreenProps) {
     <div style={styles.wrapper(fading)}>
       <div style={styles.scanline} />
       <div style={styles.logoWrap}>
-        <img src="/laborlens-logo.svg" alt="LaborLens" width={320} />
+        <img src="/logo.svg" alt="LaborLens" width={320} />
         <div style={styles.arc} />
         <div style={styles.ripple} />
       </div>

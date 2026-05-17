@@ -14,6 +14,22 @@ type NominatimResult = {
   importance?: number;
 };
 
+const REGION_LAND_ANCHORS: Record<string, { label: string; latitude: number; longitude: number }> = {
+  africa: { label: "Africa representative land anchor", latitude: 6.6, longitude: 20.9 },
+  americas: { label: "Americas representative land anchor", latitude: 14.6, longitude: -89.0 },
+  apac: { label: "Asia-Pacific representative land anchor", latitude: 14.6, longitude: 101.0 },
+  asia: { label: "Asia representative land anchor", latitude: 43.5, longitude: 75.0 },
+  "asia pacific": { label: "Asia-Pacific representative land anchor", latitude: 14.6, longitude: 101.0 },
+  "asia-pacific": { label: "Asia-Pacific representative land anchor", latitude: 14.6, longitude: 101.0 },
+  europe: { label: "Europe representative land anchor", latitude: 50.8, longitude: 10.4 },
+  "greater china": { label: "Greater China representative land anchor", latitude: 35.9, longitude: 104.2 },
+  "latin america": { label: "Latin America representative land anchor", latitude: -13.5, longitude: -64.8 },
+  "north america": { label: "North America representative land anchor", latitude: 39.8, longitude: -98.6 },
+  "rest of asia pacific": { label: "Rest of Asia-Pacific representative land anchor", latitude: 14.6, longitude: 101.0 },
+  "southeast asia": { label: "Southeast Asia representative land anchor", latitude: 15.9, longitude: 101.0 },
+  "south america": { label: "South America representative land anchor", latitude: -14.2, longitude: -60.2 },
+};
+
 export type GeocodedLocation = {
   query: string;
   label: string;
@@ -31,10 +47,31 @@ function isTooVague(location: string): boolean {
   );
 }
 
+function normalizeRegionKey(location: string): string {
+  return location.toLowerCase().replace(/&/g, " and ").replace(/[^a-z -]/g, " ").replace(/\s+/g, " ").trim();
+}
+
 export async function geocodeLocation(location: string): Promise<CacheLookup<GeocodedLocation>> {
   const normalized = location.trim();
   if (!normalized || isTooVague(normalized)) {
     return { source: "miss", error: new Error(`Location is too vague to geocode: ${location}`) };
+  }
+
+  const regionAnchor = REGION_LAND_ANCHORS[normalizeRegionKey(normalized)];
+  if (regionAnchor) {
+    return {
+      source: "live",
+      payload: {
+        query: normalized,
+        label: regionAnchor.label,
+        latitude: regionAnchor.latitude,
+        longitude: regionAnchor.longitude,
+        class: "region",
+        type: "representative_land_anchor",
+        importance: 0.5,
+        sourceUrl: `https://www.openstreetmap.org/#map=4/${regionAnchor.latitude}/${regionAnchor.longitude}`,
+      },
+    };
   }
 
   const params = new URLSearchParams({

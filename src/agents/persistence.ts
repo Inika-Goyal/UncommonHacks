@@ -2,7 +2,9 @@ import { createSupabaseServerClient } from "@/lib/supabase-server";
 import type {
   Finding,
   InputType,
+  MapArc,
   MapPoint,
+  MapPointStage,
   MlPrediction,
   MlPredictionReason,
   ReportStatus,
@@ -10,7 +12,69 @@ import type {
 } from "@/lib/report-types";
 
 import type { AgentName, AgentResult, FeatureBundle, SynthesisOutput } from "@/agents/types";
+import { emitReportUpdate } from "@/agents/events";
 import { AGENT_LABELS } from "@/agents/types";
+
+const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+function isUuid(value: string): boolean {
+  return uuidPattern.test(value);
+}
+
+function isMissingMapArcsSchemaError(error: { code?: string; message?: string } | null): boolean {
+  if (!error) return false;
+  return (
+    error.code === "PGRST205" ||
+    error.code === "42P01" ||
+    /map_arcs|schema cache|relation .* does not exist/i.test(error.message ?? "")
+  );
+}
+
+function isMapPointStageConstraintError(error: { code?: string; message?: string } | null): boolean {
+  if (!error) return false;
+  return error.code === "23514" && /map_points_stage_check|stage/i.test(error.message ?? "");
+}
+
+function legacyStage(stage: MapPointStage | undefined): MapPointStage | undefined {
+  if (stage === "raw_material") return "origin";
+  if (stage === "component_or_processing") return "labor";
+  if (stage === "assembly") return "factory";
+  if (stage === "consumer_market") return "consumer";
+  return stage;
+}
+
+export function buildDefaultMapArcs(points: readonly MapPoint[]): MapArc[] {
+  if (points.length < 2) return [];
+
+  const ordered = [...points].sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+  const grouped = new Map<number, MapPoint[]>();
+  ordered.forEach((point, index) => {
+    const key = point.order ?? index;
+    grouped.set(key, [...(grouped.get(key) ?? []), point]);
+  });
+
+  const arcs: MapArc[] = [];
+  const seen = new Set<string>();
+  const orderKeys = [...grouped.keys()].sort((a, b) => a - b);
+  for (let index = 0; index < orderKeys.length - 1; index += 1) {
+    const fromGroup = grouped.get(orderKeys[index]) ?? [];
+    const toGroup = grouped.get(orderKeys[index + 1]) ?? [];
+    for (const from of fromGroup) {
+      for (const to of toGroup) {
+        const key = `${from.id}->${to.id}`;
+        if (from.id === to.id || seen.has(key)) continue;
+        seen.add(key);
+        arcs.push({
+          id: `${from.id}-${to.id}`,
+          fromPointId: from.id,
+          toPointId: to.id,
+        });
+      }
+    }
+  }
+
+  return arcs;
+}
 
 export type ReportShellInput = {
   inputType: InputType;
@@ -59,7 +123,15 @@ export async function createReportShell(input: ReportShellInput): Promise<string
     output_goal: input.onboarding.outputGoal,
   });
 
-  const initialAgents: AgentName[] = ["news", "watchlist", "supplier", "pipeline", "legal", "risk_index"];
+  const initialAgents: AgentName[] = [
+    "news",
+    "watchlist",
+    "supplier",
+    "web_research",
+    "pipeline",
+    "legal",
+    "risk_index",
+  ];
   await supabase.from("source_status").insert(
     initialAgents.map((agent) => ({
       report_id: reportId,
@@ -127,21 +199,97 @@ export async function insertFindings(
 export async function insertMapPoints(reportId: string, points: MapPoint[]): Promise<void> {
   if (points.length === 0) return;
   const supabase = createSupabaseServerClient();
-  await supabase.from("map_points").insert(
-    points.map((point) => ({
-      report_id: reportId,
-      label: point.label,
-      latitude: point.latitude,
-      longitude: point.longitude,
-      risk: point.risk,
-      exploit_type: point.exploitType ?? null,
-      severity: point.severity ?? null,
-      stage: point.stage ?? null,
-      order: point.order ?? null,
-      causes: point.causes ?? null,
-      sources: point.sources ?? null,
-    })),
+  const rows = points.map((point) => ({
+    ...(isUuid(point.id) ? { id: point.id } : {}),
+    report_id: reportId,
+    label: point.label,
+    latitude: point.latitude,
+    longitude: point.longitude,
+    risk: point.risk,
+    exploit_type: point.exploitType ?? null,
+    severity: point.severity ?? null,
+    stage: point.stage ?? null,
+    order: point.order ?? null,
+    causes: point.causes ?? null,
+    sources: point.sources ?? null,
+  }));
+
+  const { error } = await supabase.from("map_points").insert(rows);
+  if (!error) {
+    for (const point of points) {
+      emitReportUpdate(reportId, { type: "mappoint", point });
+    }
+    return;
+  }
+
+  if (isMapPointStageConstraintError(error)) {
+    const retryRows = rows.map((row, index) => ({
+      ...row,
+      stage: legacyStage(points[index]?.stage) ?? null,
+    }));
+    const { error: retryError } = await supabase.from("map_points").insert(retryRows);
+    if (!retryError) {
+      for (const point of points) {
+        emitReportUpdate(reportId, { type: "mappoint", point });
+      }
+      return;
+    }
+    throw new Error(`Failed to store map points after legacy stage retry: ${retryError.message}`);
+  }
+
+  throw new Error(`Failed to store map points: ${error.message}`);
+}
+
+export async function replaceMapArcs(
+  reportId: string,
+  points: MapPoint[],
+  explicitArcs: MapArc[] = [],
+): Promise<{ stored: boolean; detail?: string }> {
+  const supabase = createSupabaseServerClient();
+  const { error: deleteError } = await supabase.from("map_arcs").delete().eq("report_id", reportId);
+  if (deleteError) {
+    if (isMissingMapArcsSchemaError(deleteError)) {
+      return {
+        stored: false,
+        detail: "Map arcs were composed in memory but not persisted because public.map_arcs is missing from the live Supabase schema cache.",
+      };
+    }
+    throw new Error(`Failed to clear map arcs: ${deleteError.message}`);
+  }
+
+  const pointIds = new Set(points.map((point) => point.id));
+  const candidateArcs = explicitArcs.length > 0 ? explicitArcs : buildDefaultMapArcs(points);
+  const arcs = candidateArcs
+    .filter((arc) => pointIds.has(arc.fromPointId) && pointIds.has(arc.toPointId))
+    .filter((arc) => isUuid(arc.fromPointId) && isUuid(arc.toPointId));
+  if (arcs.length === 0) return { stored: true };
+
+  const seen = new Set<string>();
+  const { error: insertError } = await supabase.from("map_arcs").insert(
+    arcs
+      .filter((arc) => {
+        const key = `${arc.fromPointId}->${arc.toPointId}`;
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      })
+      .map((arc) => ({
+        report_id: reportId,
+        from_point_id: arc.fromPointId,
+        to_point_id: arc.toPointId,
+        label: arc.label ?? null,
+      })),
   );
+  if (insertError) {
+    if (isMissingMapArcsSchemaError(insertError)) {
+      return {
+        stored: false,
+        detail: "Map arcs were composed in memory but not persisted because public.map_arcs is missing from the live Supabase schema cache.",
+      };
+    }
+    throw new Error(`Failed to store map arcs: ${insertError.message}`);
+  }
+  return { stored: true };
 }
 
 export async function patchReport(
@@ -191,13 +339,15 @@ export async function finalizeReportFromSynthesis(
   agentResults: Partial<Record<AgentName, AgentResult>>,
   mlPrediction?: MlPrediction | null,
   mlPredictionReason?: MlPredictionReason | null,
+  sourceNoteSuffix?: string,
 ): Promise<void> {
   const agentNames = Object.values(agentResults).map((result) => result?.status).filter(Boolean);
   const liveCount = agentNames.filter((s) => s === "ready").length;
-  const note =
+  const baseNote =
     liveCount > 0
       ? `Synthesized from ${liveCount} live sources and ${agentNames.length - liveCount} snapshot/cached sources.`
       : "Synthesized from cached/snapshot sources only.";
+  const note = sourceNoteSuffix ? `${baseNote} ${sourceNoteSuffix}` : baseNote;
 
   await patchReport(reportId, {
     title: synthesis.title,
