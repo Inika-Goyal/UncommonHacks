@@ -2034,71 +2034,6 @@ td a {
   font-weight: 600;
 }
 
-.constellation-wrap {
-  position: relative;
-  width: 100%;
-  height: 360px;
-  margin-bottom: 14px;
-  border: 1px solid oklch(0.32 0.04 245);
-  border-radius: 14px;
-  overflow: hidden;
-  background:
-    radial-gradient(ellipse at 50% 50%, oklch(0.18 0.05 270) 0%, oklch(0.07 0.04 270) 70%),
-    oklch(0.05 0.03 270);
-  box-shadow:
-    inset 0 0 60px oklch(0.4 0.18 280 / 0.18),
-    0 24px 50px oklch(0.05 0.05 270 / 0.45);
-}
-
-.constellation-placeholder {
-  background: oklch(0.07 0.04 270);
-}
-
-/* Animated fallback for browsers without WebGL — a CSS-only constellation. */
-.constellation-fallback::before,
-.constellation-fallback::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  background:
-    radial-gradient(circle at 25% 50%, oklch(0.8 0.18 145 / 0.45) 0, transparent 9%),
-    radial-gradient(circle at 50% 30%, oklch(0.78 0.18 50 / 0.55) 0, transparent 10%),
-    radial-gradient(circle at 75% 60%, oklch(0.78 0.18 280 / 0.5) 0, transparent 9%),
-    radial-gradient(circle at 65% 80%, oklch(0.8 0.18 145 / 0.4) 0, transparent 8%),
-    radial-gradient(circle at 35% 75%, oklch(0.78 0.18 50 / 0.4) 0, transparent 8%);
-  filter: blur(1.5px);
-  animation: fallbackFloat 10s ease-in-out infinite alternate;
-}
-.constellation-fallback::after {
-  background:
-    repeating-linear-gradient(
-      45deg,
-      transparent 0,
-      transparent 18px,
-      oklch(0.8 0.18 245 / 0.07) 18px,
-      oklch(0.8 0.18 245 / 0.07) 19px
-    );
-  animation-duration: 18s;
-  mix-blend-mode: screen;
-}
-@keyframes fallbackFloat {
-  0% { transform: translate(-2%, -1%) rotate(-1deg); }
-  100% { transform: translate(2%, 1%) rotate(1deg); }
-}
-
-.constellation-vignette {
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  background:
-    radial-gradient(circle at 50% 50%, transparent 50%, oklch(0.05 0.03 270 / 0.55) 100%),
-    linear-gradient(180deg, oklch(0.05 0.03 270 / 0.35) 0%, transparent 25%, transparent 75%, oklch(0.05 0.03 270 / 0.45) 100%);
-}
-
-.constellation-wrap canvas {
-  display: block;
-}
-
 .score-block strong {
   font-variant-numeric: tabular-nums;
   letter-spacing: -0.5px;
@@ -2266,35 +2201,105 @@ td a {
   line-height: 1.55;
 }
 
-.launch-constellation {
+.launch-globe {
   position: relative;
   width: 100%;
-  height: clamp(360px, 50vh, 500px);
+  height: clamp(420px, 46vh, 560px);
+  margin-left: 0;
   border-radius: 24px;
   overflow: hidden;
-  border: 1px solid oklch(0.32 0.05 270);
-  background: radial-gradient(circle at 50% 50%, oklch(0.18 0.06 280) 0%, oklch(0.05 0.03 270) 80%);
-  box-shadow:
-    inset 0 0 80px oklch(0.4 0.18 280 / 0.25),
-    0 30px 80px oklch(0.05 0.05 270 / 0.55);
+  border: 1px solid transparent;
+  background: transparent;
+  opacity: 0.9;
+  box-shadow: none;
+  pointer-events: none;
+  transform: translate3d(0, 0, 0) scale(1);
+  transform-origin: 50% 50%;
+  transition:
+    opacity 900ms cubic-bezier(0.2, 0.8, 0.2, 1),
+    transform 1200ms cubic-bezier(0.16, 1, 0.3, 1),
+    border-color 320ms ease-out,
+    background-color 320ms ease-out,
+    box-shadow 1200ms cubic-bezier(0.16, 1, 0.3, 1);
+  will-change: transform, opacity;
 }
 
-.launch-constellation .constellation-wrap {
+.launch-visual-shell[data-globe-ready="true"] .launch-globe {
+  opacity: 1;
+  transform: translate3d(0, 0, 0) scale(1);
+}
+
+.launch-visual-shell[data-globe-settled="true"] .launch-globe {
+  overflow: hidden;
+  border-color: oklch(0.32 0.05 270);
+  background: radial-gradient(circle at 50% 50%, oklch(0.18 0.06 280 / 0.18) 0%, oklch(0.05 0.03 270 / 0.3) 80%);
+  pointer-events: none;
+  box-shadow:
+    inset 0 0 80px oklch(0.4 0.18 280 / 0.18),
+    0 32px 90px oklch(0.03 0.04 250 / 0.42);
+}
+
+.launch-globe > .globe-stage {
   height: 100%;
-  margin: 0;
-  border: 0;
-  border-radius: 0;
+  min-height: 100%;
+  border-radius: 24px;
+}
+
+.launch-globe .globe-canvas-frame {
+  border-radius: 24px;
+}
+
+.launch-globe .globe-canvas {
+  cursor: default;
+  transform: translate3d(0, 0, 0) scale(1.46);
+  transform-origin: center center;
+}
+
+.launch-scan-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 6;
+  overflow: hidden;
+  border-radius: inherit;
+  pointer-events: none;
+}
+
+.launch-scan-label {
+  position: absolute;
+  left: var(--scan-label-x, 50%);
+  top: var(--scan-label-y, 50%);
+  max-width: 240px;
+  color: rgba(226, 246, 255, 0.32);
+  font-size: 12px;
+  font-weight: 720;
+  letter-spacing: 0.02em;
+  text-shadow: 0 0 18px rgba(34, 211, 238, 0.22);
+  white-space: nowrap;
+  opacity: 0;
+  transform: translate3d(20px, -50%, 0);
+  animation: launch-scan-label 3200ms ease-in-out both;
+}
+
+.launch-scan-label[data-visible="true"] {
+  opacity: 1;
+}
+
+.launch-scan-label[data-visible="false"] {
+  opacity: 0;
+  animation: none;
+}
+
+.launch-visual-shell[data-globe-settled="true"] .launch-globe .globe-canvas-frame {
+  border-radius: 24px 24px 0 0;
+}
+
+.launch-globe .globe-legend {
+  max-height: 86px;
+}
+
+.launch-globe .globe-stage {
   background: transparent;
   box-shadow: none;
-}
-
-.launch-constellation .constellation-wrap canvas {
-  transform: translate(-2%, -4%) scale(1.08);
-  transform-origin: center;
-}
-
-.launch-constellation-placeholder {
-  background: oklch(0.07 0.04 270);
 }
 
 .launch-progress {
@@ -2841,20 +2846,55 @@ td a {
 }
 
 @keyframes star-drift {
+  from {
+    background-position:
+      0 0,
+      42px 58px;
+  }
+
   to {
-    transform: translate3d(-96px, 72px, 0);
+    background-position:
+      118px 118px,
+      218px 234px;
   }
 }
 
 @keyframes star-drift-slow {
+  from {
+    background-position:
+      24px 18px,
+      center;
+  }
+
   to {
-    transform: translate3d(84px, -54px, 0);
+    background-position:
+      264px 258px,
+      center;
+  }
+}
+
+@keyframes launch-scan-label {
+  0% {
+    opacity: 0;
+    transform: translate3d(14px, -50%, 0);
+  }
+
+  22%,
+  76% {
+    opacity: 0.58;
+    transform: translate3d(20px, -50%, 0);
+  }
+
+  100% {
+    opacity: 0;
+    transform: translate3d(26px, -50%, 0);
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
   .globe-stage::before,
-  .globe-stage::after {
+  .globe-stage::after,
+  .launch-scan-label {
     animation: none;
   }
 }
@@ -3042,7 +3082,8 @@ td a {
 }
 
 .launch-stage {
-  max-width: 1180px;
+  width: 100%;
+  max-width: none;
   min-height: 100dvh;
   height: auto;
   padding: clamp(24px, 4vw, 48px) clamp(16px, 4vw, 48px) clamp(14px, 1.8vw, 24px);
@@ -3087,16 +3128,19 @@ td a {
 }
 
 .launch-visual-shell {
+  position: relative;
   padding: clamp(6px, 1vw, 12px);
   border-radius: 32px;
-  min-height: calc(clamp(300px, 38vh, 460px) + clamp(32px, 3.6vw, 46px));
+  min-height: calc(clamp(420px, 46vh, 560px) + clamp(28px, 3vw, 38px));
   display: flex;
   flex-direction: column;
 }
 
-.launch-constellation {
+.launch-globe {
   flex: 0 0 auto;
-  height: clamp(300px, 38vh, 460px);
+  width: 100%;
+  height: clamp(420px, 46vh, 560px);
+  margin-left: 0;
   border: 0;
   border-radius: 24px;
   background:
@@ -3105,8 +3149,18 @@ td a {
   box-shadow: inset 0 1px 20px rgba(255, 255, 255, 0.04);
 }
 
-.launch-constellation .constellation-wrap canvas {
-  transform: translate(-2%, -5%) scale(1.1);
+.launch-visual-shell[data-globe-settled="false"] .launch-globe {
+  background: transparent;
+  box-shadow: none;
+}
+
+.launch-visual-shell[data-globe-settled="true"] .launch-globe {
+  background:
+    radial-gradient(circle at 58% 42%, rgba(255, 255, 255, 0.055) 0%, rgba(255, 255, 255, 0.012) 44%, transparent 78%),
+    rgba(255, 255, 255, 0.008);
+  box-shadow:
+    inset 0 1px 20px rgba(255, 255, 255, 0.024),
+    0 32px 90px rgba(0, 0, 0, 0.16);
 }
 
 .launch-progress {
@@ -3438,8 +3492,14 @@ td a {
     text-align: left;
   }
 
-  .launch-constellation {
+  .launch-globe {
+    width: 100%;
     height: 310px;
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+
+  .launch-visual-shell[data-globe-ready="true"] .launch-globe {
+    width: 100%;
   }
 
   .launch-visual-shell {

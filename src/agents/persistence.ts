@@ -12,6 +12,7 @@ import type {
 } from "@/lib/report-types";
 
 import type { AgentName, AgentResult, FeatureBundle, SynthesisOutput } from "@/agents/types";
+import { emitReportUpdate } from "@/agents/events";
 import { AGENT_LABELS } from "@/agents/types";
 
 const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -214,7 +215,12 @@ export async function insertMapPoints(reportId: string, points: MapPoint[]): Pro
   }));
 
   const { error } = await supabase.from("map_points").insert(rows);
-  if (!error) return;
+  if (!error) {
+    for (const point of points) {
+      emitReportUpdate(reportId, { type: "mappoint", point });
+    }
+    return;
+  }
 
   if (isMapPointStageConstraintError(error)) {
     const retryRows = rows.map((row, index) => ({
@@ -222,7 +228,12 @@ export async function insertMapPoints(reportId: string, points: MapPoint[]): Pro
       stage: legacyStage(points[index]?.stage) ?? null,
     }));
     const { error: retryError } = await supabase.from("map_points").insert(retryRows);
-    if (!retryError) return;
+    if (!retryError) {
+      for (const point of points) {
+        emitReportUpdate(reportId, { type: "mappoint", point });
+      }
+      return;
+    }
     throw new Error(`Failed to store map points after legacy stage retry: ${retryError.message}`);
   }
 

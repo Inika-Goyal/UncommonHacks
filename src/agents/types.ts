@@ -128,6 +128,10 @@ export type StateUpdate =
       overallRisk: number;
     }
   | {
+      type: "mappoint";
+      point: MapPoint;
+    }
+  | {
       type: "error";
       agent?: AgentName;
       message: string;
