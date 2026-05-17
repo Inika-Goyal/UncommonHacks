@@ -8,6 +8,7 @@ import type {
 } from "@/lib/report-types";
 
 import { createChatModel } from "@/agents/llm";
+import { buildGlobalMarketPoints, isBroadMarketNode } from "@/agents/global-market-anchors";
 import type { OrchestratorState, OrchestratorUpdate } from "@/agents/state";
 import { runAgentNode } from "@/agents/nodes/_helpers";
 import {
@@ -109,11 +110,15 @@ function findingFromNode(node: SupplyChainGraphNode): Finding {
   };
 }
 
-async function mapPointFromNode(node: SupplyChainGraphNode): Promise<MapPoint | null> {
-  const geocoded = await geocodeLocation(node.location);
-  if (geocoded.source === "miss") return null;
+async function mapPointsFromNode(node: SupplyChainGraphNode): Promise<MapPoint[]> {
+  if (isBroadMarketNode(node)) {
+    return buildGlobalMarketPoints(node);
+  }
 
-  return {
+  const geocoded = await geocodeLocation(node.location);
+  if (geocoded.source === "miss") return [];
+
+  return [{
     id: randomUUID(),
     label: node.label,
     latitude: geocoded.payload.latitude,
@@ -134,7 +139,7 @@ async function mapPointFromNode(node: SupplyChainGraphNode): Promise<MapPoint | 
       })),
       { label: "OpenStreetMap Nominatim geocode", url: geocoded.payload.sourceUrl },
     ],
-  };
+  }];
 }
 
 export async function webResearchNode(state: OrchestratorState): Promise<OrchestratorUpdate> {
@@ -158,15 +163,13 @@ export async function webResearchNode(state: OrchestratorState): Promise<Orchest
       const graph = await extractWebGraph(state, documents);
       const nodes = dedupeNodes(graph.nodes).slice(0, 14);
       const mappedPairs = await Promise.all(
-        nodes.map(async (node) => ({ node, point: await mapPointFromNode(node) })),
+        nodes.map(async (node) => ({ node, points: await mapPointsFromNode(node) })),
       );
-      const mapped = mappedPairs.filter((pair): pair is { node: SupplyChainGraphNode; point: MapPoint } =>
-        Boolean(pair.point),
-      );
+      const mapped = mappedPairs.filter((pair) => pair.points.length > 0);
 
-      const nodePointIds = new Map(mapped.map((pair) => [pair.node.key, pair.point.id]));
+      const nodePointIds = new Map(mapped.map((pair) => [pair.node.key, pair.points[0].id]));
       const extractedArcs = mapExtractedArcsToPoints(graph.arcs, nodePointIds);
-      const points = mapped.map((pair) => pair.point);
+      const points = mapped.flatMap((pair) => pair.points);
       const mapArcs = composeSupplyChainArcs(points, extractedArcs);
       const findings = nodes.map(findingFromNode);
       const fetchedCount = documents.filter((doc) => doc.fetched).length;

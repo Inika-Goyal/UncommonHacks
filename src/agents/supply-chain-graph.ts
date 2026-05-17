@@ -35,11 +35,13 @@ export const GLOBAL_SUPPLY_CHAIN_GRAPH_CONTRACT = `Global supply-chain graph con
 - Prefer staged fan-in/fan-out: raw materials or inputs, component/processing suppliers, assembly/manufacturing, transit/import nodes when sourced, and representative distribution or consumer markets.
 - Every node must be supported by provided evidence and cite an exact URL.
 - Every arc must either be directly supported by evidence or clearly labeled as a representative flow between cited stages.
-- Never invent top-five markets, facilities, countries, or routes to make the graph fuller.`;
+- Never invent top-five markets, facilities, countries, or routes to make the graph fuller.
+- If evidence only supports broad global/international distribution, use a broad market node rather than unsupported country-specific markets.`;
 
 export const REPRESENTATIVE_MARKET_POLICY = `Representative-market policy:
 - Choose up to five market/destination countries only when cited evidence supports country-level sales, stores, distribution, imports, revenue, or consumer-market presence.
 - If only regional evidence exists, use region-level market nodes and label them honestly.
+- If evidence supports global, international, online, or direct-to-consumer distribution but does not name country-level markets, use one broad market node; the renderer may fan this out into clearly labeled representative regional market anchors.
 - If fewer than five sourced markets exist, return fewer. Do not pad the graph.`;
 
 export const graphCitationSchema = z.object({
