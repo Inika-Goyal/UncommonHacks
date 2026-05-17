@@ -2816,7 +2816,6 @@ td a {
 .lumina-dashboard-page {
   position: relative;
   min-height: 100dvh;
-  overflow-x: hidden;
   color: #ededed;
   background: #0a0a0a;
 }
@@ -2908,9 +2907,14 @@ td a {
   z-index: 2;
   display: grid;
   grid-template-columns: minmax(220px, 280px) minmax(0, 1fr) minmax(460px, 640px);
+  grid-auto-rows: min-content;
   gap: 16px;
   min-height: calc(100dvh - 82px);
   padding: 0 clamp(14px, 2vw, 28px) 24px;
+}
+
+.lumina-results-grid > .lumina-model-intel {
+  grid-column: 1 / -1;
 }
 
 .lumina-side-rail {
@@ -3022,6 +3026,9 @@ td a {
 }
 
 .lumina-report-card {
+  position: sticky;
+  top: 12px;
+  align-self: start;
   display: flex;
   flex-direction: column;
   gap: 22px;
@@ -3031,13 +3038,13 @@ td a {
   padding: clamp(20px, 2.4vw, 30px);
 }
 
-.lumina-report-summary h2 {
-  margin: 15px 0 10px;
+.lumina-report-summary > h2 {
+  margin: 12px 0 10px;
   color: #fff;
-  font-size: clamp(26px, 3vw, 42px);
-  font-weight: 350;
+  font-size: clamp(18px, 1.6vw, 22px);
+  font-weight: 500;
   letter-spacing: 0;
-  line-height: 1.05;
+  line-height: 1.25;
 }
 
 .lumina-report-summary p,
@@ -3073,7 +3080,7 @@ td a {
   border-color: rgba(56, 189, 248, 0.3);
 }
 
-.lumina-score-tile span {
+.lumina-score-tile > span {
   display: block;
   margin-bottom: 8px;
   color: rgba(255, 255, 255, 0.4);
@@ -3086,16 +3093,17 @@ td a {
   display: inline-flex;
   align-items: baseline;
   color: #fff;
-  font-size: clamp(25px, 3vw, 38px);
+  font-size: clamp(42px, 4.4vw, 60px);
   font-weight: 500;
   letter-spacing: 0;
   font-variant-numeric: tabular-nums;
+  line-height: 1;
 }
 
 .lumina-score-tile small {
-  margin-left: 2px;
+  margin-left: 3px;
   color: rgba(255, 255, 255, 0.42);
-  font-size: 0.48em;
+  font-size: 0.32em;
   font-weight: 400;
 }
 
@@ -3363,6 +3371,7 @@ td a {
   }
 
   .lumina-report-card {
+    position: static;
     max-height: none;
   }
 }
