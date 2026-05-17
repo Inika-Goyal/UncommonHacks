@@ -1,8 +1,21 @@
 "use client";
 
 import { ConversationProvider, useConversation, useConversationClientTool } from "@elevenlabs/react";
-import { Mic, MicOff, PhoneOff, Radio, Sparkles } from "lucide-react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import {
+  Command,
+  FileText,
+  ListChecks,
+  MapPin,
+  MessageSquare,
+  Mic,
+  MicOff,
+  Navigation,
+  PhoneOff,
+  Radio,
+  Sparkles,
+  X,
+} from "lucide-react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 
 import type { Report } from "@/lib/report-types";
 
@@ -38,6 +51,15 @@ type SuggestedPrompt = {
   text: string;
 };
 
+type CommandAction = {
+  id: string;
+  label: string;
+  detail: string;
+  icon: ReactNode;
+  onSelect: () => void;
+  disabled?: boolean;
+};
+
 type ElevenLabsReportAgentProps = {
   report: Report;
   mode: "demo" | "supabase" | "swarm";
@@ -56,7 +78,9 @@ export function ElevenLabsReportAgent(props: ElevenLabsReportAgentProps) {
 function ElevenLabsReportAgentPanel({ report, mode, pdfHref, tools }: ElevenLabsReportAgentProps) {
   const [error, setError] = useState<string | null>(null);
   const [isStarting, setIsStarting] = useState(false);
+  const [isOpen, setIsOpen] = useState(false);
   const [contextReadyId, setContextReadyId] = useState<string | null>(null);
+  const shellRef = useRef<HTMLElement | null>(null);
   const lastContextIdRef = useRef<string | null>(null);
   const pendingPromptRef = useRef<string | null>(null);
   const userEndedRef = useRef(false);
@@ -135,6 +159,36 @@ function ElevenLabsReportAgentPanel({ report, mode, pdfHref, tools }: ElevenLabs
     conversation.sendUserMessage(pendingPrompt);
   }, [contextReadyId, conversation, report.id]);
 
+  useEffect(() => {
+    function onKeyDown(event: KeyboardEvent) {
+      const key = event.key.toLowerCase();
+      if ((event.metaKey || event.ctrlKey) && key === "k") {
+        event.preventDefault();
+        setIsOpen((current) => !current);
+        return;
+      }
+      if (event.key === "Escape") {
+        setIsOpen(false);
+      }
+    }
+
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, []);
+
+  useEffect(() => {
+    if (!isOpen) return;
+
+    function onPointerDown(event: PointerEvent) {
+      if (!shellRef.current?.contains(event.target as Node)) {
+        setIsOpen(false);
+      }
+    }
+
+    document.addEventListener("pointerdown", onPointerDown);
+    return () => document.removeEventListener("pointerdown", onPointerDown);
+  }, [isOpen]);
+
   async function startVoiceAgent(queuedPrompt?: string) {
     setError(null);
     setIsStarting(true);
@@ -201,63 +255,192 @@ function ElevenLabsReportAgentPanel({ report, mode, pdfHref, tools }: ElevenLabs
       ? "Preparing"
       : voiceStatusLabel(conversation.status);
 
+  const sectionActions = useMemo<CommandAction[]>(
+    () => [
+      {
+        id: "summary",
+        label: "Executive summary",
+        detail: "Jump to the report narrative and scores.",
+        icon: <MessageSquare aria-hidden="true" size={15} />,
+        onSelect: () => {
+          tools.scrollToDashboardSection("summary");
+          setIsOpen(false);
+        },
+      },
+      {
+        id: "findings",
+        label: "Cited findings",
+        detail: "Review the evidence rows ElevenLabs can highlight.",
+        icon: <ListChecks aria-hidden="true" size={15} />,
+        onSelect: () => {
+          tools.scrollToDashboardSection("findings");
+          setIsOpen(false);
+        },
+      },
+      {
+        id: "map",
+        label: "Signal map",
+        detail: "Move to the geographic risk surface.",
+        icon: <MapPin aria-hidden="true" size={15} />,
+        onSelect: () => {
+          tools.scrollToDashboardSection("map");
+          setIsOpen(false);
+        },
+      },
+      {
+        id: "sources",
+        label: "Source status",
+        detail: "Check which live sources are ready or blocked.",
+        icon: <Radio aria-hidden="true" size={15} />,
+        onSelect: () => {
+          tools.scrollToDashboardSection("sources");
+          setIsOpen(false);
+        },
+      },
+      {
+        id: "action",
+        label: "Recommended action",
+        detail: "Jump to the next compliance step.",
+        icon: <Navigation aria-hidden="true" size={15} />,
+        onSelect: () => {
+          tools.scrollToDashboardSection("action");
+          setIsOpen(false);
+        },
+      },
+      {
+        id: "letter",
+        label: "Open complaint PDF",
+        detail: "Open the generated complaint letter route.",
+        icon: <FileText aria-hidden="true" size={15} />,
+        onSelect: () => {
+          tools.openComplaintLetter();
+          setIsOpen(false);
+        },
+      },
+    ],
+    [tools],
+  );
+
   return (
-    <section className="voice-agent-panel voice-agent-inline" aria-label="ElevenLabs report analyst">
-      <div className="voice-agent-actions">
-        {isConnected ? (
-          <>
+    <section ref={shellRef} className="voice-command-shell" aria-label="ElevenLabs report analyst">
+      <button
+        className={`voice-command-trigger${isOpen ? " voice-command-trigger-open" : ""}`}
+        type="button"
+        aria-expanded={isOpen}
+        aria-controls="voice-command-menu"
+        onClick={() => setIsOpen((current) => !current)}
+      >
+        {isConnected ? <Radio aria-hidden="true" size={14} /> : <Command aria-hidden="true" size={14} />}
+        <span>Analyst</span>
+        <kbd>Cmd K</kbd>
+      </button>
+
+      {isOpen ? (
+        <div id="voice-command-menu" className="voice-command-menu" role="dialog" aria-label="Report analyst actions">
+          <div className="voice-command-head">
+            <div>
+              <p>ElevenLabs analyst</p>
+              <h2>Ask, jump, or draft from this report</h2>
+            </div>
+            <button className="voice-command-close" type="button" onClick={() => setIsOpen(false)} aria-label="Close analyst menu">
+              <X aria-hidden="true" size={16} />
+            </button>
+          </div>
+
+          <div className="voice-command-status">
             <span className={`status-pill voice-status-${conversation.status}`}>
               <Radio aria-hidden="true" size={12} />
               {statusLabel}
             </span>
-            <button className="icon-button" type="button" onClick={() => conversation.setMuted(!conversation.isMuted)}>
-              {conversation.isMuted ? <MicOff aria-hidden="true" size={15} /> : <Mic aria-hidden="true" size={15} />}
-              <span>{conversation.isMuted ? "Muted" : "Live mic"}</span>
-            </button>
-            <button className="secondary-button" type="button" onClick={endVoiceAgent}>
-              <PhoneOff aria-hidden="true" size={16} />
-              End
-            </button>
-          </>
-        ) : (
-          <button
-            className="primary-button"
-            type="button"
-            onClick={() => void startVoiceAgent()}
-            disabled={isConnecting}
-            aria-busy={isConnecting}
-          >
-            <Mic aria-hidden="true" size={16} />
-            {isConnecting ? statusLabel : "Discuss this report"}
-          </button>
-        )}
-      </div>
+            <span>
+              {report.findings.length} findings / {report.sourceChecks.length} source checks / {report.mapPoints.length} map signals
+            </span>
+          </div>
 
-      <p className="voice-agent-copy">
-        Connected to {report.findings.length} findings, {report.sourceChecks.length} source checks, map signals, and
-        the current action recommendation.
-      </p>
+          <div className="voice-command-controls">
+            {isConnected ? (
+              <>
+                <button className="voice-control-button" type="button" onClick={() => conversation.setMuted(!conversation.isMuted)}>
+                  {conversation.isMuted ? <MicOff aria-hidden="true" size={15} /> : <Mic aria-hidden="true" size={15} />}
+                  <span>{conversation.isMuted ? "Unmute" : "Mute mic"}</span>
+                </button>
+                <button className="voice-control-button voice-control-danger" type="button" onClick={endVoiceAgent}>
+                  <PhoneOff aria-hidden="true" size={15} />
+                  <span>End session</span>
+                </button>
+              </>
+            ) : (
+              <button
+                className="voice-control-button voice-control-primary"
+                type="button"
+                onClick={() => void startVoiceAgent()}
+                disabled={isConnecting}
+                aria-busy={isConnecting}
+              >
+                <Mic aria-hidden="true" size={15} />
+                <span>{isConnecting ? statusLabel : "Start live analyst"}</span>
+              </button>
+            )}
+          </div>
 
-      <div className="voice-agent-prompts" aria-label="Suggested voice prompts">
-        {suggestedPrompts.map((suggestedPrompt) => (
-          <button
-            key={suggestedPrompt.label}
-            className="voice-prompt-chip"
-            type="button"
-            onClick={() => submitSuggestedPrompt(suggestedPrompt)}
-            disabled={isConnecting}
-            aria-label={`${suggestedPrompt.label}: ${suggestedPrompt.text}`}
-          >
-            <Sparkles aria-hidden="true" size={13} />
-            {suggestedPrompt.label}
-          </button>
-        ))}
-      </div>
+          <div className="voice-command-group">
+            <div className="voice-command-group-title">
+              <Sparkles aria-hidden="true" size={13} />
+              Suggested asks
+            </div>
+            <div className="voice-command-action-grid">
+              {suggestedPrompts.map((suggestedPrompt) => (
+                <button
+                  key={suggestedPrompt.label}
+                  className="voice-command-action"
+                  type="button"
+                  onClick={() => submitSuggestedPrompt(suggestedPrompt)}
+                  disabled={isConnecting}
+                >
+                  <Sparkles aria-hidden="true" size={15} />
+                  <span>
+                    <strong>{suggestedPrompt.label}</strong>
+                    <small>{promptPreview(suggestedPrompt.text)}</small>
+                  </span>
+                </button>
+              ))}
+            </div>
+          </div>
 
-      {conversation.message ? <p className="voice-agent-message">{conversation.message}</p> : null}
-      {error ? <p className="voice-agent-error" role="alert">{error}</p> : null}
+          <div className="voice-command-group">
+            <div className="voice-command-group-title">
+              <Navigation aria-hidden="true" size={13} />
+              Dashboard actions
+            </div>
+            <div className="voice-command-action-grid">
+              {sectionActions.map((action) => (
+                <button
+                  key={action.id}
+                  className="voice-command-action"
+                  type="button"
+                  onClick={action.onSelect}
+                  disabled={action.disabled}
+                >
+                  {action.icon}
+                  <span>
+                    <strong>{action.label}</strong>
+                    <small>{action.detail}</small>
+                  </span>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {conversation.message ? <p className="voice-agent-message">{conversation.message}</p> : null}
+          {error ? <p className="voice-agent-error" role="alert">{error}</p> : null}
+        </div>
+      ) : null}
     </section>
   );
+}
+
+function promptPreview(value: string) {
+  return value.length > 86 ? `${value.slice(0, 83)}...` : value;
 }
 
 function formatVoiceError(error: unknown, fallback: string) {
