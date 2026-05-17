@@ -1,0 +1,33 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "next-dev",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": ["dev"],
+      "port": 3000,
+      "autoPort": false
+    },
+    {
+      "name": "next-dev-demo",
+      "runtimeExecutable": "sh",
+      "runtimeArgs": ["-c", "NEXT_PUBLIC_DEMO_MODE=true pnpm dev --port 3456"],
+      "port": 3456,
+      "autoPort": false
+    },
+    {
+      "name": "next-dev-live",
+      "runtimeExecutable": "sh",
+      "runtimeArgs": ["-c", "NEXT_PUBLIC_DEMO_MODE=false pnpm dev"],
+      "port": 3000,
+      "autoPort": false
+    },
+    {
+      "name": "next-dev-preview",
+      "runtimeExecutable": "sh",
+      "runtimeArgs": ["-c", "NEXT_PUBLIC_DEMO_MODE=true pnpm dev -p 3101"],
+      "port": 3101,
+      "autoPort": false
+    }
+  ]
+}
