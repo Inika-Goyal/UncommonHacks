@@ -14,6 +14,13 @@
       "runtimeArgs": ["-c", "NEXT_PUBLIC_DEMO_MODE=false pnpm dev"],
       "port": 3000,
       "autoPort": false
+    },
+    {
+      "name": "next-dev-preview",
+      "runtimeExecutable": "sh",
+      "runtimeArgs": ["-c", "pnpm dev --port 3100"],
+      "port": 3100,
+      "autoPort": false
     }
   ]
 }

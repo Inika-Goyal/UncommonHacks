@@ -2377,11 +2377,11 @@ td a {
 }
 
 .launch-backdrop::before {
-  top: 86px;
+  top: 64px;
 }
 
 .launch-backdrop::after {
-  bottom: 38px;
+  bottom: 12px;
   opacity: 0.45;
 }
 
@@ -2423,9 +2423,10 @@ td a {
   max-width: 1180px;
   height: calc(100dvh - 72px);
   min-height: 0;
-  padding: clamp(12px, 1.6vw, 22px) clamp(16px, 4vw, 48px) clamp(16px, 2vw, 28px);
-  gap: clamp(10px, 1.2vw, 14px);
-  align-content: center;
+  padding: clamp(10px, 1.4vw, 20px) clamp(16px, 4vw, 48px) clamp(14px, 1.8vw, 24px);
+  gap: clamp(8px, 1vw, 12px);
+  grid-template-rows: auto minmax(0, 1fr) auto auto;
+  align-content: stretch;
 }
 
 .launch-titlebar {
@@ -2464,12 +2465,17 @@ td a {
 }
 
 .launch-visual-shell {
-  padding: clamp(8px, 1.4vw, 14px);
+  padding: clamp(6px, 1vw, 12px);
   border-radius: 32px;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
 }
 
 .launch-constellation {
-  height: clamp(200px, 30vh, 340px);
+  flex: 1 1 0;
+  min-height: 220px;
+  height: auto;
   border: 0;
   border-radius: 24px;
   background:
@@ -2503,11 +2509,29 @@ td a {
 
 .launch-agent {
   min-width: 0;
+  min-height: 62px;
   border: 0;
   border-radius: 18px;
   background: rgba(255, 255, 255, 0.018);
-  padding: 13px 14px;
+  padding: 11px 14px;
   animation: agentSettle 520ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.launch-agent .launch-agent-body {
+  min-width: 0;
+}
+
+.launch-agent-body strong {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.launch-agent-detail {
+  display: block;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .launch-agent-pending,
@@ -2612,6 +2636,11 @@ td a {
   gap: 8px;
   padding: 12px;
   border-radius: 18px;
+  min-height: 220px;
+}
+
+.launch-scores {
+  min-height: 220px;
 }
 
 .launch-skeleton span {
@@ -2658,6 +2687,18 @@ td a {
 
 .launch-log-msg {
   color: rgba(255, 255, 255, 0.72);
+}
+
+.launch-cta {
+  min-height: 70px;
+  margin-top: 0;
+  visibility: hidden;
+  pointer-events: none;
+}
+
+.launch-cta[data-visible="true"] {
+  visibility: visible;
+  pointer-events: auto;
 }
 
 .launch-cta-button {
