@@ -55,24 +55,35 @@ export function ElevenLabsReportAgent(props: ElevenLabsReportAgentProps) {
 
 function ElevenLabsReportAgentPanel({ report, mode, pdfHref, tools }: ElevenLabsReportAgentProps) {
   const [error, setError] = useState<string | null>(null);
+  const [isStarting, setIsStarting] = useState(false);
   const [contextReadyId, setContextReadyId] = useState<string | null>(null);
   const lastContextIdRef = useRef<string | null>(null);
   const pendingPromptRef = useRef<string | null>(null);
+  const userEndedRef = useRef(false);
 
   const context = useMemo(() => buildDashboardContext(report, mode, pdfHref), [report, mode, pdfHref]);
-  const prompt = useMemo(() => buildVoicePrompt(report), [report]);
   const suggestedPrompts = useMemo(() => buildSuggestedPrompts(report), [report]);
 
   const conversation = useConversation({
-    onConnect: () => setError(null),
-    onDisconnect: () => {
+    onConnect: () => {
+      userEndedRef.current = false;
+      setIsStarting(false);
+      setError(null);
+    },
+    onDisconnect: (details) => {
+      setIsStarting(false);
       lastContextIdRef.current = null;
       pendingPromptRef.current = null;
       setContextReadyId(null);
+      if (!userEndedRef.current && details?.reason === "error") {
+        setError(formatVoiceError(details.message, "ElevenLabs voice session disconnected."));
+      }
     },
     onError: (event) => {
+      setIsStarting(false);
       setError(formatVoiceError(event, "ElevenLabs voice session failed."));
     },
+    onStatusChange: () => setIsStarting(false),
   });
 
   useConversationClientTool<ElevenLabsClientTools>("highlightFinding", (params: { findingId?: string }) => {
@@ -126,32 +137,26 @@ function ElevenLabsReportAgentPanel({ report, mode, pdfHref, tools }: ElevenLabs
 
   async function startVoiceAgent(queuedPrompt?: string) {
     setError(null);
+    setIsStarting(true);
+    userEndedRef.current = false;
     pendingPromptRef.current = queuedPrompt ?? null;
 
     try {
-      await navigator.mediaDevices.getUserMedia({ audio: true });
-
       const response = await fetch("/api/voice/signed-url", {
         method: "POST",
       });
-      const payload = (await response.json()) as SignedUrlResponse;
+      const payload = (await response.json().catch(() => null)) as SignedUrlResponse | null;
 
-      if (!payload.ok) {
-        throw new Error(payload.error);
+      if (!payload?.ok) {
+        throw new Error(
+          payload?.error ??
+            `Unable to prepare the ElevenLabs voice session. The signed URL endpoint returned HTTP ${response.status}.`,
+        );
       }
 
       conversation.startSession({
         signedUrl: payload.signedUrl,
         connectionType: "websocket",
-        overrides: {
-          agent: {
-            firstMessage: `I am connected to the ${report.title} dashboard report. Ask me about the strongest finding, weakest source, map signals, or letter strategy.`,
-            prompt: {
-              prompt,
-            },
-            language: "en",
-          },
-        },
         dynamicVariables: {
           report_id: report.id,
           report_query: report.query,
@@ -160,12 +165,14 @@ function ElevenLabsReportAgentPanel({ report, mode, pdfHref, tools }: ElevenLabs
         },
       });
     } catch (startError) {
+      setIsStarting(false);
       pendingPromptRef.current = null;
       setError(startError instanceof Error ? startError.message : "Unable to start the ElevenLabs voice agent.");
     }
   }
 
   function endVoiceAgent() {
+    userEndedRef.current = true;
     conversation.endSession();
     lastContextIdRef.current = null;
     setContextReadyId(null);
@@ -185,8 +192,14 @@ function ElevenLabsReportAgentPanel({ report, mode, pdfHref, tools }: ElevenLabs
   }
 
   const isConnected = conversation.status === "connected";
-  const isConnecting = conversation.status === "connecting";
-  const statusLabel = isConnected ? (conversation.isSpeaking ? "Speaking" : "Listening") : voiceStatusLabel(conversation.status);
+  const isConnecting = isStarting || conversation.status === "connecting";
+  const statusLabel = isConnected
+    ? conversation.isSpeaking
+      ? "Speaking"
+      : "Listening"
+    : isStarting
+      ? "Preparing"
+      : voiceStatusLabel(conversation.status);
 
   return (
     <section className="voice-agent-panel voice-agent-inline" aria-label="ElevenLabs report analyst">
@@ -207,9 +220,15 @@ function ElevenLabsReportAgentPanel({ report, mode, pdfHref, tools }: ElevenLabs
             </button>
           </>
         ) : (
-          <button className="primary-button" type="button" onClick={() => void startVoiceAgent()} disabled={isConnecting}>
+          <button
+            className="primary-button"
+            type="button"
+            onClick={() => void startVoiceAgent()}
+            disabled={isConnecting}
+            aria-busy={isConnecting}
+          >
             <Mic aria-hidden="true" size={16} />
-            {isConnecting ? "Connecting" : "Discuss this report"}
+            {isConnecting ? statusLabel : "Discuss this report"}
           </button>
         )}
       </div>
@@ -242,9 +261,11 @@ function ElevenLabsReportAgentPanel({ report, mode, pdfHref, tools }: ElevenLabs
 }
 
 function formatVoiceError(error: unknown, fallback: string) {
-  if (error instanceof Error) return error.message;
-  if (typeof error === "string") return error;
-  return fallback;
+  const message = error instanceof Error ? error.message : typeof error === "string" ? error : fallback;
+  if (/permission denied|notallowed|permission dismissed|microphone/i.test(message)) {
+    return "Microphone permission was denied. Allow microphone access for this browser and try again.";
+  }
+  return message;
 }
 
 function voiceStatusLabel(status: string) {
@@ -260,24 +281,6 @@ function voiceStatusLabel(status: string) {
 
 function isDashboardSection(value: unknown): value is DashboardSection {
   return value === "summary" || value === "map" || value === "sources" || value === "findings" || value === "action";
-}
-
-function buildVoicePrompt(report: Report) {
-  return `You are the UnExploited dashboard voice analyst for a labor exploitation risk report.
-
-Rules:
-- Answer from the dashboard report context only.
-- Use the supplied scores, findings, citations, source statuses, map points, and recommendation.
-- Say when a fact is unavailable or a source is blocked instead of guessing.
-- Keep spoken answers concise, practical, and source-aware.
-- If asked what to do next, start from the report recommendation.
-- When the user asks to see evidence, call highlightFinding with the relevant findingId.
-- When the user asks about geography or a facility/location, call focusMapPoint with the relevant pointId.
-- When the user asks to inspect a dashboard area, call scrollToDashboardSection.
-- When the user asks to draft, open, generate, or view the complaint/compliance letter, call openComplaintLetter.
-
-Current report: ${report.title}
-Input: ${report.inputType} / ${report.query}`;
 }
 
 function buildDashboardContext(report: Report, mode: ElevenLabsReportAgentProps["mode"], pdfHref: string) {
