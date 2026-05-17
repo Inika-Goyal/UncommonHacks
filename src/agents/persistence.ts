@@ -58,7 +58,7 @@ export async function createReportShell(input: ReportShellInput): Promise<string
     output_goal: input.onboarding.outputGoal,
   });
 
-  const initialAgents: AgentName[] = ["news", "watchlist", "supplier", "legal", "risk_index"];
+  const initialAgents: AgentName[] = ["news", "watchlist", "supplier", "pipeline", "legal", "risk_index"];
   await supabase.from("source_status").insert(
     initialAgents.map((agent) => ({
       report_id: reportId,

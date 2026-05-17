@@ -7,6 +7,7 @@ export const AGENT_NAMES = [
   "news",
   "watchlist",
   "supplier",
+  "pipeline",
   "legal",
   "risk_index",
 ] as const;
@@ -16,6 +17,7 @@ export const AGENT_LABELS: Record<AgentName, string> = {
   news: "News intelligence",
   watchlist: "Watchlist matches",
   supplier: "Supplier disclosure",
+  pipeline: "Pipeline mapping",
   legal: "Legal & complaints",
   risk_index: "Country risk index",
 };
@@ -73,6 +75,11 @@ export type FeatureBundle = {
     facilityCount: number;
     countriesCovered: string[];
     sectors: string[];
+  };
+  pipeline: {
+    pipelineStageCount: number;
+    mappedStageCount: number;
+    articleCount: number;
   };
   legal: {
     courtCaseCount: number;

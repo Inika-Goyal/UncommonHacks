@@ -12,6 +12,7 @@ export function buildFeatureBundle(state: OrchestratorState): FeatureBundle {
   const news = getSlice<FeatureBundle["news"]>(state, "news");
   const watchlist = getSlice<FeatureBundle["watchlist"]>(state, "watchlist");
   const supplier = getSlice<FeatureBundle["supplier"]>(state, "supplier");
+  const pipeline = getSlice<FeatureBundle["pipeline"]>(state, "pipeline");
   const legal = getSlice<FeatureBundle["legal"]>(state, "legal");
   const riskIndex = getSlice<FeatureBundle["riskIndex"]>(state, "risk_index");
 
@@ -41,6 +42,11 @@ export function buildFeatureBundle(state: OrchestratorState): FeatureBundle {
       facilityCount: Number(supplier.facilityCount ?? 0),
       countriesCovered: (supplier.countriesCovered as string[]) ?? [],
       sectors: (supplier.sectors as string[]) ?? [],
+    },
+    pipeline: {
+      pipelineStageCount: Number(pipeline.pipelineStageCount ?? 0),
+      mappedStageCount: Number(pipeline.mappedStageCount ?? 0),
+      articleCount: Number(pipeline.articleCount ?? 0),
     },
     legal: {
       courtCaseCount: Number(legal.courtCaseCount ?? 0),

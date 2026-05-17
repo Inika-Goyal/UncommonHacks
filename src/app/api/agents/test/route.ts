@@ -7,6 +7,7 @@ import { ingestNode } from "@/agents/nodes/ingest";
 import { newsNode } from "@/agents/nodes/news";
 import { watchlistNode } from "@/agents/nodes/watchlist";
 import { supplierNode } from "@/agents/nodes/supplier";
+import { pipelineNode } from "@/agents/nodes/pipeline";
 import { legalNode } from "@/agents/nodes/legal";
 import { riskIndexNode } from "@/agents/nodes/risk-index";
 import type { OrchestratorState } from "@/agents/state";
@@ -24,6 +25,7 @@ const AGENT_RUNNERS = {
   news: newsNode,
   watchlist: watchlistNode,
   supplier: supplierNode,
+  pipeline: pipelineNode,
   legal: legalNode,
   risk_index: riskIndexNode,
 } as const;

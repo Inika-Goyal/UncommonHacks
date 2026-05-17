@@ -79,7 +79,7 @@ export function ReportDashboard({ initialInputType, initialQuery, reportId }: Re
       setIsLoading(true);
       setError(null);
       try {
-        const response = await fetch(`/api/reports/${id}`);
+        const response = await fetch(`/api/reports/${encodeURIComponent(id)}`);
         const payload = (await response.json()) as ReportResponse;
         if (aborted) return;
         if (!payload.ok) {
@@ -138,7 +138,7 @@ export function ReportDashboard({ initialInputType, initialQuery, reportId }: Re
 
   const pdfHref = useMemo(() => {
     if (!report) return "#";
-    return `/api/reports/${report.id}/complaint.pdf`;
+    return `/api/reports/${encodeURIComponent(report.id)}/complaint.pdf`;
   }, [report]);
 
   const modeLabel = mode === "demo" ? "Demo fixtures" : mode === "supabase" ? "Live report" : "Loading";
