@@ -1,15 +1,193 @@
 {
   "model_family": "tree_ensemble + ridge (averaged)",
   "target": "observed_prevalence_per_1k",
+  "target_transform": "identity",
   "validation": "KFold(5) random split, cross-sectional",
   "uncertainty": "split-conformal prediction (~80% marginal coverage)",
-  "cv_mae": 2.1748,
-  "cv_r2": 0.2731,
-  "conformal_half_width": 3.0117,
-  "empirical_coverage_80": 0.6606,
-  "n_features": 9,
-  "n_training_rows": 153,
+  "cv_mae": 1.8171,
+  "cv_r2": 0.472,
+  "conformal_half_width": 2.2975,
+  "empirical_coverage_80": 0.646,
+  "n_features": 14,
+  "n_training_rows": 147,
   "n_bagged_trees": 8,
+  "feature_cols": [
+    "gdp_per_capita_log",
+    "urban_share",
+    "unemployment",
+    "gini",
+    "youth_dep_ratio",
+    "population_log",
+    "press_freedom_score",
+    "govt_response_total",
+    "gdp_rank_pct_in_region",
+    "region_Africa",
+    "region_Americas",
+    "region_Arab_States",
+    "region_Asia_and_the_Pacific",
+    "region_Europe_and_Central_Asia"
+  ],
+  "optional_blocks_loaded": {
+    "governance_optional": [],
+    "migration_optional": [],
+    "help_optional": []
+  },
+  "data_quality": {
+    "n_rows": 147,
+    "n_columns": 21,
+    "schema_errors": [],
+    "missingness": {
+      "gdp_per_capita_log": 0.0,
+      "urban_share": 0.0,
+      "unemployment": 0.0,
+      "gini": 0.0,
+      "youth_dep_ratio": 0.0,
+      "population_log": 0.0,
+      "press_freedom_score": 0.0,
+      "vulnerability_total": 0.0,
+      "govt_response_total": 0.0,
+      "gdp_x_govt_response": 0.0,
+      "gdp_rank_pct_in_region": 0.0,
+      "region_Africa": 0.0,
+      "region_Americas": 0.0,
+      "region_Arab_States": 0.0,
+      "region_Asia_and_the_Pacific": 0.0,
+      "region_Europe_and_Central_Asia": 0.0
+    },
+    "columns_to_drop": [],
+    "outliers": {
+      "gdp_per_capita_log": 0,
+      "urban_share": 0,
+      "unemployment": 3,
+      "gini": 2,
+      "youth_dep_ratio": 0,
+      "population_log": 2,
+      "press_freedom_score": 0,
+      "vulnerability_total": 0,
+      "govt_response_total": 2,
+      "gdp_x_govt_response": 0,
+      "gdp_rank_pct_in_region": 0,
+      "region_Africa": 0,
+      "region_Americas": 0,
+      "region_Arab_States": 4,
+      "region_Asia_and_the_Pacific": 0,
+      "region_Europe_and_Central_Asia": 0
+    },
+    "high_correlation_pairs": [
+      {
+        "a": "govt_response_total",
+        "b": "gdp_x_govt_response",
+        "r": 0.934
+      },
+      {
+        "a": "vulnerability_total",
+        "b": "gdp_x_govt_response",
+        "r": 0.875
+      },
+      {
+        "a": "gdp_per_capita_log",
+        "b": "vulnerability_total",
+        "r": 0.869
+      }
+    ],
+    "high_vif_columns": [
+      {
+        "column": "region_Africa",
+        "vif": Infinity
+      },
+      {
+        "column": "region_Americas",
+        "vif": Infinity
+      },
+      {
+        "column": "region_Arab_States",
+        "vif": Infinity
+      },
+      {
+        "column": "region_Asia_and_the_Pacific",
+        "vif": Infinity
+      },
+      {
+        "column": "region_Europe_and_Central_Asia",
+        "vif": Infinity
+      },
+      {
+        "column": "gdp_x_govt_response",
+        "vif": 152.04
+      },
+      {
+        "column": "govt_response_total",
+        "vif": 68.66
+      },
+      {
+        "column": "gdp_per_capita_log",
+        "vif": 65.14
+      },
+      {
+        "column": "gdp_rank_pct_in_region",
+        "vif": 11.61
+      }
+    ],
+    "target_stats": {
+      "n": 147.0,
+      "mean": 5.7851,
+      "median": 5.1618,
+      "std": 3.8364,
+      "min": 0.4981,
+      "max": 32.0155,
+      "skew": 2.4604
+    },
+    "target_log_normality_p": 0.0111,
+    "warnings": [
+      "9 predictor(s) have VIF >= 10.0 \u2014 multicollinearity likely; consider PCA-collapsing the correlated block"
+    ]
+  },
+  "imputation": {
+    "regional_imputed_counts": {},
+    "global_imputed_counts": {},
+    "column_used_region": {
+      "gdp_per_capita_log": false,
+      "urban_share": false,
+      "unemployment": false,
+      "gini": false,
+      "youth_dep_ratio": false,
+      "population_log": false,
+      "press_freedom_score": false,
+      "vulnerability_total": false,
+      "govt_response_total": false,
+      "gdp_x_govt_response": false,
+      "gdp_rank_pct_in_region": false,
+      "region_Africa": false,
+      "region_Americas": false,
+      "region_Arab_States": false,
+      "region_Asia_and_the_Pacific": false,
+      "region_Europe_and_Central_Asia": false
+    }
+  },
+  "collinearity": {
+    "dropped": [
+      "gdp_x_govt_response",
+      "vulnerability_total"
+    ],
+    "kept_representatives": {
+      "govt_response_total": [
+        "gdp_x_govt_response"
+      ],
+      "gdp_per_capita_log": [
+        "vulnerability_total"
+      ]
+    },
+    "threshold": 0.85
+  },
+  "excluded_iso3_from_training": [
+    "BHR",
+    "KWT",
+    "OMN",
+    "QAT",
+    "SAU",
+    "ARE"
+  ],
+  "exclusion_reason": "Kafala-system Gulf economies: observable features (GDP, governance, press freedom) don't represent the migrant labor structures that drive their high observed prevalence, so training on them distorts cross-country fit. They are still served at inference time.",
   "sources": {
     "predicted": [
       {

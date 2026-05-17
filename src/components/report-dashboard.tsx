@@ -5,7 +5,6 @@ import {
   ArrowLeft,
   CheckCircle2,
   CircleSlash,
-  Download,
   ExternalLink,
   FileText,
   Loader2,
@@ -339,10 +338,6 @@ export function ReportDashboard({ initialInputType, initialQuery, reportId }: Re
                 <a ref={pdfLinkRef} className="liquid-glass laborlens-primary-action" href={pdfHref}>
                   <FileText aria-hidden="true" size={15} />
                   Generate Complaint PDF
-                </a>
-                <a className="laborlens-secondary-action" href={pdfHref}>
-                  <Download aria-hidden="true" size={15} />
-                  Download letter
                 </a>
               </div>
             </div>

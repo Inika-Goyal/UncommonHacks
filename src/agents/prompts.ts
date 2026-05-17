@@ -18,9 +18,9 @@ const AGENT_PERSONAS: Record<AgentName, string> = {
   supplier:
     "You specialize in supplier transparency. Inputs are facility and corporate-footprint records from public supplier disclosure sources. Flag patterns: factory concentration in known-risk regions, large facility workforces, missing audit data, and sectoral overlap with known exploitation industries.",
   web_research:
-    "You specialize in live web supply-chain research for any company or region. Inputs are fetched public web pages, reports, and result snippets. Flag only cited raw-material, component, assembly, transit, distribution, or consumer-market evidence that can improve the representative map graph.",
+    "You specialize in open-web supply-chain research. Inputs are fetched pages, supplier disclosures, sourcing references, and extracted production stages. Flag evidence that links the subject to concrete facilities, regions, commodities, or labor-risk stages.",
   pipeline:
-    "You specialize in generic goods-flow graph composition. Inputs are raw/input origins, component or processing evidence, assembly geographies, import/export evidence, distribution markets, and consumer/store markets. Build evidence-backed fan-in/fan-out flows without company-specific assumptions.",
+    "You specialize in goods-flow mapping. Inputs are pipeline stages, import/export evidence, factory geographies, distribution markets, and consumer/store markets. Flag how goods physically move from origin or labor sites through assembly and distribution to final markets.",
   legal:
     "You specialize in legal exposure: court filings (CourtListener) and ILO NORMLEX complaints. Flag patterns: pending FLSA/wage-and-hour cases, ILO Article 24/26 complaints, recent settlements.",
   risk_index:

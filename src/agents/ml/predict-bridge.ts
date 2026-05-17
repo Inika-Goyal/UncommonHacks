@@ -53,9 +53,17 @@ export class MlBridgeError extends Error {
 }
 
 const ML_ROOT = path.resolve(process.cwd(), "ml");
-const PYTHON_BIN = process.env.ML_PYTHON_BIN ?? path.join(ML_ROOT, ".venv", "bin", "python");
 const GEO_ARTIFACT = path.join(ML_ROOT, "artifacts", "geographic", "geo_model.joblib");
 const CLUSTER_ARTIFACT = path.join(ML_ROOT, "artifacts", "cluster", "cluster_model.joblib");
+const LOCAL_VENV_DIR = ".venv";
+
+function getPythonBin() {
+  if (process.env.ML_PYTHON_BIN) return process.env.ML_PYTHON_BIN;
+  // Build the venv path at runtime. Turbopack traces literal filesystem
+  // references during `next build`, and ml/.venv/bin/python is a symlink
+  // to the system Python outside the project root.
+  return [ML_ROOT, LOCAL_VENV_DIR, "bin", "python"].join(path.sep);
+}
 
 let artifactCheckLogged = false;
 function checkArtifacts(): MlBridgeError | null {
@@ -83,7 +91,7 @@ export async function predictWithMl(req: PredictRequest): Promise<MlPrediction> 
   if (artifactErr) throw artifactErr;
 
   return new Promise((resolve, reject) => {
-    const child = spawn(PYTHON_BIN, ["-m", "ml.pipelines.predict"], {
+    const child = spawn(getPythonBin(), ["-m", "ml.pipelines.predict"], {
       cwd: path.dirname(ML_ROOT), // repo root, so `-m ml.pipelines...` resolves
       env: process.env,
     });

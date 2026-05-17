@@ -1,5 +1,5 @@
 {
-  "model_family": "KMeans (silhouette-selected k)",
+  "model_family": "KMeans (silhouette-selected k); per-block-weighted features",
   "validation": "silhouette score over k in {3..8}",
   "k": 3,
   "silhouette": 0.282,
@@ -7,6 +7,22 @@
     "demographic",
     "economic"
   ],
+  "block_assignments": {
+    "demographic": [
+      "urban_share",
+      "youth_dep_ratio",
+      "population_log"
+    ],
+    "economic": [
+      "gdp_per_capita_log",
+      "unemployment",
+      "gini"
+    ]
+  },
+  "block_weights": {
+    "demographic": 0.5774,
+    "economic": 0.5774
+  },
   "feature_cols": [
     "urban_share",
     "youth_dep_ratio",
@@ -45,6 +61,18 @@
     }
   ],
   "n_countries": 153,
+  "imputation": {
+    "regional_imputed_counts": {},
+    "global_imputed_counts": {},
+    "column_used_region": {
+      "urban_share": false,
+      "youth_dep_ratio": false,
+      "population_log": false,
+      "gdp_per_capita_log": false,
+      "unemployment": false,
+      "gini": false
+    }
+  },
   "sources": {
     "predictors": [
       {
