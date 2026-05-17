@@ -14,15 +14,17 @@ The current `main` implementation has two operating modes:
 - `/dashboard` report workspace with risk scores, source statuses, cited findings, an interactive Three.js globe, recommended action, and PDF generation.
 - Report-aware ElevenLabs voice-agent panel that sends the active dashboard report as conversational context when configured.
 - Complaint PDF endpoint at `/api/reports/[id]/complaint.pdf`.
-- Supabase schema for reports, findings, citations, map points, source status, onboarding answers, source cache, feature bundles, and report lifecycle status.
+- Supabase schema for reports, findings, citations, map points, map arcs, source status, onboarding answers, source cache, feature bundles, and report lifecycle status.
 
 ## Agent Swarm
 
-Live mode runs five specialist agents:
+Live mode runs seven specialist agents:
 
 - News intelligence: Google News RSS with optional GDELT enrichment.
 - Watchlist matches: UFLPA Entity List and OFAC SDN checks.
 - Supplier disclosure: Wikidata plus curated supplier-registry snapshots.
+- Web supply-chain research: no-key public web search and page parsing for cited raw-material, supplier, assembly, distribution, and market evidence.
+- Pipeline mapping: a generic evidence-backed graph composer that turns cited stages into fan-in/fan-out map arcs without company-specific routes.
 - Legal and complaints: CourtListener plus ILO NORMLEX complaint context.
 - Country risk index: Walk Free Global Slavery Index country scores.
 
@@ -61,7 +63,7 @@ ELEVENLABS_AGENT_ID=
 COURTLISTENER_API_TOKEN=
 ```
 
-Live source lookups are attempted first by default. Set `AGENT_SOURCE_CACHE=prefer` when you want repeated local runs to use fresh cache rows before making network requests.
+Live source lookups are attempted first by default, including bounded public web research for representative supply-chain graph nodes. Set `AGENT_SOURCE_CACHE=prefer` when you want repeated local runs to use fresh cache rows before making network requests.
 
 ## ElevenLabs Client Tools
 
@@ -104,3 +106,4 @@ pnpm test:e2e
 - The benchmark panel is still a placeholder; a real NGO report has not been selected or embedded.
 - Snowflake is a product/track plan only; the current implementation uses Supabase/Postgres and local/source-cache paths.
 - Demo fixtures are labeled and useful for the hackathon flow, but they are not live source refreshes.
+- Live graphs are representative evidence maps, not exact shipment tracing.

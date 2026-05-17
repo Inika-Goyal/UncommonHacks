@@ -3,6 +3,7 @@ import { createClient } from "@supabase/supabase-js";
 import type {
   ExploitCategory,
   MapPoint,
+  MapArc,
   MapPointStage,
   MlPrediction,
   MlPredictionReason,
@@ -51,6 +52,12 @@ type SupabaseReportRow = {
     causes: string[] | null;
     sources: Array<{ label: string; url: string }> | null;
   }>;
+  map_arcs: Array<{
+    id: string;
+    from_point_id: string;
+    to_point_id: string;
+    label: string | null;
+  }>;
   source_status: Array<{
     name: string;
     status: SourceStatus;
@@ -61,7 +68,7 @@ type SupabaseReportRow = {
   ml_insight?: string | null;
 };
 
-const reportSelect = `
+const reportSelectBase = `
   id,
   input_type,
   query,
@@ -101,7 +108,25 @@ const reportSelect = `
     order,
     causes,
     sources
+  )`;
+
+const reportSelectRelations = `,
+  map_arcs (
+    id,
+    from_point_id,
+    to_point_id,
+    label
   ),
+  source_status (
+    name,
+    status,
+    detail
+  )
+`;
+
+const reportSelect = `${reportSelectBase}${reportSelectRelations}`;
+
+const reportSelectWithoutMapArcs = `${reportSelectBase},
   source_status (
     name,
     status,
@@ -118,6 +143,15 @@ export function createSupabaseServerClient() {
       persistSession: false,
     },
   });
+}
+
+function isMissingMapArcsRelationshipError(error: { code?: string; message?: string } | null): boolean {
+  if (!error) return false;
+  return (
+    error.code === "PGRST200" ||
+    error.code === "PGRST205" ||
+    /map_arcs|schema cache|relationship between 'reports' and 'map_arcs'/i.test(error.message ?? "")
+  );
 }
 
 function mapSupabaseReport(row: SupabaseReportRow): Report {
@@ -160,6 +194,12 @@ function mapSupabaseReport(row: SupabaseReportRow): Report {
       causes: point.causes ?? undefined,
       sources: point.sources ?? undefined,
     })),
+    mapArcs: (row.map_arcs ?? []).map<MapArc>((arc) => ({
+      id: arc.id,
+      fromPointId: arc.from_point_id,
+      toPointId: arc.to_point_id,
+      label: arc.label ?? undefined,
+    })),
     sourceChecks: row.source_status.map((source) => ({
       name: source.name,
       status: source.status,
@@ -173,13 +213,26 @@ function mapSupabaseReport(row: SupabaseReportRow): Report {
 
 export async function findSupabaseReport(request: ReportRequest): Promise<Report | null> {
   const supabase = createSupabaseServerClient();
-  const { data, error } = await supabase
+  const query = supabase
     .from("reports")
     .select(reportSelect)
     .eq("input_type", request.inputType)
     .ilike("query", `%${request.query.trim()}%`)
-    .limit(1)
-    .returns<SupabaseReportRow[]>();
+    .limit(1);
+
+  let { data, error } = await query.returns<SupabaseReportRow[]>();
+
+  if (isMissingMapArcsRelationshipError(error)) {
+    const fallback = await supabase
+      .from("reports")
+      .select(reportSelectWithoutMapArcs)
+      .eq("input_type", request.inputType)
+      .ilike("query", `%${request.query.trim()}%`)
+      .limit(1)
+      .returns<Omit<SupabaseReportRow, "map_arcs">[]>();
+    data = fallback.data?.map((row) => ({ ...row, map_arcs: [] })) ?? null;
+    error = fallback.error;
+  }
 
   if (error) {
     throw new Error(`Supabase report lookup failed: ${error.message}`);
@@ -195,12 +248,24 @@ export async function findSupabaseReport(request: ReportRequest): Promise<Report
 
 export async function findSupabaseReportById(id: string): Promise<Report | null> {
   const supabase = createSupabaseServerClient();
-  const { data, error } = await supabase
+  const query = supabase
     .from("reports")
     .select(reportSelect)
     .eq("id", id)
-    .limit(1)
-    .returns<SupabaseReportRow[]>();
+    .limit(1);
+
+  let { data, error } = await query.returns<SupabaseReportRow[]>();
+
+  if (isMissingMapArcsRelationshipError(error)) {
+    const fallback = await supabase
+      .from("reports")
+      .select(reportSelectWithoutMapArcs)
+      .eq("id", id)
+      .limit(1)
+      .returns<Omit<SupabaseReportRow, "map_arcs">[]>();
+    data = fallback.data?.map((row) => ({ ...row, map_arcs: [] })) ?? null;
+    error = fallback.error;
+  }
 
   if (error) {
     throw new Error(`Supabase report lookup failed: ${error.message}`);

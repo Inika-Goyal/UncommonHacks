@@ -29,7 +29,7 @@ The pitch claim is acceleration: compressing work that normally takes weeks of h
 2. In demo mode, the user can open the labeled Shein or Cambodia fixture dashboard directly.
 3. In live mode, the user enters a query plus optional onboarding fields: industry, countries to weight, time window, reporter persona, and output goal.
 4. `POST /api/onboarding` validates the input, creates a Supabase report shell, and starts the LangGraph swarm after the response.
-5. `/swarm/[id]` streams progress from five specialist agents and shows synthesis scores when complete.
+5. `/swarm/[id]` streams progress from seven specialist agents and shows synthesis scores when complete.
 6. The app redirects to `/dashboard?id=<reportId>`.
 7. Dashboard shows severity, credibility, overall risk, source status, cited findings, an interactive signal globe, recommendation, PDF generation, and the report-aware ElevenLabs panel if configured.
 
@@ -39,15 +39,18 @@ The pitch claim is acceleration: compressing work that normally takes weeks of h
 - Company and region input modes.
 - Labeled demo fixtures for Shein and Cambodia garment sector.
 - Live Supabase-backed report persistence.
-- LangGraph agent swarm with five specialist agents:
+- LangGraph agent swarm with seven specialist agents:
   - News intelligence.
   - Watchlist matches.
   - Supplier disclosure.
+  - Web supply-chain research.
+  - Pipeline mapping.
   - Legal and complaints.
   - Country risk index.
 - Server-sent-event progress stream for `/swarm/[id]`.
 - 3D swarm constellation with WebGL fallback.
-- Dashboard report with severity, credibility, overall risk, citations, source status, map points, recommendation, and source note.
+- Dashboard report with severity, credibility, overall risk, citations, source status, map points, explicit map arcs, recommendation, and source note.
+- Evidence-backed representative supply-chain graph composition across raw inputs, processing, assembly, transit, distribution, and markets.
 - Interactive Three.js globe using Natural Earth 110m country polygons.
 - Complaint PDF generated from report evidence.
 - Source cache and feature-bundle persistence for live runs.
@@ -80,13 +83,14 @@ Optional credentials:
 - `COURTLISTENER_API_TOKEN`.
 - `ELEVENLABS_API_KEY` and `ELEVENLABS_AGENT_ID`.
 
-The live pipeline creates a report shell, inserts onboarding answers and initial source statuses, runs the specialist nodes, stores findings/citations/map points/source statuses, builds a feature bundle, synthesizes a final report, and marks the report ready.
+The live pipeline creates a report shell, inserts onboarding answers and initial source statuses, runs the specialist nodes, stores findings/citations/map points/map arcs/source statuses, builds a feature bundle, synthesizes a final report, and marks the report ready.
 
 ## Data And Source Plan
 
 | Source | Current implementation | Status |
 | --- | --- | --- |
 | Google News RSS | Live public RSS lookup with cache | Implemented |
+| Public web research | No-key bounded search, page parsing, and cited graph extraction | Implemented |
 | GDELT | Optional news enrichment | Implemented as best effort |
 | UFLPA Entity List | DHS page parse with embedded fallback rows | Implemented |
 | OFAC SDN | Public CSV lookup | Implemented |
@@ -146,7 +150,8 @@ The dashboard still needs one real NGO investigative report as a side-by-side co
 
 - Demographic and economic input modes.
 - Formal academic benchmarking.
-- Full live scraping for every source.
+- Unbounded live scraping for every source.
+- Exact physical shipment tracing from a specific mine or factory to a specific retail destination.
 - End-to-end DistilBERT or larger transformer fine-tuning.
 - Production-grade monitoring subscriptions.
 - Silent substitution of fixture data when live sources fail.

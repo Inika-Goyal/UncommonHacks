@@ -12,6 +12,7 @@ export function buildFeatureBundle(state: OrchestratorState): FeatureBundle {
   const news = getSlice<FeatureBundle["news"]>(state, "news");
   const watchlist = getSlice<FeatureBundle["watchlist"]>(state, "watchlist");
   const supplier = getSlice<FeatureBundle["supplier"]>(state, "supplier");
+  const webResearch = getSlice<FeatureBundle["webResearch"]>(state, "web_research");
   const pipeline = getSlice<FeatureBundle["pipeline"]>(state, "pipeline");
   const legal = getSlice<FeatureBundle["legal"]>(state, "legal");
   const riskIndex = getSlice<FeatureBundle["riskIndex"]>(state, "risk_index");
@@ -43,10 +44,19 @@ export function buildFeatureBundle(state: OrchestratorState): FeatureBundle {
       countriesCovered: (supplier.countriesCovered as string[]) ?? [],
       sectors: (supplier.sectors as string[]) ?? [],
     },
+    webResearch: {
+      queryCount: Number(webResearch.queryCount ?? 0),
+      resultCount: Number(webResearch.resultCount ?? 0),
+      fetchedDocumentCount: Number(webResearch.fetchedDocumentCount ?? 0),
+      extractedStageCount: Number(webResearch.extractedStageCount ?? 0),
+      mappedStageCount: Number(webResearch.mappedStageCount ?? 0),
+      arcCount: Number(webResearch.arcCount ?? 0),
+    },
     pipeline: {
       pipelineStageCount: Number(pipeline.pipelineStageCount ?? 0),
       mappedStageCount: Number(pipeline.mappedStageCount ?? 0),
       articleCount: Number(pipeline.articleCount ?? 0),
+      arcCount: Number(pipeline.arcCount ?? 0),
     },
     legal: {
       courtCaseCount: Number(legal.courtCaseCount ?? 0),

@@ -36,6 +36,10 @@ export type Finding = {
 };
 
 export type MapPointStage =
+  | "raw_material"
+  | "component_or_processing"
+  | "assembly"
+  | "consumer_market"
   | "origin"
   | "labor"
   | "factory"
@@ -46,6 +50,13 @@ export type MapPointStage =
 export type MapPointSource = {
   label: string;
   url: string;
+};
+
+export type MapArc = {
+  id: string;
+  fromPointId: string;
+  toPointId: string;
+  label?: string;
 };
 
 export type MapPoint = {
@@ -190,6 +201,7 @@ export type Report = {
   createdAt: string;
   findings: Finding[];
   mapPoints: MapPoint[];
+  mapArcs: MapArc[];
   sourceChecks: SourceCheck[];
   mlPrediction?: MlPrediction | null;
   mlPredictionReason?: MlPredictionReason | null;
