@@ -2,11 +2,10 @@
   "model_family": "KMeans (silhouette-selected k); per-block-weighted features",
   "validation": "silhouette score over k in {3..8}",
   "k": 3,
-  "silhouette": 0.261,
+  "silhouette": 0.282,
   "feature_blocks": [
     "demographic",
-    "economic",
-    "governance_optional"
+    "economic"
   ],
   "block_assignments": {
     "demographic": [
@@ -18,16 +17,11 @@
       "gdp_per_capita_log",
       "unemployment",
       "gini"
-    ],
-    "governance_optional": [
-      "wgi_rule_of_law",
-      "wgi_government_effectiveness"
     ]
   },
   "block_weights": {
     "demographic": 0.5774,
-    "economic": 0.5774,
-    "governance_optional": 0.7071
+    "economic": 0.5774
   },
   "feature_cols": [
     "urban_share",
@@ -35,43 +29,35 @@
     "population_log",
     "gdp_per_capita_log",
     "unemployment",
-    "gini",
-    "wgi_rule_of_law",
-    "wgi_government_effectiveness"
+    "gini"
   ],
   "centroids": [
     {
       "cluster": 0,
-      "urban_share": 38.593,
-      "youth_dep_ratio": 69.321,
-      "population_log": 16.87,
-      "gdp_per_capita_log": 7.085,
-      "unemployment": 5.678,
-      "gini": 36.122,
-      "wgi_rule_of_law": -1.069,
-      "wgi_government_effectiveness": -1.038
+      "urban_share": 65.66,
+      "youth_dep_ratio": 48.705,
+      "population_log": 15.852,
+      "gdp_per_capita_log": 8.325,
+      "unemployment": 16.542,
+      "gini": 37.476
     },
     {
       "cluster": 1,
-      "urban_share": 67.51,
-      "youth_dep_ratio": 42.214,
-      "population_log": 16.435,
-      "gdp_per_capita_log": 8.633,
-      "unemployment": 11.896,
-      "gini": 37.641,
-      "wgi_rule_of_law": -0.018,
-      "wgi_government_effectiveness": -0.064
+      "urban_share": 75.386,
+      "youth_dep_ratio": 27.583,
+      "population_log": 16.386,
+      "gdp_per_capita_log": 9.955,
+      "unemployment": 5.94,
+      "gini": 33.597
     },
     {
       "cluster": 2,
-      "urban_share": 76.242,
-      "youth_dep_ratio": 25.303,
-      "population_log": 16.14,
-      "gdp_per_capita_log": 10.351,
-      "unemployment": 5.638,
-      "gini": 32.012,
-      "wgi_rule_of_law": 1.134,
-      "wgi_government_effectiveness": 1.026
+      "urban_share": 38.83,
+      "youth_dep_ratio": 67.274,
+      "population_log": 17.008,
+      "gdp_per_capita_log": 7.241,
+      "unemployment": 4.838,
+      "gini": 36.241
     }
   ],
   "n_countries": 153,
@@ -84,9 +70,7 @@
       "population_log": false,
       "gdp_per_capita_log": false,
       "unemployment": false,
-      "gini": false,
-      "wgi_rule_of_law": false,
-      "wgi_government_effectiveness": false
+      "gini": false
     }
   },
   "sources": {
@@ -96,27 +80,6 @@
         "name": "World Bank World Development Indicators",
         "publisher": "World Bank",
         "url": "https://datatopics.worldbank.org/world-development-indicators/",
-        "role": "predictor"
-      },
-      {
-        "key": "wgi",
-        "name": "World Bank Worldwide Governance Indicators",
-        "publisher": "World Bank",
-        "url": "https://info.worldbank.org/governance/wgi/",
-        "role": "predictor"
-      },
-      {
-        "key": "cpi",
-        "name": "Transparency International Corruption Perceptions Index",
-        "publisher": "Transparency International",
-        "url": "https://www.transparency.org/en/cpi",
-        "role": "predictor"
-      },
-      {
-        "key": "wjp",
-        "name": "World Justice Project Rule of Law Index",
-        "publisher": "WJP",
-        "url": "https://worldjusticeproject.org/rule-of-law-index/",
         "role": "predictor"
       }
     ]
