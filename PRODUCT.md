@@ -108,7 +108,14 @@ The strongest implemented feature layer is the live agent-swarm launch plus gene
 - The dashboard keeps evidence, citations, geography, and source status inspectable.
 - The PDF turns the report into an action artifact rather than just a risk score.
 
-The ElevenLabs panel is also implemented, but it depends on external agent configuration and microphone/browser permissions.
+The ElevenLabs report control is implemented in the dashboard header, but it depends on external agent configuration and microphone/browser permissions. Configure these case-sensitive ElevenLabs Client tools to match the React registration:
+
+| Tool | Parameters | Purpose |
+| --- | --- | --- |
+| `highlightFinding` | `findingId` string | Scroll to and highlight cited evidence. |
+| `focusMapPoint` | `pointId` string | Focus the globe on a mapped signal. |
+| `scrollToDashboardSection` | `section`: `summary`, `map`, `sources`, `findings`, or `action` | Navigate the report workspace. |
+| `openComplaintLetter` | none | Open the complaint/compliance PDF route. |
 
 ## Benchmarking And Demo Proof
 

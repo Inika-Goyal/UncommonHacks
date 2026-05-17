@@ -37,6 +37,7 @@ export type WorldGlobeHandle = {
   panTo: (pan: WorldGlobePan) => void;
   rotateTo: (rotation: WorldGlobeRotation) => void;
   focusLocation: (target: WorldGlobeLocationTarget) => void;
+  focusPoint: (pointId: string) => boolean;
   resetView: () => void;
   getView: () => {
     zoom: number;
@@ -384,6 +385,22 @@ function disposeObject(object: THREE.Object3D) {
   });
 }
 
+function canCreateWebGLContext() {
+  const canvas = document.createElement("canvas");
+  const attributes: WebGLContextAttributes = {};
+  const context = (canvas.getContext("webgl2", attributes) ??
+    canvas.getContext("webgl", attributes) ??
+    canvas.getContext("experimental-webgl", attributes)) as WebGLRenderingContext | WebGL2RenderingContext | null;
+
+  if (!context) {
+    return false;
+  }
+
+  const loseContext = context.getExtension("WEBGL_lose_context");
+  loseContext?.loseContext();
+  return true;
+}
+
 export const WorldGlobe = forwardRef<WorldGlobeHandle, WorldGlobeProps>(function WorldGlobe({ points }, ref) {
   const mountRef = useRef<HTMLDivElement | null>(null);
   const zoomLevelRef = useRef(1);
@@ -393,6 +410,7 @@ export const WorldGlobe = forwardRef<WorldGlobeHandle, WorldGlobeProps>(function
   const [selectedPointId, setSelectedPointId] = useState<string | null>(null);
   const [zoomLevel, setZoomLevel] = useState(1);
   const [geographyState, setGeographyState] = useState<GeographyState>({ status: "loading" });
+  const [rendererError, setRendererError] = useState<string | null>(null);
 
   const activePoints = useMemo(
     () => [...points].sort((a, b) => (a.order ?? 0) - (b.order ?? 0)),
@@ -459,6 +477,16 @@ export const WorldGlobe = forwardRef<WorldGlobeHandle, WorldGlobeProps>(function
           setPan(target.pan);
         }
       },
+      focusPoint: (pointId) => {
+        const point = activePoints.find((candidate) => candidate.id === pointId);
+        if (!point) {
+          return false;
+        }
+        setSelectedPointId(point.id);
+        rotationTargetRef.current = rotationForLocation(point.latitude, point.longitude);
+        setZoom(Math.max(1.32, zoomLevelRef.current), { keepPan: true });
+        return true;
+      },
       resetView: resetGlobeView,
       getView: () => ({
         zoom: zoomLevelRef.current,
@@ -518,6 +546,13 @@ export const WorldGlobe = forwardRef<WorldGlobeHandle, WorldGlobeProps>(function
     let disposeScene: (() => void) | undefined;
 
     async function setupScene() {
+      setRendererError(null);
+
+      if (!canCreateWebGLContext()) {
+        setRendererError("3D globe unavailable because WebGL is disabled in this browser context.");
+        return;
+      }
+
       const { default: ThreeGlobe } = await import("three-globe");
 
       if (isDisposed) {
@@ -529,12 +564,18 @@ export const WorldGlobe = forwardRef<WorldGlobeHandle, WorldGlobeProps>(function
       const camera = new THREE.PerspectiveCamera(42, 1, 0.1, 100);
       camera.position.set(0, 0.2, 8.6);
 
-      const renderer = new THREE.WebGLRenderer({
-        antialias: true,
-        alpha: true,
-        preserveDrawingBuffer: true,
-        powerPreference: "high-performance",
-      });
+      let renderer: THREE.WebGLRenderer;
+      try {
+        renderer = new THREE.WebGLRenderer({
+          antialias: true,
+          alpha: true,
+          preserveDrawingBuffer: true,
+          powerPreference: "high-performance",
+        });
+      } catch {
+        setRendererError("3D globe unavailable because WebGL could not be initialized.");
+        return;
+      }
       renderer.setClearColor(0x000000, 0);
       renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
       mountElement.appendChild(renderer.domElement);
@@ -1078,7 +1119,7 @@ export const WorldGlobe = forwardRef<WorldGlobeHandle, WorldGlobeProps>(function
       <div className="globe-canvas-frame">
         <div
           ref={mountRef}
-          className="globe-canvas"
+          className={rendererError ? "globe-canvas globe-canvas-unavailable" : "globe-canvas"}
           role="img"
           aria-label="Rotating globe with risk pins"
         />
@@ -1127,6 +1168,12 @@ export const WorldGlobe = forwardRef<WorldGlobeHandle, WorldGlobeProps>(function
           <PointDetailCard point={selectedPoint} onClose={() => setSelectedPointId(null)} />
         ) : null}
       </div>
+      {rendererError ? (
+        <div className="globe-overlay globe-asset-state globe-error" role="status">
+          <span>3D map unavailable</span>
+          <strong>{rendererError}</strong>
+        </div>
+      ) : null}
       <div className="globe-legend" aria-label="Mapped exploitation signals">
         {activePoints.map((point) => {
           const color = exploitColor(point);
@@ -1136,6 +1183,7 @@ export const WorldGlobe = forwardRef<WorldGlobeHandle, WorldGlobeProps>(function
               key={point.id}
               className={point.id === selectedPoint?.id ? "legend-row legend-row-active" : "legend-row"}
               type="button"
+              data-map-point-id={point.id}
               onClick={() => setSelectedPointId(point.id)}
             >
               <span className="legend-dot" style={{ background: color, boxShadow: `0 0 10px ${color}` }} />

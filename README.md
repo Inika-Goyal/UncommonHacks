@@ -60,6 +60,19 @@ ELEVENLABS_AGENT_ID=
 COURTLISTENER_API_TOKEN=
 ```
 
+## ElevenLabs Client Tools
+
+The dashboard registers these case-sensitive ElevenLabs client tools in React. Configure matching Client tools on the ElevenLabs agent, with "Wait for response" enabled when the agent should use the returned dashboard state:
+
+| Tool | Parameters | Purpose |
+| --- | --- | --- |
+| `highlightFinding` | `findingId` string, required | Scrolls to and highlights a cited finding row. |
+| `focusMapPoint` | `pointId` string, required | Focuses the globe on a mapped risk signal. |
+| `scrollToDashboardSection` | `section` enum: `summary`, `map`, `sources`, `findings`, `action` | Scrolls to a dashboard section. |
+| `openComplaintLetter` | none | Opens the existing complaint/compliance PDF route. |
+
+The agent prompt receives finding IDs, map point IDs, section names, and these tool names in report context. Tool names and parameter identifiers must match this table exactly.
+
 ## Useful Commands
 
 ```bash

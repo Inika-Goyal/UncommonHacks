@@ -625,6 +625,17 @@ p {
   gap: 18px;
 }
 
+.report-header > div:first-child {
+  min-width: 0;
+}
+
+.report-header-actions {
+  display: grid;
+  min-width: min(360px, 100%);
+  gap: 12px;
+  justify-items: end;
+}
+
 .error-panel {
   border-color: oklch(0.72 0.08 28);
   background: oklch(0.95 0.025 28);
@@ -1141,6 +1152,12 @@ p {
   gap: 14px;
 }
 
+.voice-agent-inline {
+  max-width: 440px;
+  justify-items: end;
+  text-align: right;
+}
+
 .voice-agent-status {
   display: flex;
   flex-wrap: wrap;
@@ -1154,6 +1171,38 @@ p {
 .voice-agent-error {
   margin-bottom: 0;
   font-size: 13px;
+}
+
+.voice-agent-prompts {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.voice-prompt-chip {
+  display: inline-flex;
+  min-height: 30px;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid oklch(0.78 0.05 245);
+  border-radius: 999px;
+  background: oklch(0.97 0.012 245);
+  color: var(--ink);
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 720;
+  padding: 6px 10px;
+}
+
+.voice-prompt-chip:hover:not(:disabled) {
+  border-color: var(--info);
+  background: oklch(0.94 0.026 235);
+}
+
+.voice-prompt-chip:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
 }
 
 .voice-agent-message {
@@ -1267,6 +1316,17 @@ td a {
   gap: 5px;
   color: var(--accent-strong);
   font-weight: 650;
+}
+
+.finding-row-active {
+  outline: 2px solid var(--info);
+  outline-offset: -2px;
+  background: oklch(0.96 0.022 230);
+}
+
+[data-dashboard-section]:focus {
+  outline: 2px solid oklch(0.72 0.12 235 / 0.55);
+  outline-offset: 3px;
 }
 
 .spin-icon {
@@ -2240,6 +2300,17 @@ td a {
     padding-top: 32px;
   }
 
+  .report-header-actions,
+  .voice-agent-inline {
+    justify-items: stretch;
+    max-width: none;
+    text-align: left;
+  }
+
+  .voice-agent-prompts {
+    justify-content: flex-start;
+  }
+
   .hero-copy h1 {
     font-size: 42px;
   }
@@ -2275,11 +2346,10 @@ td a {
 /* -------------------------------------------------------------------------- */
 
 .launch-page.lumina-shell {
-  min-height: 100dvh;
+  height: 100dvh;
   color: #ededed;
   background: #0a0a0a;
-  overflow-x: hidden;
-  overflow-y: auto;
+  overflow: hidden;
 }
 
 .launch-page .fixed.inset-0 {

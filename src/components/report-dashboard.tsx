@@ -17,7 +17,11 @@ import Link from "next/link";
 import { motion } from "motion/react";
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 
-import { ElevenLabsReportAgent } from "@/components/elevenlabs-report-agent";
+import {
+  ElevenLabsReportAgent,
+  type DashboardSection,
+  type ElevenLabsDashboardTools,
+} from "@/components/elevenlabs-report-agent";
 import { LuminaLogo } from "@/components/lumina-brand";
 import { ModelIntelligencePanel } from "@/components/model-intelligence-panel";
 import { ScoreScrambler } from "@/components/score-scrambler";
@@ -49,7 +53,14 @@ export function ReportDashboard({ initialInputType, initialQuery, reportId }: Re
   const [error, setError] = useState<string | null>(null);
   const [mode, setMode] = useState<Mode>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [activeFindingId, setActiveFindingId] = useState<string | null>(null);
+  const summaryRef = useRef<HTMLElement | null>(null);
+  const mapRef = useRef<HTMLElement | null>(null);
+  const sourcesRef = useRef<HTMLElement | null>(null);
+  const findingsRef = useRef<HTMLElement | null>(null);
+  const actionRef = useRef<HTMLElement | null>(null);
   const globeRef = useRef<WorldGlobeHandle | null>(null);
+  const pdfLinkRef = useRef<HTMLAnchorElement | null>(null);
 
   const handleFocusGeography = useCallback(
     (target: { latitude: number; longitude: number; pointId?: string }) => {
@@ -133,6 +144,91 @@ export function ReportDashboard({ initialInputType, initialQuery, reportId }: Re
 
   const modeLabel = mode === "demo" ? "Demo fixtures" : mode === "supabase" ? "Live report" : "Loading";
 
+  const scrollElementIntoView = useCallback((element: HTMLElement) => {
+    element.scrollIntoView({ behavior: "smooth", block: "center" });
+    element.focus({ preventScroll: true });
+  }, []);
+
+  const scrollToDashboardSection = useCallback(
+    (section: DashboardSection) => {
+      const sectionRefs: Record<DashboardSection, HTMLElement | null> = {
+        summary: summaryRef.current,
+        map: mapRef.current,
+        sources: sourcesRef.current,
+        findings: findingsRef.current,
+        action: actionRef.current,
+      };
+      const element = sectionRefs[section];
+      if (!element) {
+        return `The ${section} section is not available yet.`;
+      }
+      scrollElementIntoView(element);
+      return `Scrolled to the ${section} section.`;
+    },
+    [scrollElementIntoView],
+  );
+
+  const highlightFinding = useCallback(
+    (findingId: string) => {
+      if (!report) {
+        return "No report is loaded yet.";
+      }
+      const finding = report.findings.find((candidate) => candidate.id === findingId);
+      if (!finding) {
+        return `Finding ${findingId} was not found in this report.`;
+      }
+      setActiveFindingId(finding.id);
+      window.requestAnimationFrame(() => {
+        const row = document.querySelector<HTMLElement>(`[data-finding-id="${CSS.escape(finding.id)}"]`);
+        if (row) {
+          scrollElementIntoView(row);
+        }
+      });
+      return `Highlighted ${finding.signal}: severity ${finding.severity}/5, credibility ${finding.credibility}/5.`;
+    },
+    [report, scrollElementIntoView],
+  );
+
+  const focusMapPoint = useCallback(
+    (pointId: string) => {
+      if (!report) {
+        return "No report is loaded yet.";
+      }
+      const point = report.mapPoints.find((candidate) => candidate.id === pointId);
+      if (!point) {
+        return `Map point ${pointId} was not found in this report.`;
+      }
+      scrollToDashboardSection("map");
+      const focused = globeRef.current?.focusPoint(point.id) ?? false;
+      return focused
+        ? `Focused ${point.label} on the signal map.`
+        : `The map is still loading, but ${point.label} is the requested point.`;
+    },
+    [report, scrollToDashboardSection],
+  );
+
+  const openComplaintLetter = useCallback(() => {
+    if (!report || pdfHref === "#") {
+      return "No complaint letter is available yet.";
+    }
+    const opened = window.open(pdfHref, "_blank", "noopener,noreferrer");
+    if (!opened) {
+      pdfLinkRef.current?.click();
+      return "Opening the complaint letter using the dashboard link.";
+    }
+    return "Opening the complaint letter PDF.";
+  }, [pdfHref, report]);
+
+  const voiceTools = useMemo<ElevenLabsDashboardTools>(
+    () => ({
+      highlightFinding,
+      focusMapPoint,
+      scrollToDashboardSection,
+      openComplaintLetter,
+    }),
+    [focusMapPoint, highlightFinding, openComplaintLetter, scrollToDashboardSection],
+  );
+
   return (
     <main className="lumina-dashboard-page lumina-shell">
       <VideoBackground />
@@ -174,7 +270,12 @@ export function ReportDashboard({ initialInputType, initialQuery, reportId }: Re
               <p>{report.title}</p>
             </section>
 
-            <section className="liquid-glass lumina-panel" data-dashboard-section="sources">
+            <section
+              ref={sourcesRef}
+              className="liquid-glass lumina-panel"
+              data-dashboard-section="sources"
+              tabIndex={-1}
+            >
               <SectionHeader icon={<ShieldAlert size={14} />} title="Source Status" />
               <div className="lumina-source-stack">
                 {report.sourceChecks.map((source) => {
@@ -195,7 +296,12 @@ export function ReportDashboard({ initialInputType, initialQuery, reportId }: Re
               </div>
             </section>
 
-            <ElevenLabsReportAgent report={report} mode={mode ?? "demo"} />
+            <ElevenLabsReportAgent
+              report={report}
+              mode={mode ?? "demo"}
+              pdfHref={pdfHref}
+              tools={voiceTools}
+            />
           </motion.aside>
 
           <motion.section
@@ -204,7 +310,12 @@ export function ReportDashboard({ initialInputType, initialQuery, reportId }: Re
             transition={{ duration: 0.65, delay: 0.12, ease: "easeOut" }}
             className="liquid-glass lumina-report-card"
           >
-            <section className="lumina-report-summary" data-dashboard-section="summary">
+            <section
+              ref={summaryRef}
+              className="lumina-report-summary"
+              data-dashboard-section="summary"
+              tabIndex={-1}
+            >
               <SectionHeader icon={<Info size={14} />} title="Executive Summary" />
               <h2>{report.title}</h2>
               <p>{report.summary}</p>
@@ -216,23 +327,33 @@ export function ReportDashboard({ initialInputType, initialQuery, reportId }: Re
               <ScoreTile label="Credibility" value={report.credibility} suffix="/5" tone="info" />
             </div>
 
-            <section data-dashboard-section="findings">
+            <section ref={findingsRef} data-dashboard-section="findings" tabIndex={-1}>
               <SectionHeader icon={<AlertTriangle size={14} />} title="Cited Findings" />
               <div className="lumina-findings-list">
                 {report.findings.map((finding, index) => (
-                  <FindingRow key={finding.id} finding={finding} index={index} />
+                  <FindingRow
+                    key={finding.id}
+                    finding={finding}
+                    index={index}
+                    isActive={finding.id === activeFindingId}
+                  />
                 ))}
               </div>
             </section>
 
-            <section className="lumina-action-block" data-dashboard-section="action">
+            <section
+              ref={actionRef}
+              className="lumina-action-block"
+              data-dashboard-section="action"
+              tabIndex={-1}
+            >
               <SectionHeader icon={<CheckCircle2 size={14} />} title="Recommended Action" />
               <p>{report.recommendedAction}</p>
               <span>{report.sourceNote}</span>
             </section>
 
             <div className="lumina-report-actions">
-              <a className="liquid-glass lumina-primary-action" href={pdfHref}>
+              <a ref={pdfLinkRef} className="liquid-glass lumina-primary-action" href={pdfHref}>
                 <FileText aria-hidden="true" size={15} />
                 Generate Complaint PDF
               </a>
@@ -244,11 +365,13 @@ export function ReportDashboard({ initialInputType, initialQuery, reportId }: Re
           </motion.section>
 
           <motion.aside
+            ref={mapRef}
             initial={{ opacity: 0, x: 18 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ duration: 0.65, delay: 0.22, ease: "easeOut" }}
             className="liquid-glass lumina-map-card"
             data-dashboard-section="map"
+            tabIndex={-1}
           >
             <div className="lumina-map-head">
               <SectionHeader icon={<ShieldAlert size={14} />} title="Signal Map" />
@@ -299,13 +422,21 @@ function SectionHeader({ icon, title }: { icon: ReactNode; title: string }) {
   );
 }
 
-function FindingRow({ finding, index }: { finding: Finding; index: number }) {
+function FindingRow({
+  finding,
+  index,
+  isActive,
+}: {
+  finding: Finding;
+  index: number;
+  isActive: boolean;
+}) {
   return (
     <motion.article
       initial={{ opacity: 0, x: -8 }}
       animate={{ opacity: 1, x: 0 }}
       transition={{ delay: 0.25 + index * 0.06 }}
-      className="lumina-finding-row"
+      className={`lumina-finding-row${isActive ? " lumina-finding-row-active" : ""}`}
       data-finding-id={finding.id}
     >
       <span className="lumina-finding-dot" style={{ background: riskColor(finding.severity) }} />
