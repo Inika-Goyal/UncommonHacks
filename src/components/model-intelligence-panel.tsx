@@ -49,12 +49,12 @@ export function ModelIntelligencePanel({ report }: ModelIntelligencePanelProps) 
       initial={{ opacity: 0, y: 14 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.6, delay: 0.3, ease: "easeOut" }}
-      className="lumina-model-intel"
+      className="laborlens-model-intel"
       aria-label="Model intelligence"
     >
-      <header className="lumina-model-intel-head">
+      <header className="laborlens-model-intel-head">
         <div>
-          <p className="lumina-overline">ML model intelligence</p>
+          <p className="laborlens-overline">ML model intelligence</p>
           <h2>What the prevalence model predicts</h2>
         </div>
         {ml ? (
@@ -70,7 +70,7 @@ export function ModelIntelligencePanel({ report }: ModelIntelligencePanelProps) 
       {ml ? (
         <>
           <PrevalenceFeature ml={ml} />
-          <div className="lumina-model-intel-grid">
+          <div className="laborlens-model-intel-grid">
             <ExploitBreakdownCard ml={ml} />
             <SimilarCountriesCard ml={ml} />
             <ModelTransparencyCard ml={ml} />
@@ -97,26 +97,26 @@ function PrevalenceFeature({ ml }: { ml: MlPrediction }) {
   const halfWidth = sample?.validation.conformal_half_width ?? 0;
 
   return (
-    <article className="liquid-glass lumina-model-card lumina-prevalence-feature">
-      <div className="lumina-prevalence-feature-grid">
-        <div className="lumina-prevalence-headline">
+    <article className="liquid-glass laborlens-model-card laborlens-prevalence-feature">
+      <div className="laborlens-prevalence-feature-grid">
+        <div className="laborlens-prevalence-headline">
           <CardHeading
             icon={<Gauge size={14} />}
             title="Predicted prevalence"
             hint="per 1,000 population"
           />
-          <div className="lumina-prevalence-number">
-            <span className="lumina-prevalence-mean">{mean.toFixed(2)}</span>
-            <span className="lumina-prevalence-unit">/ 1k</span>
+          <div className="laborlens-prevalence-number">
+            <span className="laborlens-prevalence-mean">{mean.toFixed(2)}</span>
+            <span className="laborlens-prevalence-unit">/ 1k</span>
           </div>
-          <p className="lumina-prevalence-band-text">
+          <p className="laborlens-prevalence-band-text">
             80% conformal interval{" "}
             <strong>
               {lo.toFixed(2)} – {hi.toFixed(2)}
             </strong>{" "}
             · global median ≈ {GLOBAL_MEDIAN_PER_1K.toFixed(1)} / 1k
           </p>
-          <p className="lumina-prevalence-foot">
+          <p className="laborlens-prevalence-foot">
             {((coverage || 0) * 100).toFixed(0)}% empirical coverage · CV R²{" "}
             {cvR2.toFixed(2)} · ± {halfWidth.toFixed(2)} half-width
           </p>
@@ -157,7 +157,7 @@ function PrevalenceDial({
 
   return (
     <svg
-      className="lumina-prevalence-dial"
+      className="laborlens-prevalence-dial"
       viewBox={`0 0 ${width} ${height}`}
       role="img"
       aria-label="Predicted prevalence with conformal interval"
@@ -266,30 +266,30 @@ function ExploitBreakdownCard({ ml }: { ml: MlPrediction }) {
   );
 
   return (
-    <article className="liquid-glass lumina-model-card">
+    <article className="liquid-glass laborlens-model-card">
       <CardHeading
         icon={<Layers size={14} />}
         title="Exploit-type breakdown"
         hint="ILO global proportion × overall"
       />
-      <ul className="lumina-exploit-bars">
+      <ul className="laborlens-exploit-bars">
         {entries.map(({ category, value }) => {
           const meanPct = max > 0 ? (value.predicted_prevalence_per_1k / max) * 100 : 0;
           const loPct = max > 0 ? (value.uncertainty_band_p10_p90[0] / max) * 100 : 0;
           const hiPct = max > 0 ? (value.uncertainty_band_p10_p90[1] / max) * 100 : 0;
           return (
-            <li key={category} className="lumina-exploit-bar-row">
-              <div className="lumina-exploit-bar-head">
-                <span className="lumina-exploit-swatch" style={{ background: CATEGORY_COLORS[category] }} />
-                <span className="lumina-exploit-name">{EXPLOIT_CATEGORY_LABELS[category]}</span>
-                <span className="lumina-exploit-value">
+            <li key={category} className="laborlens-exploit-bar-row">
+              <div className="laborlens-exploit-bar-head">
+                <span className="laborlens-exploit-swatch" style={{ background: CATEGORY_COLORS[category] }} />
+                <span className="laborlens-exploit-name">{EXPLOIT_CATEGORY_LABELS[category]}</span>
+                <span className="laborlens-exploit-value">
                   {value.predicted_prevalence_per_1k.toFixed(2)}
                   <small>/ 1k</small>
                 </span>
               </div>
-              <div className="lumina-exploit-bar-track">
+              <div className="laborlens-exploit-bar-track">
                 <span
-                  className="lumina-exploit-bar-band"
+                  className="laborlens-exploit-bar-band"
                   style={{
                     left: `${loPct}%`,
                     width: `${Math.max(hiPct - loPct, 1)}%`,
@@ -299,7 +299,7 @@ function ExploitBreakdownCard({ ml }: { ml: MlPrediction }) {
                   title={`80% band ${value.uncertainty_band_p10_p90[0].toFixed(2)} – ${value.uncertainty_band_p10_p90[1].toFixed(2)}`}
                 />
                 <span
-                  className="lumina-exploit-bar-mean"
+                  className="laborlens-exploit-bar-mean"
                   style={{ left: `${meanPct}%`, background: CATEGORY_COLORS[category] }}
                 />
               </div>
@@ -307,7 +307,7 @@ function ExploitBreakdownCard({ ml }: { ml: MlPrediction }) {
           );
         })}
       </ul>
-      <p className="lumina-model-disclaimer">
+      <p className="laborlens-model-disclaimer">
         <Info size={11} aria-hidden /> Split via fixed ILO 2022 global proportions (forced
         labour 55%, illegal profits 28%, sexual exploitation 10%, children 7%). Not per-country
         learned.
@@ -325,37 +325,37 @@ function SimilarCountriesCard({ ml }: { ml: MlPrediction }) {
   const max = list.reduce((m, c) => Math.max(m, c.distance), 0);
 
   return (
-    <article className="liquid-glass lumina-model-card">
+    <article className="liquid-glass laborlens-model-card">
       <CardHeading
         icon={<Compass size={14} />}
         title="Similar countries"
         hint={`Cluster ${ml.cluster.cluster_id + 1} of ${ml.cluster.k}`}
       />
-      <ul className="lumina-similar-list">
+      <ul className="laborlens-similar-list">
         {list.length === 0 ? (
-          <li className="lumina-empty">No cluster neighbours.</li>
+          <li className="laborlens-empty">No cluster neighbours.</li>
         ) : (
           list.map((country) => {
             const widthPct = max > 0 ? Math.min(100, (country.distance / max) * 100) : 0;
             return (
-              <li key={country.country} className="lumina-similar-row">
-                <span className="lumina-similar-iso">{country.country}</span>
-                <span className="lumina-similar-name" title={country.country_name}>
+              <li key={country.country} className="laborlens-similar-row">
+                <span className="laborlens-similar-iso">{country.country}</span>
+                <span className="laborlens-similar-name" title={country.country_name}>
                   {country.country_name}
                 </span>
-                <span className="lumina-similar-bar-track" aria-hidden="true">
+                <span className="laborlens-similar-bar-track" aria-hidden="true">
                   <span
-                    className="lumina-similar-bar-fill"
+                    className="laborlens-similar-bar-fill"
                     style={{ width: `${widthPct}%` }}
                   />
                 </span>
-                <span className="lumina-similar-distance">{country.distance.toFixed(2)}</span>
+                <span className="laborlens-similar-distance">{country.distance.toFixed(2)}</span>
               </li>
             );
           })
         )}
       </ul>
-      <p className="lumina-model-disclaimer">
+      <p className="laborlens-model-disclaimer">
         <Info size={11} aria-hidden /> KMeans over demographic + economic features; distance
         is Euclidean in standardised feature space. Silhouette {ml.cluster.silhouette.toFixed(2)}.
       </p>
@@ -375,13 +375,13 @@ function ModelTransparencyCard({ ml }: { ml: MlPrediction }) {
   const coverageDelta = coverage - nominal;
 
   return (
-    <article className="liquid-glass lumina-model-card">
+    <article className="liquid-glass laborlens-model-card">
       <CardHeading
         icon={<ShieldCheck size={14} />}
         title="Model quality"
         hint="Honest validation metrics"
       />
-      <ul className="lumina-metric-list">
+      <ul className="laborlens-metric-list">
         <MetricRow
           icon={<TrendingUp size={12} />}
           label="CV R²"
@@ -408,7 +408,7 @@ function ModelTransparencyCard({ ml }: { ml: MlPrediction }) {
           tone={Math.abs(coverageDelta) > 0.1 ? "warn" : "ok"}
         />
       </ul>
-      <p className="lumina-model-disclaimer">
+      <p className="laborlens-model-disclaimer">
         <Info size={11} aria-hidden /> Trained on 153 countries (single cross-section). Real-world
         prediction is hard; we publish honest numbers rather than tautological ones.
       </p>
@@ -430,11 +430,11 @@ function MetricRow({
   tone?: "ok" | "warn";
 }) {
   return (
-    <li className={`lumina-metric-row${tone ? ` lumina-metric-${tone}` : ""}`}>
-      <span className="lumina-metric-icon">{icon}</span>
-      <span className="lumina-metric-label">{label}</span>
-      <span className="lumina-metric-value">{value}</span>
-      {hint ? <span className="lumina-metric-hint">{hint}</span> : null}
+    <li className={`laborlens-metric-row${tone ? ` laborlens-metric-${tone}` : ""}`}>
+      <span className="laborlens-metric-icon">{icon}</span>
+      <span className="laborlens-metric-label">{label}</span>
+      <span className="laborlens-metric-value">{value}</span>
+      {hint ? <span className="laborlens-metric-hint">{hint}</span> : null}
     </li>
   );
 }
@@ -460,17 +460,17 @@ function CardHeading({
   hint?: string;
 }) {
   return (
-    <div className="lumina-model-card-head">
-      <span className="lumina-model-card-icon">{icon}</span>
+    <div className="laborlens-model-card-head">
+      <span className="laborlens-model-card-icon">{icon}</span>
       <h3>{title}</h3>
-      {hint ? <span className="lumina-model-card-hint">{hint}</span> : null}
+      {hint ? <span className="laborlens-model-card-hint">{hint}</span> : null}
     </div>
   );
 }
 
 function MlEmptyState() {
   return (
-    <article className="liquid-glass lumina-model-card lumina-ml-empty">
+    <article className="liquid-glass laborlens-model-card laborlens-ml-empty">
       <CardHeading icon={<Info size={14} />} title="ML prediction unavailable" />
       <p>
         The ML model didn&apos;t produce a prediction for this report. This usually means the

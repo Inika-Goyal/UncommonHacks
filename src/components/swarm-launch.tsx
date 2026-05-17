@@ -161,7 +161,7 @@ export function SwarmLaunch({ reportId }: Props) {
   const recentEvents = events.slice(-6).reverse();
 
   return (
-    <main className="launch-page lumina-shell">
+    <main className="launch-page laborlens-shell">
       <VideoBackground />
       <div className="launch-backdrop" aria-hidden="true" />
 

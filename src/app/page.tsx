@@ -7,7 +7,7 @@ import { ChevronDown, Loader2, Search } from "lucide-react";
 
 import { VideoBackground } from "@/components/video-background";
 import { LandingFooter } from "@/components/landing-footer";
-import { LuminaLogo } from "@/components/lumina-brand";
+import { LaborLensLogo } from "@/components/laborlens-brand";
 
 type InputMode = "company" | "region";
 
@@ -65,7 +65,7 @@ export default function LandingPage() {
   };
 
   return (
-    <div className="lumina-shell relative min-h-screen overflow-hidden">
+    <div className="laborlens-shell relative min-h-screen overflow-hidden">
       <VideoBackground />
 
       <div className="relative z-10 flex min-h-screen gap-6">
@@ -81,9 +81,9 @@ export default function LandingPage() {
             {/* Nav */}
             <div className="flex items-center justify-between px-7 pt-7">
               <div className="flex items-center gap-3">
-                <LuminaLogo size={24} />
+                <LaborLensLogo size={24} />
                 <span className="text-white text-lg tracking-[0.35em] uppercase font-light">
-                  LUMINA
+                  LABORLENS
                 </span>
               </div>
               <div className="liquid-glass flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-white/50 text-xs">

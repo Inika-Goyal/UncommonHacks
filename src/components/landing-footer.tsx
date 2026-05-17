@@ -2,11 +2,11 @@
 
 import { motion } from "motion/react";
 import { Music2, Share2, MessageCircle, Play, Camera } from "lucide-react";
-import { LuminaLogo } from "@/components/lumina-brand";
+import { LaborLensLogo } from "@/components/laborlens-brand";
 
 const LINKS: Record<string, string[]> = {
   Discover: ["Overview", "How It Works", "Supply Chain Map", "Risk Index"],
-  "The Mission": ["About Lumina", "Research Partners", "Impact Reports", "Press"],
+  "The Mission": ["About LaborLens", "Research Partners", "Impact Reports", "Press"],
   Concierge: ["Request Analysis", "Enterprise API", "Legal Referrals", "Contact"],
 };
 
@@ -21,13 +21,13 @@ export function LandingFooter() {
     >
       <div className="max-w-7xl mx-auto px-8 pt-10 pb-6">
         <div className="flex items-center gap-3 mb-8">
-          <LuminaLogo />
+          <LaborLensLogo />
           <span className="text-white text-2xl font-light tracking-[0.3em] uppercase">
-            LUMINA
+            LABORLENS
           </span>
         </div>
 
-        <div className="lumina-footer-grid grid grid-cols-3 gap-8 mb-10">
+        <div className="laborlens-footer-grid grid grid-cols-3 gap-8 mb-10">
           {Object.entries(LINKS).map(([heading, items]) => (
             <div key={heading}>
               <p className="text-white/50 text-xs tracking-widest uppercase mb-3">
@@ -49,9 +49,9 @@ export function LandingFooter() {
           ))}
         </div>
 
-        <div className="lumina-footer-bottom border-t border-white/10 pt-5 flex items-center justify-between">
+        <div className="laborlens-footer-bottom border-t border-white/10 pt-5 flex items-center justify-between">
           <p className="text-white/30 text-xs">
-            © 2026 Lumina. Advancing labour rights through technology.
+            © 2026 LaborLens. Advancing labour rights through technology.
           </p>
           <div className="flex items-center gap-4">
             {[Music2, Share2, MessageCircle, Play, Camera].map((Icon, i) => (
