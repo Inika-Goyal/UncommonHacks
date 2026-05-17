@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { motion } from "motion/react";
 import { ChevronDown, Loader2 } from "lucide-react";
 
+import IntroScreen from "@/components/IntroScreen";
 import { VideoBackground } from "@/components/video-background";
 import { LaborLensLogo } from "@/components/laborlens-brand";
 
@@ -21,12 +22,17 @@ const REGIONS = [
 
 export default function LandingPage() {
   const router = useRouter();
+  const [showIntro, setShowIntro] = useState(true);
   const [mode, setMode] = useState<InputMode>("company");
   const [company, setCompany] = useState("");
   const [region, setRegion] = useState("");
   const [showRegionMenu, setShowRegionMenu] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  if (showIntro) {
+    return <IntroScreen onComplete={() => setShowIntro(false)} />;
+  }
 
   const isValid = mode === "company" ? company.trim().length > 0 : region.length > 0;
 
