@@ -316,7 +316,6 @@ export function ReportDashboard({ initialInputType, initialQuery, reportId }: Re
               tabIndex={-1}
             >
               <SectionHeader title="Executive Summary" />
-              <h2>{report.title}</h2>
               <p>{report.summary}</p>
             </section>
 
