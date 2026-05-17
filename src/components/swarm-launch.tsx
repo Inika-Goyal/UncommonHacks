@@ -265,19 +265,25 @@ export function SwarmLaunch({ reportId }: Props) {
           </aside>
         </div>
 
-        {done ? (
-          <div className="launch-cta">
-            <Link className="launch-cta-button" href={`/dashboard?id=${reportId}`}>
-              Open report
-              <ArrowRight size={18} aria-hidden="true" />
-            </Link>
-            {secondsToRedirect !== null && secondsToRedirect > 0 ? (
-              <span className="launch-cta-hint">
-                Opening automatically in {secondsToRedirect}s
-              </span>
-            ) : null}
-          </div>
-        ) : null}
+        <div
+          className="launch-cta"
+          data-visible={done ? "true" : "false"}
+          aria-hidden={!done}
+        >
+          <Link
+            className="launch-cta-button"
+            href={`/dashboard?id=${reportId}`}
+            tabIndex={done ? 0 : -1}
+          >
+            Open report
+            <ArrowRight size={18} aria-hidden="true" />
+          </Link>
+          {done && secondsToRedirect !== null && secondsToRedirect > 0 ? (
+            <span className="launch-cta-hint">
+              Opening automatically in {secondsToRedirect}s
+            </span>
+          ) : null}
+        </div>
 
         {error ? <div className="launch-error">{error}</div> : null}
       </section>
