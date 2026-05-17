@@ -34,7 +34,7 @@ const HOME_AGENTS = [
   { id: 'watchlist', label: 'Watchlist' },
   { id: 'supplier', label: 'Supplier' },
   { id: 'legal', label: 'Legal' },
-  { id: 'risk', label: 'Risk Index' },
+  { id: 'risk', label: 'Risk' },
 ];
 
 const LIVE_FEED = [
