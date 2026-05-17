@@ -198,7 +198,7 @@ export default function LandingPage() {
                   </span>
                 </h1>
                 <p className="text-white text-[1.15rem] font-semibold mt-4 max-w-[40rem] mx-auto leading-snug">
-                  Many high-risk regions appear statistically safe.
+                  Visibility should not determine protection.
                 </p>
 
                 <p className="text-white/60 text-sm mt-4 max-w-[28rem] mx-auto leading-relaxed">
