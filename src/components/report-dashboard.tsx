@@ -9,7 +9,6 @@ import {
   ExternalLink,
   FileText,
   Loader2,
-  Radio,
   ShieldAlert,
 } from "lucide-react";
 import Link from "next/link";
@@ -35,13 +34,6 @@ type ReportDashboardProps = {
 };
 
 type Mode = "demo" | "supabase" | null;
-
-const sourceStatusLabel = {
-  ready: "Live",
-  snapshot: "Live",
-  blocked: "Blocked",
-  pending: "Pending",
-} satisfies Record<SourceStatus, string>;
 
 function displayStatus(status: SourceStatus): Exclude<SourceStatus, "snapshot"> {
   return status === "snapshot" ? "ready" : status;
@@ -141,8 +133,6 @@ export function ReportDashboard({ initialInputType, initialQuery, reportId }: Re
     return `/api/reports/${encodeURIComponent(report.id)}/complaint.pdf`;
   }, [report]);
 
-  const modeLabel = mode === "demo" ? "Demo fixtures" : mode === "supabase" ? "Live report" : "Loading";
-
   const scrollElementIntoView = useCallback((element: HTMLElement) => {
     element.scrollIntoView({ behavior: "smooth", block: "center" });
     element.focus({ preventScroll: true });
@@ -239,10 +229,6 @@ export function ReportDashboard({ initialInputType, initialQuery, reportId }: Re
           <span>LABORLENS</span>
         </Link>
         <div className="laborlens-dashboard-nav-actions">
-          <span className={`laborlens-status-pill laborlens-status-${mode === "demo" ? "snapshot" : "ready"}`}>
-            <Radio aria-hidden="true" size={13} />
-            {modeLabel}
-          </span>
           {report ? (
             <ElevenLabsReportAgent
               report={report}
@@ -294,9 +280,6 @@ export function ReportDashboard({ initialInputType, initialQuery, reportId }: Re
                         <strong>{source.name}</strong>
                         <p>{source.detail}</p>
                       </div>
-                      <span className={`laborlens-status-pill laborlens-status-${status}`}>
-                        {sourceStatusLabel[source.status]}
-                      </span>
                     </div>
                   );
                 })}
