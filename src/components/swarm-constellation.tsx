@@ -3,7 +3,7 @@
 import { Canvas, useFrame } from "@react-three/fiber";
 import { Line } from "@react-three/drei";
 import { Bloom, EffectComposer } from "@react-three/postprocessing";
-import { Component, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { Component, useMemo, useRef, useState, type ReactNode } from "react";
 import * as THREE from "three";
 
 import type { AgentLifecycle, AgentName } from "@/agents/types";
@@ -54,19 +54,19 @@ type ConstellationProps = {
 };
 
 export function SwarmConstellation(props: ConstellationProps) {
-  const [supportsWebGL, setSupportsWebGL] = useState<boolean | null>(null);
-  useEffect(() => {
+  const [supportsWebGL] = useState<boolean>(() => {
+    if (typeof document === "undefined") return false;
     try {
       const canvas = document.createElement("canvas");
       const ctx =
         canvas.getContext("webgl2") ||
         canvas.getContext("webgl") ||
         canvas.getContext("experimental-webgl");
-      setSupportsWebGL(Boolean(ctx));
+      return Boolean(ctx);
     } catch {
-      setSupportsWebGL(false);
+      return false;
     }
-  }, []);
+  });
 
   if (supportsWebGL === false) {
     return <div className="constellation-wrap constellation-placeholder constellation-fallback" aria-hidden="true" />;
@@ -282,7 +282,7 @@ function AgentNode({
   label: AgentName;
 }) {
   const meshRef = useRef<THREE.Mesh>(null);
-  const phase = useRef(Math.random() * Math.PI * 2);
+  const phase = useRef(Math.abs(position[0] * 12.9898 + position[2] * 78.233) % (Math.PI * 2));
   const color = COLORS[status] ?? COLORS.pending;
   const intensity =
     status === "ready" || status === "snapshot"
@@ -404,10 +404,5 @@ type SwarmConstellationWrapperProps = {
 
 // Renderer wrapper: gates on client-side mount to avoid Next 16 SSR hydration noise.
 export function SwarmConstellationClient(props: SwarmConstellationWrapperProps) {
-  const [mounted, setMounted] = useState(false);
-  useEffect(() => setMounted(true), []);
-  if (!mounted) {
-    return <div className="constellation-wrap constellation-placeholder" aria-hidden="true" />;
-  }
   return <SwarmConstellation {...props} />;
 }
