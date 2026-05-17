@@ -168,9 +168,6 @@ export function SwarmLaunch({ reportId }: Props) {
           <LuminaLogo size={26} />
           <span>LUMINA</span>
         </Link>
-        <span className="launch-status">
-          {done ? "Synthesis complete" : `${completedCount} / ${totalAgents} sources live`}
-        </span>
       </header>
 
       <section className="launch-stage">
