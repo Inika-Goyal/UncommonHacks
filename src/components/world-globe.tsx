@@ -379,6 +379,22 @@ function disposeObject(object: THREE.Object3D) {
   });
 }
 
+function canCreateWebGLContext() {
+  const canvas = document.createElement("canvas");
+  const attributes: WebGLContextAttributes = {};
+  const context = (canvas.getContext("webgl2", attributes) ??
+    canvas.getContext("webgl", attributes) ??
+    canvas.getContext("experimental-webgl", attributes)) as WebGLRenderingContext | WebGL2RenderingContext | null;
+
+  if (!context) {
+    return false;
+  }
+
+  const loseContext = context.getExtension("WEBGL_lose_context");
+  loseContext?.loseContext();
+  return true;
+}
+
 export const WorldGlobe = forwardRef<WorldGlobeHandle, WorldGlobeProps>(function WorldGlobe({ points }, ref) {
   const mountRef = useRef<HTMLDivElement | null>(null);
   const zoomLevelRef = useRef(1);
@@ -389,6 +405,7 @@ export const WorldGlobe = forwardRef<WorldGlobeHandle, WorldGlobeProps>(function
   const [showDemoNetwork, setShowDemoNetwork] = useState(false);
   const [zoomLevel, setZoomLevel] = useState(1);
   const [geographyState, setGeographyState] = useState<GeographyState>({ status: "loading" });
+  const [rendererError, setRendererError] = useState<string | null>(null);
 
   const activePoints = useMemo(() => (showDemoNetwork ? DEMO_MAP_POINTS : points), [points, showDemoNetwork]);
 
@@ -527,6 +544,13 @@ export const WorldGlobe = forwardRef<WorldGlobeHandle, WorldGlobeProps>(function
     let disposeScene: (() => void) | undefined;
 
     async function setupScene() {
+      setRendererError(null);
+
+      if (!canCreateWebGLContext()) {
+        setRendererError("3D globe unavailable because WebGL is disabled in this browser context.");
+        return;
+      }
+
       const { default: ThreeGlobe } = await import("three-globe");
 
       if (isDisposed) {
@@ -538,12 +562,18 @@ export const WorldGlobe = forwardRef<WorldGlobeHandle, WorldGlobeProps>(function
     const camera = new THREE.PerspectiveCamera(42, 1, 0.1, 100);
     camera.position.set(0, 0.2, 8.6);
 
-    const renderer = new THREE.WebGLRenderer({
-      antialias: true,
-      alpha: true,
-      preserveDrawingBuffer: true,
-      powerPreference: "high-performance",
-    });
+    let renderer: THREE.WebGLRenderer;
+    try {
+      renderer = new THREE.WebGLRenderer({
+        antialias: true,
+        alpha: true,
+        preserveDrawingBuffer: true,
+        powerPreference: "high-performance",
+      });
+    } catch {
+      setRendererError("3D globe unavailable because WebGL could not be initialized.");
+      return;
+    }
     renderer.setClearColor(0x000000, 0);
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     mountElement.appendChild(renderer.domElement);
@@ -1077,7 +1107,7 @@ export const WorldGlobe = forwardRef<WorldGlobeHandle, WorldGlobeProps>(function
     <div className="globe-stage" aria-label="3D geographic report signals">
       <div
         ref={mountRef}
-        className="globe-canvas"
+        className={rendererError ? "globe-canvas globe-canvas-unavailable" : "globe-canvas"}
         role="img"
         aria-label="Rotating globe with risk pins"
       />
@@ -1141,6 +1171,12 @@ export const WorldGlobe = forwardRef<WorldGlobeHandle, WorldGlobeProps>(function
         <div className="globe-overlay globe-asset-state globe-error" role="alert">
           <span>Map asset failed</span>
           <strong>{geographyState.message}</strong>
+        </div>
+      ) : null}
+      {rendererError ? (
+        <div className="globe-overlay globe-asset-state globe-error" role="status">
+          <span>3D map unavailable</span>
+          <strong>{rendererError}</strong>
         </div>
       ) : null}
       {selectedPoint ? (
