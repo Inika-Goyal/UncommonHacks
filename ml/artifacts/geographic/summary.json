@@ -1,0 +1,40 @@
+{
+  "model_family": "tree_ensemble + ridge (averaged)",
+  "target": "observed_prevalence_per_1k",
+  "validation": "KFold(5) random split, cross-sectional",
+  "uncertainty": "split-conformal prediction (~80% marginal coverage)",
+  "cv_mae": 2.1748,
+  "cv_r2": 0.2731,
+  "conformal_half_width": 3.0117,
+  "empirical_coverage_80": 0.6606,
+  "n_features": 9,
+  "n_training_rows": 153,
+  "n_bagged_trees": 8,
+  "sources": {
+    "predicted": [
+      {
+        "key": "gsi",
+        "name": "Walk Free Global Slavery Index",
+        "publisher": "Walk Free Foundation",
+        "url": "https://www.walkfree.org/global-slavery-index/",
+        "role": "predicted"
+      }
+    ],
+    "predictors": [
+      {
+        "key": "wdi",
+        "name": "World Bank World Development Indicators",
+        "publisher": "World Bank",
+        "url": "https://datatopics.worldbank.org/world-development-indicators/",
+        "role": "predictor"
+      },
+      {
+        "key": "rsf",
+        "name": "Reporters Without Borders Press Freedom Index",
+        "publisher": "RSF",
+        "url": "https://rsf.org/en/index",
+        "role": "bias_adjuster"
+      }
+    ]
+  }
+}

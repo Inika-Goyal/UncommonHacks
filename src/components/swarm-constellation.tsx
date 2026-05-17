@@ -28,7 +28,7 @@ class WebGLBoundary extends Component<{ children: ReactNode }, { failed: boolean
 const HUB_POSITION: [number, number, number] = [0, 1.4, 0];
 const SYNTHESIS_POSITION: [number, number, number] = [0, -1.6, 0];
 const AGENT_RADIUS = 2.6;
-const AGENT_NAMES: AgentName[] = ["news", "watchlist", "supplier", "legal", "risk_index"];
+const AGENT_NAMES: AgentName[] = ["news", "watchlist", "supplier", "pipeline", "legal", "risk_index"];
 
 const COLORS = {
   pending: new THREE.Color("#7aa2ff"),

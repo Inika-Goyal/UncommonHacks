@@ -1,0 +1,17 @@
+<svg width="320" height="90" viewBox="0 0 320 90" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="LaborLens">
+  <defs>
+    <mask id="laborlens-outer-cuts-intro">
+      <rect width="100%" height="100%" fill="white" />
+      <line x1="32" y1="45" x2="32" y2="3" stroke="black" stroke-width="4" />
+      <line x1="32" y1="45" x2="47" y2="72" stroke="black" stroke-width="4" />
+    </mask>
+    <mask id="laborlens-middle-cuts-intro">
+      <rect width="100%" height="100%" fill="white" />
+      <line x1="32" y1="45" x2="6" y2="45" stroke="black" stroke-width="4" />
+    </mask>
+  </defs>
+  <circle cx="32" cy="45" r="6" fill="#ffffff" />
+  <circle cx="32" cy="45" r="14" fill="none" stroke="#ffffff" stroke-width="4.5" mask="url(#laborlens-middle-cuts-intro)" />
+  <circle cx="32" cy="45" r="24" fill="none" stroke="#ffffff" stroke-width="5" mask="url(#laborlens-outer-cuts-intro)" />
+  <text x="76" y="54" fill="#ffffff" font-family="Helvetica, Arial, sans-serif" font-size="24" font-weight="300" letter-spacing="7">LABORLENS</text>
+</svg>

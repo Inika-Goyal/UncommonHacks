@@ -67,10 +67,11 @@ export async function riskIndexNode(state: OrchestratorState): Promise<Orchestra
           ? `${scores.length} countries scored; weighted prevalence ${weightedScore?.toFixed(2) ?? "n/a"}/1000.`
           : "No countries resolved from the query or onboarding input.",
         findings: decoratedFindings,
+        mapPoints: [],
         rawFeatures,
       };
     },
   });
 
-  return { agents: { risk_index: result } };
+  return { agents: { risk_index: result }, mapPoints: result.mapPoints };
 }

@@ -1,5 +1,13 @@
 import { createSupabaseServerClient } from "@/lib/supabase-server";
-import type { Finding, MapPoint, SourceStatus, InputType, ReportStatus } from "@/lib/report-types";
+import type {
+  Finding,
+  InputType,
+  MapPoint,
+  MlPrediction,
+  MlPredictionReason,
+  ReportStatus,
+  SourceStatus,
+} from "@/lib/report-types";
 
 import type { AgentName, AgentResult, FeatureBundle, SynthesisOutput } from "@/agents/types";
 import { AGENT_LABELS } from "@/agents/types";
@@ -51,7 +59,7 @@ export async function createReportShell(input: ReportShellInput): Promise<string
     output_goal: input.onboarding.outputGoal,
   });
 
-  const initialAgents: AgentName[] = ["news", "watchlist", "supplier", "legal", "risk_index"];
+  const initialAgents: AgentName[] = ["news", "watchlist", "supplier", "pipeline", "legal", "risk_index"];
   await supabase.from("source_status").insert(
     initialAgents.map((agent) => ({
       report_id: reportId,
@@ -126,6 +134,12 @@ export async function insertMapPoints(reportId: string, points: MapPoint[]): Pro
       latitude: point.latitude,
       longitude: point.longitude,
       risk: point.risk,
+      exploit_type: point.exploitType ?? null,
+      severity: point.severity ?? null,
+      stage: point.stage ?? null,
+      order: point.order ?? null,
+      causes: point.causes ?? null,
+      sources: point.sources ?? null,
     })),
   );
 }
@@ -141,6 +155,8 @@ export async function patchReport(
     overallRisk?: number;
     status?: ReportStatus;
     sourceNote?: string;
+    mlPrediction?: MlPrediction | null;
+    mlPredictionReason?: MlPredictionReason | null;
   },
 ): Promise<void> {
   const supabase = createSupabaseServerClient();
@@ -153,6 +169,8 @@ export async function patchReport(
   if (patch.overallRisk !== undefined) payload.overall_risk = patch.overallRisk;
   if (patch.status !== undefined) payload.status = patch.status;
   if (patch.sourceNote !== undefined) payload.source_note = patch.sourceNote;
+  if (patch.mlPrediction !== undefined) payload.ml_prediction = patch.mlPrediction;
+  if (patch.mlPredictionReason !== undefined) payload.ml_prediction_reason = patch.mlPredictionReason;
 
   if (Object.keys(payload).length === 0) return;
   await supabase.from("reports").update(payload).eq("id", reportId);
@@ -171,6 +189,8 @@ export async function finalizeReportFromSynthesis(
   reportId: string,
   synthesis: SynthesisOutput,
   agentResults: Partial<Record<AgentName, AgentResult>>,
+  mlPrediction?: MlPrediction | null,
+  mlPredictionReason?: MlPredictionReason | null,
 ): Promise<void> {
   const agentNames = Object.values(agentResults).map((result) => result?.status).filter(Boolean);
   const liveCount = agentNames.filter((s) => s === "ready").length;
@@ -188,5 +208,7 @@ export async function finalizeReportFromSynthesis(
     overallRisk: synthesis.overallRisk,
     status: "ready",
     sourceNote: note,
+    mlPrediction: mlPrediction ?? null,
+    mlPredictionReason: mlPredictionReason ?? null,
   });
 }

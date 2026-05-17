@@ -2,8 +2,8 @@ import type { Metadata, Viewport } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "UnExploited",
-  description: "Evidence-backed exploitation report MVP.",
+  title: "LaborLens — Labour Exploitation Intelligence",
+  description: "AI-powered supply chain labour rights research tool.",
 };
 
 export const viewport: Viewport = {

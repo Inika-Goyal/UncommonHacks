@@ -191,3 +191,48 @@ should be both country-disjoint *and* time-forward.
 **How to improve.** Replace `GroupKFold` with a nested split:
 group-shuffle the countries into train/test, then within each group
 hold out the final two years for time-forward evaluation.
+
+---
+
+# 2026-05 — Resolution notes (real-data rewrite)
+
+The repo has since been moved from synthetic to real GSI 2023 + WDI 2021
++ RSF 2021 data, and several items above are now addressed:
+
+- **Item #1** (synthetic data): **resolved**. `data/synthetic.py` is
+  gone. `data/real.py` joins the three real CSVs into the panel. The
+  geographic model is now single-output (overall GSI prevalence per
+  1,000) because per-country per-exploit-type ground truth is not
+  publicly available.
+- **Item #2** (tautological bias adjuster): **resolved**.
+  `features/reporting_bias.py` is now a stub that raises
+  `NotImplementedError` on any call. The geographic training pipeline
+  trains on raw observed GSI prevalence — we accept whatever bias is
+  baked into GSI rather than pretending to undo it with a fabricated
+  formula.
+- **Item #3** (uncalibrated uncertainty bands): **resolved with
+  split-conformal**. `geographic.py` holds out a calibration set,
+  computes the (1 - alpha)-quantile of ensemble absolute residuals as
+  a fixed half-width, and reports empirical coverage on the KFold
+  test folds alongside nominal coverage. Both numbers ship in the
+  predict CLI output.
+- **Items #5 and #7** (target-leaking NB; cluster includes governance):
+  **resolved by removing the NB entirely** and reducing the cluster
+  feature blocks to demographic + economic. Without per-country
+  per-exploit ground truth there's nothing for the NB to classify, and
+  the GSI+WDI+RSF tier doesn't include governance features anyway.
+  Predict CLI now derives "exploit-type breakdown" from fixed ILO
+  global proportions (clearly labelled as such).
+- **Item #9** (no time-forward CV): **moot for now**. The real panel
+  is cross-sectional (one year per country). CV is random 5-fold,
+  reflecting honest cross-country generalisation. Re-introducing a
+  longitudinal target requires reconciling GSI 2014/2018/2023
+  methodology differences, which is deferred.
+
+Still open as follow-ups:
+- **Item #4** (KMeans similarity weakness): partial — feature blocks
+  are smaller now, but Gower/HDBSCAN swap is not done.
+- **Item #6** (multi-output regression): moot for now (single output).
+- **Item #8** (CLI accepting raw feature vectors): still uses the
+  panel lookup; would be useful when a TS query resolves to an ISO3
+  not in our panel.

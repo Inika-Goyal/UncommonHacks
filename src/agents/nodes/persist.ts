@@ -7,7 +7,13 @@ export async function persistNode(state: OrchestratorState): Promise<Orchestrato
   }
 
   if (state.synthesis) {
-    await finalizeReportFromSynthesis(state.reportId, state.synthesis, state.agents);
+    await finalizeReportFromSynthesis(
+      state.reportId,
+      state.synthesis,
+      state.agents,
+      state.mlPrediction,
+      state.mlPredictionReason,
+    );
   } else {
     await patchReport(state.reportId, {
       status: "failed",

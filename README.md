@@ -1,10 +1,10 @@
-# UnExploited
+# LaborLens
 
-UnExploited is an Uncommon Hacks MVP for turning a company or geographic-region query into an evidence-backed labor exploitation risk report.
+LaborLens is an Uncommon Hacks MVP for turning a company or geographic-region query into an evidence-backed labor exploitation risk report.
 
 The current `main` implementation has two operating modes:
 
-- **Demo mode** (`NEXT_PUBLIC_DEMO_MODE=true`): uses labeled fixture reports for the Shein company brief and Cambodia garment-sector region brief.
+- **Demo mode** (`NEXT_PUBLIC_DEMO_MODE=true`): uses labeled fixture reports for the Shein company brief and Cambodia garment-sector region brief through `/dashboard` and `/api/reports`. Landing-page submissions stay wired to the live swarm path and show a configuration message in demo mode.
 - **Live swarm mode** (`NEXT_PUBLIC_DEMO_MODE` not set to `true`): creates a Supabase report shell, runs a LangGraph agent swarm, streams agent progress to `/swarm/[id]`, then redirects to the persisted dashboard.
 
 ## Current Product Surface
@@ -55,10 +55,26 @@ Optional live integrations:
 ```bash
 OPENAI_EXTRACTION_MODEL=
 OPENAI_SYNTHESIS_MODEL=
+AGENT_SOURCE_CACHE=
 ELEVENLABS_API_KEY=
 ELEVENLABS_AGENT_ID=
 COURTLISTENER_API_TOKEN=
 ```
+
+Live source lookups are attempted first by default. Set `AGENT_SOURCE_CACHE=prefer` when you want repeated local runs to use fresh cache rows before making network requests.
+
+## ElevenLabs Client Tools
+
+The dashboard registers these case-sensitive ElevenLabs client tools in React. Configure matching Client tools on the ElevenLabs agent, with "Wait for response" enabled when the agent should use the returned dashboard state:
+
+| Tool | Parameters | Purpose |
+| --- | --- | --- |
+| `highlightFinding` | `findingId` string, required | Scrolls to and highlights a cited finding row. |
+| `focusMapPoint` | `pointId` string, required | Focuses the globe on a mapped risk signal. |
+| `scrollToDashboardSection` | `section` enum: `summary`, `map`, `sources`, `findings`, `action` | Scrolls to a dashboard section. |
+| `openComplaintLetter` | none | Opens the existing complaint/compliance PDF route. |
+
+The agent prompt receives finding IDs, map point IDs, section names, and these tool names in report context. Tool names and parameter identifiers must match this table exactly.
 
 ## Useful Commands
 
@@ -85,7 +101,6 @@ pnpm test:e2e
 
 ## Current Gaps
 
-- Branding is mixed: the landing page uses `LUMINA`, while metadata, dashboard, and product docs use `UnExploited`.
 - The benchmark panel is still a placeholder; a real NGO report has not been selected or embedded.
 - Snowflake is a product/track plan only; the current implementation uses Supabase/Postgres and local/source-cache paths.
 - Demo fixtures are labeled and useful for the hackathon flow, but they are not live source refreshes.

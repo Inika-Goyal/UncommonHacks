@@ -42,8 +42,10 @@ yarn-error.log*
 next-env.d.ts
 /.playwright-cli/
 
-# prevent nested dependency folders anywhere in repo
-**/node_modules/
-
-# claude workspace copies (your case)
-.claude copy/
+# Python / ML
+ml/.venv/
+__pycache__/
+*.pyc
+# Trained artifacts ARE committed (small, reproducible from raw CSVs).
+# Run `pnpm ml:train` to regenerate them.
+/output/playwright

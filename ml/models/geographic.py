@@ -1,35 +1,41 @@
-"""Geographic exploitation-prevalence model.
+"""Geographic exploitation-prevalence model — single output, real data.
 
-Design choices (per project plan):
+Design (post-real-data rewrite):
+
+  - One model, one target: overall modern-slavery prevalence per 1,000
+    population (GSI 2023). The per-exploit dimension that the old
+    synthetic version exposed is now applied at INFERENCE time by
+    `pipelines/predict.py` using fixed ILO global proportions; it is
+    not part of the model.
 
   - Two predictors trained side by side: a GradientBoosting tree
     ensemble (captures non-linear interactions) and a Ridge linear
-    model (interpretable, stable baseline). Their predictions are
-    averaged into the point estimate; their spread feeds the
-    uncertainty band.
-  - Whole-country holdout via GroupKFold on the country column.
-    Random row holdouts would leak because the same country shows up
-    in multiple years and the country fixed-effect makes within-
-    country predictions trivial.
-  - Year t -> year t+1 supervision: features come from year t, target
-    is observed prevalence in year t+1. This forces the model to
-    forecast change, not just memorise current state.
-  - Reporting-bias adjustment: target is *bias-adjusted* prevalence,
-    not raw observed prevalence. Without this, low-press-freedom
-    countries get unfairly low predicted risk.
-  - Uncertainty bands: per-prediction interval = mean +/- k * spread,
-    where spread combines (a) bootstrap std across resampled trees and
-    (b) abs disagreement between tree and linear estimates.
-  - Ranking sanity check: Spearman vs raw GSI prevalence is reported as
-    an external check, not used for training.
+    model (interpretable, stable). Their predictions are averaged.
 
-One model is trained per exploit type so the four outcomes can have
-genuinely different feature weights.
+  - Cross-validation: random 5-fold KFold. Each row is one country, so
+    there is no country-grouping or time-forward dimension to enforce.
+
+  - Uncertainty bands: split-conformal prediction (Vovk et al.). A
+    calibration block is held out from training, ensemble residuals
+    are computed there, and the (1 - alpha)-quantile of |residual|
+    becomes a fixed half-width that applies to every future
+    prediction. Default alpha = 0.20, so the marginal-coverage target
+    is 80%.
+
+  - Empirical coverage is also measured on the KFold test folds and
+    reported alongside CV MAE / R² so the reader can sanity-check
+    that the marginal guarantee holds in practice.
+
+  - The reporting-bias adjuster (`features/reporting_bias.py`) is NOT
+    used. On synthetic data it was the literal inverse of the bias
+    formula in the generator (tautological). On real data the bias
+    structure is unknown and exploit-type-specific, so we train on raw
+    observed prevalence and accept whatever bias is baked into GSI.
 """
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Dict, List, Tuple
 
 import numpy as np
@@ -37,187 +43,180 @@ import pandas as pd
 from sklearn.ensemble import GradientBoostingRegressor
 from sklearn.linear_model import Ridge
 from sklearn.metrics import mean_absolute_error, r2_score
-from sklearn.model_selection import GroupKFold
+from sklearn.model_selection import KFold, train_test_split
 from sklearn.preprocessing import StandardScaler
 
-from ..data.synthetic import EXPLOIT_TYPES, PREDICTOR_COLS
-from ..features.reporting_bias import add_bias_adjusted_target
-from ..eval.ranking import spearman_vs_reference, top_k_overlap
+from ..data.real import PREDICTOR_COLS
 
 
-# ---------------------------------------------------------------------------
-# Data shaping helpers
-# ---------------------------------------------------------------------------
-def build_supervised_table(
-    panel: pd.DataFrame,
-    exploit: str,
-) -> pd.DataFrame:
-    """Reshape long panel to a (country, year_t) row with year_{t+1} target.
+TARGET_COL = "observed_prevalence_per_1k"
 
-    The model sees year-t features, year-t observed prevalence (as one
-    of the features so it can lean on momentum), and year-(t+1) adjusted
-    prevalence as the supervised target.
-    """
-    sub = panel[panel["exploit_type"] == exploit].copy()
-    sub = add_bias_adjusted_target(sub)
 
-    # Sort + shift within country to align t -> t+1.
-    sub = sub.sort_values(["country", "year"]).reset_index(drop=True)
-    sub["target_next_year"] = (
-        sub.groupby("country")["adjusted_prevalence_per_1k"].shift(-1)
-    )
-    # year-t prevalence is a legitimate feature (autoregression).
-    sub["lag_observed"] = sub["observed_prevalence_per_1k"]
-
-    sub = sub.dropna(subset=["target_next_year"]).reset_index(drop=True)
+def build_supervised_table(panel: pd.DataFrame) -> pd.DataFrame:
+    sub = panel.dropna(subset=[TARGET_COL] + list(PREDICTOR_COLS)).reset_index(drop=True)
     return sub
 
 
 def feature_matrix(df: pd.DataFrame) -> Tuple[pd.DataFrame, List[str]]:
-    """Pick the feature columns and return them + their names."""
-    cols = PREDICTOR_COLS + ["lag_observed"]
-    return df[cols].copy(), cols
+    return df[PREDICTOR_COLS].copy(), list(PREDICTOR_COLS)
 
 
-# ---------------------------------------------------------------------------
-# Model container
-# ---------------------------------------------------------------------------
 @dataclass
 class TrainedGeoModel:
-    """One trained per exploit type. Holds both component models + meta."""
-
-    exploit: str
-    tree_models: List[GradientBoostingRegressor]   # bagged for uncertainty
+    target_name: str
+    tree_models: List[GradientBoostingRegressor]
     linear_model: Ridge
     scaler: StandardScaler
     feature_cols: List[str]
     cv_mae: float
     cv_r2: float
-    spearman_vs_gsi: float
-    top10_jaccard_vs_gsi: float
+    conformal_half_width: float
+    empirical_coverage_80: float
+    n_training_rows: int
 
     def predict(self, X: pd.DataFrame) -> Dict[str, np.ndarray]:
-        """Return dict with mean, lower (10th pct), upper (90th pct)."""
         Xs = self.scaler.transform(X[self.feature_cols])
-        tree_preds = np.stack([m.predict(X[self.feature_cols].values)
-                               for m in self.tree_models], axis=0)  # (B, N)
+        tree_preds = np.stack(
+            [m.predict(X[self.feature_cols].values) for m in self.tree_models],
+            axis=0,
+        )
         tree_mean = tree_preds.mean(axis=0)
         tree_std = tree_preds.std(axis=0)
-
         lin_pred = self.linear_model.predict(Xs)
 
-        # Point estimate = average of the two model families.
         mean = 0.5 * tree_mean + 0.5 * lin_pred
-
-        # Spread combines bagging variability with cross-family disagreement.
+        # Spread kept only for the downstream credibility heuristic; it
+        # no longer defines the prediction band.
         spread = tree_std + 0.5 * np.abs(tree_mean - lin_pred)
-        lower = np.clip(mean - 1.28 * spread, 0, None)   # ~10th percentile
-        upper = mean + 1.28 * spread                     # ~90th percentile
+
+        lower = np.clip(mean - self.conformal_half_width, 0, None)
+        upper = mean + self.conformal_half_width
         return {"mean": mean, "lower": lower, "upper": upper, "spread": spread}
 
 
-# ---------------------------------------------------------------------------
-# Training
-# ---------------------------------------------------------------------------
 def _bagged_trees(
     X: np.ndarray,
     y: np.ndarray,
     n_bags: int = 8,
     seed: int = 0,
 ) -> List[GradientBoostingRegressor]:
-    """Train a small ensemble of gradient-boosted trees on bootstrap samples."""
     rng = np.random.default_rng(seed)
     n = len(y)
     models: List[GradientBoostingRegressor] = []
     for b in range(n_bags):
-        idx = rng.integers(0, n, size=n)  # bootstrap
+        idx = rng.integers(0, n, size=n)
         m = GradientBoostingRegressor(
-            n_estimators=120, max_depth=3, learning_rate=0.06,
-            subsample=0.85, random_state=seed + b,
+            n_estimators=120,
+            max_depth=3,
+            learning_rate=0.06,
+            subsample=0.85,
+            random_state=seed + b,
         )
         m.fit(X[idx], y[idx])
         models.append(m)
     return models
 
 
-def train_for_exploit(
+def _ensemble_predict(
+    trees: List[GradientBoostingRegressor],
+    ridge: Ridge,
+    X_raw: pd.DataFrame,
+    X_scaled: np.ndarray,
+) -> np.ndarray:
+    tree_mean = np.mean([m.predict(X_raw.values) for m in trees], axis=0)
+    lin_pred = ridge.predict(X_scaled)
+    return 0.5 * tree_mean + 0.5 * lin_pred
+
+
+def train_geographic(
     panel: pd.DataFrame,
-    exploit: str,
-    gsi_reference: pd.Series | None = None,
     n_bags: int = 8,
     seed: int = 0,
+    n_splits: int = 5,
+    conformal_alpha: float = 0.20,
 ) -> TrainedGeoModel:
-    """Train both models on the panel, evaluate with country-level CV."""
-    table = build_supervised_table(panel, exploit)
-    X_df, cols = feature_matrix(table)
-    y = table["target_next_year"].values
-    groups = table["country"].values
+    """Fit one geographic model and return it.
 
-    # GroupKFold: every fold withholds a disjoint set of countries.
-    n_splits = min(5, table["country"].nunique())
-    gkf = GroupKFold(n_splits=n_splits)
+    1. KFold CV → fold-wise MAE / R² and per-fold empirical coverage
+       of a conformal half-width derived inside each fold.
+    2. Dedicated calibration split → the production half-width.
+    3. Refit on the full panel for the production tree + ridge.
+    """
+    table = build_supervised_table(panel)
+    X_df, cols = feature_matrix(table)
+    y = table[TARGET_COL].values
+
     fold_maes: List[float] = []
     fold_r2s: List[float] = []
+    fold_covers: List[float] = []
 
-    for fold, (tr_idx, te_idx) in enumerate(gkf.split(X_df, y, groups)):
+    kf = KFold(n_splits=n_splits, shuffle=True, random_state=seed)
+    for fold, (tr_idx, te_idx) in enumerate(kf.split(X_df)):
         scaler = StandardScaler().fit(X_df.iloc[tr_idx])
-        X_tr = scaler.transform(X_df.iloc[tr_idx])
-        X_te = scaler.transform(X_df.iloc[te_idx])
+        X_tr_s = scaler.transform(X_df.iloc[tr_idx])
+        X_te_s = scaler.transform(X_df.iloc[te_idx])
 
-        # Fit fold-local trees and ridge for CV metrics.
-        trees = _bagged_trees(X_df.iloc[tr_idx].values, y[tr_idx], n_bags=4, seed=seed + fold)
-        ridge = Ridge(alpha=1.0).fit(X_tr, y[tr_idx])
+        trees = _bagged_trees(
+            X_df.iloc[tr_idx].values, y[tr_idx], n_bags=4, seed=seed + fold
+        )
+        ridge = Ridge(alpha=1.0).fit(X_tr_s, y[tr_idx])
 
-        tree_pred = np.mean([m.predict(X_df.iloc[te_idx].values) for m in trees], axis=0)
-        ridge_pred = ridge.predict(X_te)
-        ens_pred = 0.5 * tree_pred + 0.5 * ridge_pred
+        ens_te = _ensemble_predict(trees, ridge, X_df.iloc[te_idx], X_te_s)
+        fold_maes.append(mean_absolute_error(y[te_idx], ens_te))
+        fold_r2s.append(r2_score(y[te_idx], ens_te))
 
-        fold_maes.append(mean_absolute_error(y[te_idx], ens_pred))
-        fold_r2s.append(r2_score(y[te_idx], ens_pred))
+        # Empirical-coverage sanity: derive a conformal half-width
+        # inside this fold from a calibration hold-out, then check
+        # what fraction of the actual test residuals fall inside it.
+        cal_idx, hold_idx = train_test_split(
+            np.arange(len(tr_idx)), test_size=0.25, random_state=seed + fold
+        )
+        cal_pred = _ensemble_predict(
+            trees,
+            ridge,
+            X_df.iloc[tr_idx[hold_idx]],
+            scaler.transform(X_df.iloc[tr_idx[hold_idx]]),
+        )
+        cal_res = np.abs(y[tr_idx[hold_idx]] - cal_pred)
+        half_w_fold = float(np.quantile(cal_res, 1.0 - conformal_alpha))
+        fold_covers.append(float(np.mean(np.abs(y[te_idx] - ens_te) <= half_w_fold)))
 
-    # Refit on all data for the production model.
+    # Production conformal: hold 20% as calibration, fit on the rest,
+    # take the (1 - alpha)-quantile of |residual| as half-width.
+    cal_train_idx, cal_hold_idx = train_test_split(
+        np.arange(len(X_df)), test_size=0.20, random_state=seed
+    )
+    scaler_cal = StandardScaler().fit(X_df.iloc[cal_train_idx])
+    X_train_s = scaler_cal.transform(X_df.iloc[cal_train_idx])
+    trees_cal = _bagged_trees(
+        X_df.iloc[cal_train_idx].values, y[cal_train_idx], n_bags=n_bags, seed=seed
+    )
+    ridge_cal = Ridge(alpha=1.0).fit(X_train_s, y[cal_train_idx])
+    cal_pred = _ensemble_predict(
+        trees_cal,
+        ridge_cal,
+        X_df.iloc[cal_hold_idx],
+        scaler_cal.transform(X_df.iloc[cal_hold_idx]),
+    )
+    half_width = float(
+        np.quantile(np.abs(y[cal_hold_idx] - cal_pred), 1.0 - conformal_alpha)
+    )
+
+    # Refit on full panel for production.
     scaler = StandardScaler().fit(X_df)
     X_full = scaler.transform(X_df)
     trees_full = _bagged_trees(X_df.values, y, n_bags=n_bags, seed=seed)
     ridge_full = Ridge(alpha=1.0).fit(X_full, y)
 
-    cv_mae = float(np.mean(fold_maes))
-    cv_r2 = float(np.mean(fold_r2s))
-
-    # External sanity check vs GSI ranking (most recent year only).
-    spearman = float("nan")
-    jaccard = float("nan")
-    if gsi_reference is not None:
-        latest_year = table["year"].max()
-        latest = table[table["year"] == latest_year].set_index("country")
-        Xs_latest = scaler.transform(latest[cols])
-        tree_mean = np.mean([m.predict(latest[cols].values) for m in trees_full], axis=0)
-        lin_mean = ridge_full.predict(Xs_latest)
-        latest_pred = pd.Series(0.5 * tree_mean + 0.5 * lin_mean, index=latest.index)
-        spearman = spearman_vs_reference(latest_pred, gsi_reference)["spearman"]
-        jaccard = top_k_overlap(latest_pred, gsi_reference, k=10)["jaccard"]
-
     return TrainedGeoModel(
-        exploit=exploit,
+        target_name=TARGET_COL,
         tree_models=trees_full,
         linear_model=ridge_full,
         scaler=scaler,
         feature_cols=cols,
-        cv_mae=cv_mae,
-        cv_r2=cv_r2,
-        spearman_vs_gsi=spearman,
-        top10_jaccard_vs_gsi=jaccard,
+        cv_mae=float(np.mean(fold_maes)),
+        cv_r2=float(np.mean(fold_r2s)),
+        conformal_half_width=half_width,
+        empirical_coverage_80=float(np.mean(fold_covers)),
+        n_training_rows=int(len(X_df)),
     )
-
-
-def train_all_exploits(
-    panel: pd.DataFrame,
-    gsi_reference_per_exploit: Dict[str, pd.Series] | None = None,
-    seed: int = 0,
-) -> Dict[str, TrainedGeoModel]:
-    """Convenience: train one TrainedGeoModel per exploit type."""
-    out: Dict[str, TrainedGeoModel] = {}
-    for exploit in EXPLOIT_TYPES:
-        ref = (gsi_reference_per_exploit or {}).get(exploit)
-        out[exploit] = train_for_exploit(panel, exploit, gsi_reference=ref, seed=seed)
-    return out

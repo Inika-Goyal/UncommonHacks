@@ -1,4 +1,4 @@
-# UnExploited Product Context
+# LaborLens Product Context
 
 ## Register
 
@@ -8,11 +8,11 @@ product
 
 The Google Doc `ExploitedSpecs` is authoritative for product direction. This file is the repo-local operating summary for implementation, design, and demo planning. When the Google Doc changes, update this file before making product or frontend decisions.
 
-The working product name in repo metadata and dashboard UI is **UnExploited**. The current landing page uses **LUMINA** branding, so naming is unresolved and should be treated as an open decision before final submission.
+The product name across repo metadata, landing page, and dashboard UI is **LaborLens**.
 
 ## Product Purpose
 
-UnExploited helps investigators, advocates, compliance teams, and hackathon judges turn a company or geographic-region query into a cited exploitation-risk report. The demo proves a compact loop: enter a target, launch a specialist agent swarm, watch evidence collection progress, inspect the generated risk dashboard, and produce a formal complaint or compliance letter PDF.
+LaborLens helps investigators, advocates, compliance teams, and hackathon judges turn a company or geographic-region query into a cited exploitation-risk report. The demo proves a compact loop: enter a target, launch a specialist agent swarm, watch evidence collection progress, inspect the generated risk dashboard, and produce a formal complaint or compliance letter PDF.
 
 The pitch claim is acceleration: compressing work that normally takes weeks of human investigation into minutes of guided synthesis. The product should not pretend to be a final legal or investigative authority; it should make source-backed triage faster, more actionable, and easier to explain.
 
@@ -108,7 +108,14 @@ The strongest implemented feature layer is the live agent-swarm launch plus gene
 - The dashboard keeps evidence, citations, geography, and source status inspectable.
 - The PDF turns the report into an action artifact rather than just a risk score.
 
-The ElevenLabs panel is also implemented, but it depends on external agent configuration and microphone/browser permissions.
+The ElevenLabs report control is implemented in the dashboard header, but it depends on external agent configuration and microphone/browser permissions. Configure these case-sensitive ElevenLabs Client tools to match the React registration:
+
+| Tool | Parameters | Purpose |
+| --- | --- | --- |
+| `highlightFinding` | `findingId` string | Scroll to and highlight cited evidence. |
+| `focusMapPoint` | `pointId` string | Focus the globe on a mapped signal. |
+| `scrollToDashboardSection` | `section`: `summary`, `map`, `sources`, `findings`, or `action` | Navigate the report workspace. |
+| `openComplaintLetter` | none | Open the complaint/compliance PDF route. |
 
 ## Benchmarking And Demo Proof
 
@@ -123,13 +130,12 @@ The dashboard still needs one real NGO investigative report as a side-by-side co
 - Agent orchestration: LangGraph and LangChain.
 - LLMs: OpenAI structured output for finding extraction and synthesis.
 - Persistence: Supabase/Postgres.
-- PDF generation: `pdf-lib`.
+- PDF generation: `@react-pdf/renderer`.
 - Voice: ElevenLabs Conversational AI.
 - Tests: Playwright, ESLint, TypeScript.
 
 ## Open Decisions
 
-- Final name and brand system: `UnExploited` vs `LUMINA`.
 - Which NGO report to use for the benchmark panel.
 - Which live demo target is safest for the main presentation.
 - Whether Snowflake should be implemented or only discussed as sponsor-track architecture.

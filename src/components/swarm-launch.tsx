@@ -7,6 +7,7 @@ import {
   Loader2,
   Factory,
   Gauge,
+  MapPinned,
   Newspaper,
   ScrollText,
   ShieldCheck,
@@ -34,6 +35,7 @@ const AGENT_ICONS: Record<AgentName, ReactNode> = {
   news: <Newspaper aria-hidden="true" size={16} />,
   watchlist: <ShieldCheck aria-hidden="true" size={16} />,
   supplier: <Factory aria-hidden="true" size={16} />,
+  pipeline: <MapPinned aria-hidden="true" size={16} />,
   legal: <ScrollText aria-hidden="true" size={16} />,
   risk_index: <Gauge aria-hidden="true" size={16} />,
 };
@@ -159,19 +161,9 @@ export function SwarmLaunch({ reportId }: Props) {
   const recentEvents = events.slice(-6).reverse();
 
   return (
-    <main className="launch-page lumina-shell">
+    <main className="launch-page laborlens-shell">
       <VideoBackground />
       <div className="launch-backdrop" aria-hidden="true" />
-
-      <header className="launch-header">
-        <Link className="launch-brand" href="/">
-          <LuminaLogo size={26} />
-          <span>LUMINA</span>
-        </Link>
-        <span className="launch-status">
-          {done ? "Synthesis complete" : `${completedCount} / ${totalAgents} sources live`}
-        </span>
-      </header>
 
       <section className="launch-stage">
         <div className="launch-titlebar">
@@ -180,7 +172,7 @@ export function SwarmLaunch({ reportId }: Props) {
             {done ? "Evidence synthesis complete" : "Investigating public evidence"}
           </h1>
           <p className="launch-subtitle">
-            Five specialist agents are collecting source signals, reconciling citations, and
+            Six specialist agents are collecting source signals, reconciling citations, and
             assembling the risk brief that opens next.
           </p>
         </div>
@@ -267,41 +259,29 @@ export function SwarmLaunch({ reportId }: Props) {
           </aside>
         </div>
 
-        {done ? (
-          <div className="launch-cta">
-            <Link className="launch-cta-button" href={`/dashboard?id=${reportId}`}>
-              Open report
-              <ArrowRight size={18} aria-hidden="true" />
-            </Link>
-            {secondsToRedirect !== null && secondsToRedirect > 0 ? (
-              <span className="launch-cta-hint">
-                Opening automatically in {secondsToRedirect}s
-              </span>
-            ) : null}
-          </div>
-        ) : null}
+        <div
+          className="launch-cta"
+          data-visible={done ? "true" : "false"}
+          aria-hidden={!done}
+        >
+          <Link
+            className="launch-cta-button"
+            href={`/dashboard?id=${reportId}`}
+            tabIndex={done ? 0 : -1}
+          >
+            Open report
+            <ArrowRight size={18} aria-hidden="true" />
+          </Link>
+          {done && secondsToRedirect !== null && secondsToRedirect > 0 ? (
+            <span className="launch-cta-hint">
+              Opening automatically in {secondsToRedirect}s
+            </span>
+          ) : null}
+        </div>
 
         {error ? <div className="launch-error">{error}</div> : null}
       </section>
     </main>
-  );
-}
-
-function LuminaLogo({ size = 28 }: { size?: number }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
-      <circle cx="16" cy="16" r="15" stroke="rgba(255,255,255,0.5)" strokeWidth="1.2" />
-      <circle cx="16" cy="16" r="6" fill="rgba(255,255,255,0.1)" stroke="rgba(255,255,255,0.35)" strokeWidth="1" />
-      {[0, 60, 120, 180, 240, 300].map((deg) => {
-        const rad = (deg * Math.PI) / 180;
-        const x1 = (16 + 7 * Math.cos(rad)).toFixed(3);
-        const y1 = (16 + 7 * Math.sin(rad)).toFixed(3);
-        const x2 = (16 + 13 * Math.cos(rad)).toFixed(3);
-        const y2 = (16 + 13 * Math.sin(rad)).toFixed(3);
-        return <line key={deg} x1={x1} y1={y1} x2={x2} y2={y2} stroke="rgba(255,255,255,0.4)" strokeWidth="1" />;
-      })}
-      <circle cx="16" cy="16" r="2" fill="white" />
-    </svg>
   );
 }
 

@@ -74,7 +74,11 @@ REPO_ROOT = _REPO_ROOT
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
+<<<<<<< HEAD
 from ml.data.synthetic import EXPLOIT_TYPES, PREDICTOR_COLS  # noqa: E402
+=======
+from ml.data.real import EXPLOIT_TYPES, PREDICTOR_COLS  # noqa: E402
+>>>>>>> 12c61abd6cc14d4fd198d459269512f1e3c26eaa
 from ml.models.cluster import TrainedClusterModel  # noqa: E402
 from ml.models.geographic import TrainedGeoModel  # noqa: E402
 
@@ -536,11 +540,19 @@ def render_html(
 <html lang='en'>
 <head>
   <meta charset='utf-8'>
+<<<<<<< HEAD
   <title>UnExploited ML — model report</title>
   <style>{CSS}</style>
 </head>
 <body>
   <h1>UnExploited ML — model report</h1>
+=======
+  <title>LaborLens ML — model report</title>
+  <style>{CSS}</style>
+</head>
+<body>
+  <h1>LaborLens ML — model report</h1>
+>>>>>>> 12c61abd6cc14d4fd198d459269512f1e3c26eaa
   <p class='subtitle'>
     Generated from <code>ml/artifacts/</code>. Geographic targets are year-(t+1) prevalence.
     Use the year slider on the heatmap below to switch which year's
@@ -623,6 +635,20 @@ def serve(directory: Path, port: int = 8765) -> None:
 # CLI
 # ---------------------------------------------------------------------------
 def main():
+<<<<<<< HEAD
+=======
+    # The HTML report generator was written for the synthetic
+    # per-exploit-per-year panel. The real-data tier (GSI 2023 + WDI
+    # 2021 + RSF 2021) is cross-sectional and single-output, so this
+    # generator no longer matches the artifact layout. Until it is
+    # rewritten, fail loudly rather than producing a misleading report.
+    print(
+        "ml.app.build_report has not been updated for the real-data, "
+        "single-output cross-sectional pipeline. See ml/README.md.",
+        file=sys.stderr,
+    )
+    sys.exit(2)
+>>>>>>> 12c61abd6cc14d4fd198d459269512f1e3c26eaa
     p = argparse.ArgumentParser(description="Generate a static HTML model report.")
     p.add_argument("--country", help="Optional country code to show detail for.")
     p.add_argument("--year", type=int,
