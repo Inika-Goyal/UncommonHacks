@@ -2,6 +2,7 @@
 
 import { motion } from 'motion/react';
 import { Music2, Share2, MessageCircle, Play, Camera } from 'lucide-react';
+import { APP_NAME } from '@/lib/config';
 
 const LINKS = {
   Discover: ['Overview', 'How It Works', 'Supply Chain Map', 'Risk Index'],
@@ -23,7 +24,7 @@ export default function Footer() {
         <div className="flex items-center gap-3 mb-8">
           <LuminaLogo />
           <span className="text-white text-2xl font-light tracking-[0.3em] uppercase">
-            LUMINA
+            {APP_NAME}
           </span>
         </div>
 
@@ -53,7 +54,7 @@ export default function Footer() {
         {/* Bottom bar */}
         <div className="border-t border-white/10 pt-5 flex items-center justify-between">
           <p className="text-white/30 text-xs">
-            © 2026 Lumina. Advancing labour rights through technology.
+            © 2026 {APP_NAME}. Advancing labour rights through technology.
           </p>
           <div className="flex items-center gap-4">
             {[Music2, Share2, MessageCircle, Play, Camera].map((Icon, i) => (

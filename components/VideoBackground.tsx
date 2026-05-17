@@ -1,7 +1,7 @@
 'use client';
 
 const VIDEO_SRC =
-  'https://d8j0ntlcm91z4.cloudfront.net/user_38xzZboKViGWJOttwIXH07lWA1P/hf_20260429_114316_1c7889ad-2885-410e-b493-98119fee0ddb.mp4';
+  'https://d8j0ntlcm91z4.cloudfront.net/user_38xzZboKViGWJOttwIXH07lWA1P/hf_20260315_073750_51473149-4350-4920-ae24-c8214286f323.mp4';
 
 export default function VideoBackground() {
   return (
@@ -13,25 +13,8 @@ export default function VideoBackground() {
         muted
         playsInline
         className="absolute inset-0 w-full h-full object-cover"
-        style={{ filter: 'hue-rotate(200deg) saturate(1.4) brightness(0.7)' }}
       />
-      {/* Sunset horizon gradient — dark navy top, faint burnt orange at midpoint, dark bottom */}
-      <div
-        className="absolute inset-0"
-        style={{
-          zIndex: 1,
-          background: 'linear-gradient(to bottom, rgba(5, 10, 30, 0.5) 0%, rgba(180, 80, 40, 0.15) 50%, rgba(5, 10, 30, 0.7) 100%)',
-        }}
-      />
-      {/* Shadow deepener — multiply blend makes darks heavier and melancholic */}
-      <div
-        className="absolute inset-0"
-        style={{
-          zIndex: 2,
-          background: 'rgba(10, 15, 40, 0.25)',
-          mixBlendMode: 'multiply',
-        }}
-      />
+      <div className="absolute inset-0 bg-black/20" />
     </div>
   );
 }
