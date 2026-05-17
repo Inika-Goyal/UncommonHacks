@@ -74,6 +74,7 @@ const reportSelect = `
   source_note,
   created_at,
   ml_prediction,
+  ml_prediction_reason,
   findings (
     id,
     signal,

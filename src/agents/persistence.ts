@@ -170,13 +170,7 @@ export async function patchReport(
   if (patch.status !== undefined) payload.status = patch.status;
   if (patch.sourceNote !== undefined) payload.source_note = patch.sourceNote;
   if (patch.mlPrediction !== undefined) payload.ml_prediction = patch.mlPrediction;
-  // ml_prediction_reason is intentionally not written — the Supabase
-  // schema doesn't have this column yet. The reason still flows through
-  // in-memory state during a run, so the dashboard renders the correct
-  // empty-state message on the same request. To persist it across page
-  // reloads, run this SQL once against the reports table:
-  //   ALTER TABLE reports ADD COLUMN ml_prediction_reason text;
-  // Then re-enable the write below and the select in supabase-server.ts.
+  if (patch.mlPredictionReason !== undefined) payload.ml_prediction_reason = patch.mlPredictionReason;
 
   if (Object.keys(payload).length === 0) return;
   await supabase.from("reports").update(payload).eq("id", reportId);
