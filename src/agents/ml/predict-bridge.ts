@@ -13,6 +13,10 @@
 import { spawn } from "node:child_process";
 import path from "node:path";
 
+import type { MlPrediction } from "@/lib/report-types";
+
+export type { MlPrediction } from "@/lib/report-types";
+
 // Normalised (camelCase) score shape used by the TS layer + localScoring
 // fallback. The Python CLI returns snake_case; synthesize.ts maps it.
 export type MlScores = {
@@ -20,61 +24,6 @@ export type MlScores = {
   credibility: number;
   overallRisk: number;
   rationale: string;
-};
-
-// Raw shape as returned by the Python CLI (snake_case).
-export type MlRawScores = {
-  severity: number;
-  credibility: number;
-  overall_risk: number;
-  rationale: string;
-};
-
-export type MlSource = {
-  key: string;
-  name: string;
-  publisher: string;
-  url: string;
-  role: string;
-};
-
-type GeoExploit = {
-  predicted_prevalence_per_1k: number;
-  uncertainty_band_p10_p90: [number, number];
-  spread: number;
-  global_proportion_source: string;
-  validation: {
-    cv_mae: number;
-    cv_r2: number;
-    conformal_half_width: number;
-    empirical_coverage_80: number;
-  };
-};
-
-export type MlPrediction = {
-  country: string;
-  country_name: string;
-  year: number;
-  warnings: string[];
-  geographic: Record<string, GeoExploit>;
-  geographic_overall: {
-    predicted_prevalence_per_1k: number;
-    uncertainty_band_p10_p90: [number, number];
-    spread: number;
-  };
-  cluster: {
-    cluster_id: number;
-    k: number;
-    silhouette: number;
-    class_probabilities: Record<string, number>;
-    class_probabilities_note: string;
-    similar_countries: { country: string; country_name: string; distance: number }[];
-  };
-  scores: MlRawScores;
-  sources: {
-    predicted: MlSource[];
-    predictors: MlSource[];
-  };
 };
 
 export type PredictRequest = {

@@ -92,12 +92,15 @@ class TrainedClusterModel:
         cluster_of_target = self.kmeans.predict(Xs_target)[0]
         cluster_of_all = self.kmeans.predict(Xs_all)
 
+        # Compute distances aligned to the full panel index, attach, then
+        # filter — otherwise the slice falls out of sync once the target
+        # is dropped and the first non-target row inherits distance=0.
         mask = cluster_of_all == cluster_of_target
-        candidates = panel[mask].copy()
+        candidates = panel[mask].copy().reset_index(drop=True)
+        candidates["distance_to_target"] = np.linalg.norm(
+            Xs_all[mask] - Xs_target, axis=1
+        )
         candidates = candidates[candidates["country"] != target_country]
-
-        dist = np.linalg.norm(Xs_all[mask] - Xs_target, axis=1)
-        candidates = candidates.assign(distance_to_target=dist[: len(candidates)])
         return candidates.sort_values("distance_to_target").head(top_n)
 
 

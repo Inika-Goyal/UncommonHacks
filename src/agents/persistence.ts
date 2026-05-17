@@ -1,5 +1,12 @@
 import { createSupabaseServerClient } from "@/lib/supabase-server";
-import type { Finding, MapPoint, SourceStatus, InputType, ReportStatus } from "@/lib/report-types";
+import type {
+  Finding,
+  InputType,
+  MapPoint,
+  MlPrediction,
+  ReportStatus,
+  SourceStatus,
+} from "@/lib/report-types";
 
 import type { AgentName, AgentResult, FeatureBundle, SynthesisOutput } from "@/agents/types";
 import { AGENT_LABELS } from "@/agents/types";
@@ -147,6 +154,7 @@ export async function patchReport(
     overallRisk?: number;
     status?: ReportStatus;
     sourceNote?: string;
+    mlPrediction?: MlPrediction | null;
   },
 ): Promise<void> {
   const supabase = createSupabaseServerClient();
@@ -159,6 +167,7 @@ export async function patchReport(
   if (patch.overallRisk !== undefined) payload.overall_risk = patch.overallRisk;
   if (patch.status !== undefined) payload.status = patch.status;
   if (patch.sourceNote !== undefined) payload.source_note = patch.sourceNote;
+  if (patch.mlPrediction !== undefined) payload.ml_prediction = patch.mlPrediction;
 
   if (Object.keys(payload).length === 0) return;
   await supabase.from("reports").update(payload).eq("id", reportId);
@@ -177,6 +186,7 @@ export async function finalizeReportFromSynthesis(
   reportId: string,
   synthesis: SynthesisOutput,
   agentResults: Partial<Record<AgentName, AgentResult>>,
+  mlPrediction?: MlPrediction | null,
 ): Promise<void> {
   const agentNames = Object.values(agentResults).map((result) => result?.status).filter(Boolean);
   const liveCount = agentNames.filter((s) => s === "ready").length;
@@ -194,5 +204,6 @@ export async function finalizeReportFromSynthesis(
     overallRisk: synthesis.overallRisk,
     status: "ready",
     sourceNote: note,
+    mlPrediction: mlPrediction ?? null,
   });
 }

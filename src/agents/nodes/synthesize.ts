@@ -5,6 +5,7 @@ import { buildFeatureBundle } from "@/agents/ml/feature-bundle";
 import { localScoring, predictWithMl, type MlPrediction } from "@/agents/ml/predict-bridge";
 import { NARRATIVE_SYSTEM_PROMPT } from "@/agents/prompts";
 import type { OrchestratorState, OrchestratorUpdate } from "@/agents/state";
+import { lookupGsi } from "@/agents/tools/global-slavery-index";
 import type { AgentResult, SynthesisOutput } from "@/agents/types";
 
 const narrativeSchema = z.object({
@@ -49,15 +50,26 @@ function fallbackNarrative(state: OrchestratorState): {
   };
 }
 
+async function resolveIso3(primaryCountry: string | undefined): Promise<string | null> {
+  if (!primaryCountry) return null;
+  try {
+    const gsi = await lookupGsi([primaryCountry]);
+    if (gsi.source === "miss") return null;
+    return gsi.payload.scores[0]?.iso3 ?? null;
+  } catch {
+    return null;
+  }
+}
+
 async function getScores(
   state: OrchestratorState,
   bundle: ReturnType<typeof buildFeatureBundle>,
 ): Promise<{ scores: ReturnType<typeof localScoring>; mlPrediction: MlPrediction | null }> {
-  const primaryCountry = state.countries[0];
+  const iso3 = await resolveIso3(state.countries[0]);
 
-  if (primaryCountry) {
+  if (iso3) {
     try {
-      const prediction = await predictWithMl({ country: primaryCountry });
+      const prediction = await predictWithMl({ country: iso3 });
       return {
         scores: {
           severity: prediction.scores.severity,
@@ -69,10 +81,14 @@ async function getScores(
       };
     } catch (err) {
       console.warn(
-        "[ml] predictWithMl failed, falling back to localScoring:",
+        `[ml] predictWithMl(${iso3}) failed, falling back to localScoring:`,
         (err as Error).message,
       );
     }
+  } else if (state.countries[0]) {
+    console.warn(
+      `[ml] could not resolve "${state.countries[0]}" to an ISO3 code in the GSI lookup — using localScoring`,
+    );
   }
 
   const findingCount = Object.values(state.agents).reduce(
@@ -138,6 +154,6 @@ ${evidence || "(none)"}`,
   return {
     featureBundle: bundle,
     synthesis,
-    ...(mlPrediction ? { mlPrediction } : {}),
-  } as OrchestratorUpdate;
+    mlPrediction,
+  };
 }

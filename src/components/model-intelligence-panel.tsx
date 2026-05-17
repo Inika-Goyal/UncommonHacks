@@ -1,17 +1,24 @@
 "use client";
 
 import { motion } from "motion/react";
-import { Activity, Compass, Layers, ShieldCheck } from "lucide-react";
-import { useMemo, useState, type ReactNode } from "react";
+import {
+  Activity,
+  Compass,
+  Gauge,
+  Info,
+  Layers,
+  ShieldCheck,
+  Sigma,
+  TrendingUp,
+} from "lucide-react";
+import type { ReactNode } from "react";
 
 import {
   EXPLOIT_CATEGORIES,
   EXPLOIT_CATEGORY_LABELS,
   type ExploitCategory,
-  type Finding,
-  type MapPoint,
+  type MlPrediction,
   type Report,
-  type SourceStatus,
 } from "@/lib/report-types";
 
 export type ModelIntelligencePanelProps = {
@@ -26,95 +33,16 @@ const CATEGORY_COLORS: Record<ExploitCategory, string> = {
   child_labor: "#38bdf8",
 };
 
-const RISK_COLORS = ["#22c55e", "#22c55e", "#f59e0b", "#f97316", "#ef4444", "#ef4444"];
+// Global GSI median is ~2.0 / 1k. We show it on the prevalence dial as
+// a reference line so users can read where a prediction sits relative
+// to the international baseline.
+const GLOBAL_MEDIAN_PER_1K = 2.0;
+// Top of the prevalence dial scale. ~32 is the empirical max in GSI 2023
+// (Mauritania). Anything above that we clip and label.
+const DIAL_MAX = 32;
 
-function severityColor(score: number) {
-  const idx = Math.max(0, Math.min(5, Math.round(score)));
-  return RISK_COLORS[idx];
-}
-
-function statusTone(status: SourceStatus): "ready" | "pending" | "blocked" {
-  if (status === "blocked") return "blocked";
-  if (status === "pending") return "pending";
-  return "ready";
-}
-
-function normalizeGeography(label: string): string {
-  return label.replace(/\s+/g, " ").trim();
-}
-
-function matchMapPoint(geography: string, mapPoints: MapPoint[]): MapPoint | undefined {
-  const haystack = geography.toLowerCase();
-  return mapPoints.find((point) => {
-    const label = point.label.toLowerCase();
-    if (haystack.includes(label) || label.includes(haystack)) return true;
-    const [primary] = haystack.split(",").map((part) => part.trim());
-    return primary && (label.includes(primary) || primary.includes(label.split(" ")[0] ?? ""));
-  });
-}
-
-export function ModelIntelligencePanel({ report, onFocusGeography }: ModelIntelligencePanelProps) {
-  const [activeFindingId, setActiveFindingId] = useState<string | null>(null);
-
-  const geographyGroups = useMemo(() => {
-    const map = new Map<string, { label: string; count: number; maxSeverity: number; findings: Finding[] }>();
-    for (const finding of report.findings) {
-      const key = normalizeGeography(finding.geography);
-      const existing = map.get(key) ?? { label: key, count: 0, maxSeverity: 0, findings: [] };
-      existing.count += 1;
-      existing.maxSeverity = Math.max(existing.maxSeverity, finding.severity);
-      existing.findings.push(finding);
-      map.set(key, existing);
-    }
-    return Array.from(map.values()).sort((a, b) => b.count - a.count || b.maxSeverity - a.maxSeverity);
-  }, [report.findings]);
-
-  const categoryCounts = useMemo(() => {
-    const counts: Record<ExploitCategory, number> = {
-      forced_labor: 0,
-      illegal_profits: 0,
-      sexual_exploitation: 0,
-      child_labor: 0,
-    };
-    for (const finding of report.findings) {
-      if (finding.category) counts[finding.category] += 1;
-    }
-    return counts;
-  }, [report.findings]);
-
-  const sourceCoverage = useMemo(() => {
-    const counts = new Map<string, number>();
-    for (const finding of report.findings) {
-      for (const citation of finding.citations) {
-        counts.set(citation.source, (counts.get(citation.source) ?? 0) + 1);
-      }
-    }
-
-    const cited = Array.from(counts.entries()).map(([name, count]) => {
-      const check = report.sourceChecks.find(
-        (entry) => entry.name === name || entry.name.includes(name) || name.includes(entry.name),
-      );
-      return { name, count, status: check?.status ?? ("ready" as SourceStatus) };
-    });
-
-    const uncited = report.sourceChecks
-      .filter((check) => !cited.some((entry) => entry.name === check.name))
-      .map((check) => ({ name: check.name, count: 0, status: check.status }));
-
-    return [...cited, ...uncited].sort((a, b) => b.count - a.count);
-  }, [report.findings, report.sourceChecks]);
-
-  const totalCategoryHits = (Object.values(categoryCounts) as number[]).reduce((sum, value) => sum + value, 0);
-  const maxGeographyCount = geographyGroups[0]?.count ?? 1;
-  const maxSourceCount = sourceCoverage[0]?.count ?? 1;
-
-  function handleGeographyClick(geography: string) {
-    if (!onFocusGeography) return;
-    const point = matchMapPoint(geography, report.mapPoints);
-    if (point) {
-      onFocusGeography({ latitude: point.latitude, longitude: point.longitude, pointId: point.id });
-    }
-  }
+export function ModelIntelligencePanel({ report }: ModelIntelligencePanelProps) {
+  const ml = report.mlPrediction;
 
   return (
     <motion.section
@@ -126,124 +54,413 @@ export function ModelIntelligencePanel({ report, onFocusGeography }: ModelIntell
     >
       <header className="lumina-model-intel-head">
         <div>
-          <p className="lumina-overline">Model intelligence</p>
-          <h2>How the synthesizer reasoned</h2>
+          <p className="lumina-overline">ML model intelligence</p>
+          <h2>What the prevalence model predicts</h2>
         </div>
-        <p>
-          {report.findings.length} finding{report.findings.length === 1 ? "" : "s"} · {geographyGroups.length}{" "}
-          geograph{geographyGroups.length === 1 ? "y" : "ies"} · {sourceCoverage.filter((s) => s.count > 0).length} sources cited
-        </p>
+        {ml ? (
+          <p>
+            {ml.country_name} ({ml.country}) · trained on GSI 2023 + WDI 2021 + RSF 2021 ·{" "}
+            cross-sectional
+          </p>
+        ) : (
+          <p>No ML prediction available for this report.</p>
+        )}
       </header>
 
-      <div className="lumina-model-intel-grid">
-        <article className="liquid-glass lumina-model-card">
-          <CardHeading icon={<Activity size={14} />} title="Signal quality matrix" hint="Severity × credibility" />
-          <SignalMatrix
-            findings={report.findings}
-            activeFindingId={activeFindingId}
-            onHoverFinding={setActiveFindingId}
-          />
-          <ActiveFindingHint findings={report.findings} activeFindingId={activeFindingId} />
-        </article>
-
-        <article className="liquid-glass lumina-model-card">
-          <CardHeading
-            icon={<Compass size={14} />}
-            title="Geography distribution"
-            hint={onFocusGeography ? "Click to focus globe" : "Findings per location"}
-          />
-          <ul className="lumina-geo-list">
-            {geographyGroups.map((group) => {
-              const widthPct = Math.max(8, (group.count / maxGeographyCount) * 100);
-              const color = severityColor(group.maxSeverity);
-              return (
-                <li key={group.label}>
-                  <button
-                    type="button"
-                    className="lumina-geo-row"
-                    onClick={() => handleGeographyClick(group.label)}
-                    disabled={!onFocusGeography}
-                  >
-                    <span className="lumina-geo-label" title={group.label}>{group.label}</span>
-                    <span className="lumina-geo-bar-track" aria-hidden="true">
-                      <span
-                        className="lumina-geo-bar-fill"
-                        style={{ width: `${widthPct}%`, background: color }}
-                      />
-                    </span>
-                    <span className="lumina-geo-count">
-                      {group.count}
-                      <small>S{group.maxSeverity}</small>
-                    </span>
-                  </button>
-                </li>
-              );
-            })}
-            {geographyGroups.length === 0 ? (
-              <li className="lumina-empty">No geography signals.</li>
-            ) : null}
-          </ul>
-        </article>
-
-        <article className="liquid-glass lumina-model-card">
-          <CardHeading icon={<Layers size={14} />} title="Exploit pattern" hint="Tagged findings by category" />
-          <div className="lumina-exploit-split">
-            <ExploitDonut counts={categoryCounts} total={totalCategoryHits} />
-            <ul className="lumina-exploit-legend">
-              {EXPLOIT_CATEGORIES.map((category) => {
-                const count = categoryCounts[category];
-                const pct = totalCategoryHits ? Math.round((count / totalCategoryHits) * 100) : 0;
-                return (
-                  <li key={category}>
-                    <span className="lumina-exploit-swatch" style={{ background: CATEGORY_COLORS[category] }} />
-                    <span className="lumina-exploit-name">{EXPLOIT_CATEGORY_LABELS[category]}</span>
-                    <span className="lumina-exploit-count">
-                      {count}
-                      <small>{pct}%</small>
-                    </span>
-                  </li>
-                );
-              })}
-            </ul>
+      {ml ? (
+        <>
+          <PrevalenceFeature ml={ml} />
+          <div className="lumina-model-intel-grid">
+            <ExploitBreakdownCard ml={ml} />
+            <SimilarCountriesCard ml={ml} />
+            <ModelTransparencyCard ml={ml} />
           </div>
-
-          <div className="lumina-model-divider" aria-hidden="true" />
-
-          <CardHeading icon={<ShieldCheck size={14} />} title="Source coverage" hint="Citations per source" tight />
-          <ul className="lumina-source-coverage">
-            {sourceCoverage.map((source) => {
-              const tone = statusTone(source.status);
-              const widthPct = source.count > 0 ? Math.max(10, (source.count / maxSourceCount) * 100) : 4;
-              return (
-                <li key={source.name} className={`lumina-source-cov-row lumina-source-${tone}`}>
-                  <span className="lumina-source-cov-name" title={source.name}>{source.name}</span>
-                  <span className="lumina-source-cov-track" aria-hidden="true">
-                    <span className="lumina-source-cov-fill" style={{ width: `${widthPct}%` }} />
-                  </span>
-                  <span className="lumina-source-cov-count">{source.count}</span>
-                </li>
-              );
-            })}
-          </ul>
-        </article>
-      </div>
+        </>
+      ) : (
+        <MlEmptyState />
+      )}
     </motion.section>
   );
 }
+
+// -------------------------------------------------------------------
+// Featured: predicted prevalence + conformal interval
+// -------------------------------------------------------------------
+
+function PrevalenceFeature({ ml }: { ml: MlPrediction }) {
+  const overall = ml.geographic_overall;
+  const [lo, hi] = overall.uncertainty_band_p10_p90;
+  const mean = overall.predicted_prevalence_per_1k;
+  const sample = Object.values(ml.geographic)[0];
+  const coverage = sample?.validation.empirical_coverage_80 ?? 0;
+  const cvR2 = sample?.validation.cv_r2 ?? 0;
+  const halfWidth = sample?.validation.conformal_half_width ?? 0;
+
+  return (
+    <article className="liquid-glass lumina-model-card lumina-prevalence-feature">
+      <div className="lumina-prevalence-feature-grid">
+        <div className="lumina-prevalence-headline">
+          <CardHeading
+            icon={<Gauge size={14} />}
+            title="Predicted prevalence"
+            hint="per 1,000 population"
+          />
+          <div className="lumina-prevalence-number">
+            <span className="lumina-prevalence-mean">{mean.toFixed(2)}</span>
+            <span className="lumina-prevalence-unit">/ 1k</span>
+          </div>
+          <p className="lumina-prevalence-band-text">
+            80% conformal interval{" "}
+            <strong>
+              {lo.toFixed(2)} – {hi.toFixed(2)}
+            </strong>{" "}
+            · global median ≈ {GLOBAL_MEDIAN_PER_1K.toFixed(1)} / 1k
+          </p>
+          <p className="lumina-prevalence-foot">
+            {((coverage || 0) * 100).toFixed(0)}% empirical coverage · CV R²{" "}
+            {cvR2.toFixed(2)} · ± {halfWidth.toFixed(2)} half-width
+          </p>
+        </div>
+        <PrevalenceDial mean={mean} lower={lo} upper={hi} />
+      </div>
+    </article>
+  );
+}
+
+function PrevalenceDial({
+  mean,
+  lower,
+  upper,
+}: {
+  mean: number;
+  lower: number;
+  upper: number;
+}) {
+  const width = 360;
+  const height = 96;
+  const padX = 14;
+  const trackY = 60;
+  const trackHeight = 14;
+  const cap = Math.min(Math.max(upper * 1.05, mean * 1.5, DIAL_MAX * 0.4), DIAL_MAX);
+
+  const x = (value: number) => padX + (Math.min(value, cap) / cap) * (width - padX * 2);
+
+  const meanX = x(mean);
+  const loX = x(Math.max(lower, 0));
+  const hiX = x(upper);
+  const medianX = x(GLOBAL_MEDIAN_PER_1K);
+
+  const ticks = [0, cap / 4, cap / 2, (cap * 3) / 4, cap].map((value) => ({
+    value,
+    x: x(value),
+  }));
+
+  return (
+    <svg
+      className="lumina-prevalence-dial"
+      viewBox={`0 0 ${width} ${height}`}
+      role="img"
+      aria-label="Predicted prevalence with conformal interval"
+    >
+      <defs>
+        <linearGradient id="prevalence-track" x1="0" y1="0" x2="1" y2="0">
+          <stop offset="0%" stopColor="#22c55e" stopOpacity="0.7" />
+          <stop offset="50%" stopColor="#f59e0b" stopOpacity="0.7" />
+          <stop offset="100%" stopColor="#ef4444" stopOpacity="0.7" />
+        </linearGradient>
+      </defs>
+      <rect
+        x={padX}
+        y={trackY}
+        width={width - padX * 2}
+        height={trackHeight}
+        rx={trackHeight / 2}
+        fill="rgba(255,255,255,0.04)"
+      />
+      <rect
+        x={padX}
+        y={trackY}
+        width={width - padX * 2}
+        height={trackHeight}
+        rx={trackHeight / 2}
+        fill="url(#prevalence-track)"
+        opacity={0.35}
+      />
+      {/* Conformal band */}
+      <rect
+        x={loX}
+        y={trackY - 4}
+        width={Math.max(hiX - loX, 2)}
+        height={trackHeight + 8}
+        rx={6}
+        fill="rgba(236, 72, 153, 0.18)"
+        stroke="rgba(236, 72, 153, 0.55)"
+        strokeWidth={1}
+      />
+      {/* Mean tick */}
+      <line
+        x1={meanX}
+        x2={meanX}
+        y1={trackY - 10}
+        y2={trackY + trackHeight + 10}
+        stroke="#ec4899"
+        strokeWidth={2}
+      />
+      <circle cx={meanX} cy={trackY + trackHeight / 2} r={5} fill="#ec4899" stroke="#0a0a0a" strokeWidth={1.5} />
+      {/* Global-median reference */}
+      <line
+        x1={medianX}
+        x2={medianX}
+        y1={trackY - 6}
+        y2={trackY + trackHeight + 6}
+        stroke="rgba(255,255,255,0.55)"
+        strokeDasharray="3 3"
+      />
+      <text x={medianX} y={trackY - 10} textAnchor="middle" fontSize={9} fill="rgba(255,255,255,0.5)">
+        global median
+      </text>
+      {/* Axis ticks */}
+      {ticks.map((tick) => (
+        <g key={tick.value}>
+          <line
+            x1={tick.x}
+            x2={tick.x}
+            y1={trackY + trackHeight + 2}
+            y2={trackY + trackHeight + 6}
+            stroke="rgba(255,255,255,0.25)"
+          />
+          <text
+            x={tick.x}
+            y={trackY + trackHeight + 18}
+            textAnchor="middle"
+            fontSize={9}
+            fill="rgba(255,255,255,0.4)"
+          >
+            {tick.value.toFixed(tick.value < 10 ? 1 : 0)}
+          </text>
+        </g>
+      ))}
+      <text x={padX} y={18} fontSize={9} fill="rgba(255,255,255,0.4)" letterSpacing="0.18em">
+        PREVALENCE / 1K
+      </text>
+    </svg>
+  );
+}
+
+// -------------------------------------------------------------------
+// Exploit-type breakdown — ILO global proportions applied to mean
+// -------------------------------------------------------------------
+
+function ExploitBreakdownCard({ ml }: { ml: MlPrediction }) {
+  const entries = EXPLOIT_CATEGORIES.map((category) => {
+    // The Python CLI sometimes returns `child_labor` and sometimes
+    // `children` for the children bucket — accept either.
+    const key = category === "child_labor" ? "child_labor" : category;
+    const value = ml.geographic[key] ?? ml.geographic[category];
+    return { category, value };
+  }).filter((e): e is { category: ExploitCategory; value: NonNullable<typeof e.value> } => Boolean(e.value));
+
+  const max = entries.reduce(
+    (m, e) => Math.max(m, e.value.uncertainty_band_p10_p90[1]),
+    0,
+  );
+
+  return (
+    <article className="liquid-glass lumina-model-card">
+      <CardHeading
+        icon={<Layers size={14} />}
+        title="Exploit-type breakdown"
+        hint="ILO global proportion × overall"
+      />
+      <ul className="lumina-exploit-bars">
+        {entries.map(({ category, value }) => {
+          const meanPct = max > 0 ? (value.predicted_prevalence_per_1k / max) * 100 : 0;
+          const loPct = max > 0 ? (value.uncertainty_band_p10_p90[0] / max) * 100 : 0;
+          const hiPct = max > 0 ? (value.uncertainty_band_p10_p90[1] / max) * 100 : 0;
+          return (
+            <li key={category} className="lumina-exploit-bar-row">
+              <div className="lumina-exploit-bar-head">
+                <span className="lumina-exploit-swatch" style={{ background: CATEGORY_COLORS[category] }} />
+                <span className="lumina-exploit-name">{EXPLOIT_CATEGORY_LABELS[category]}</span>
+                <span className="lumina-exploit-value">
+                  {value.predicted_prevalence_per_1k.toFixed(2)}
+                  <small>/ 1k</small>
+                </span>
+              </div>
+              <div className="lumina-exploit-bar-track">
+                <span
+                  className="lumina-exploit-bar-band"
+                  style={{
+                    left: `${loPct}%`,
+                    width: `${Math.max(hiPct - loPct, 1)}%`,
+                    background: `${CATEGORY_COLORS[category]}33`,
+                    borderColor: `${CATEGORY_COLORS[category]}66`,
+                  }}
+                  title={`80% band ${value.uncertainty_band_p10_p90[0].toFixed(2)} – ${value.uncertainty_band_p10_p90[1].toFixed(2)}`}
+                />
+                <span
+                  className="lumina-exploit-bar-mean"
+                  style={{ left: `${meanPct}%`, background: CATEGORY_COLORS[category] }}
+                />
+              </div>
+            </li>
+          );
+        })}
+      </ul>
+      <p className="lumina-model-disclaimer">
+        <Info size={11} aria-hidden /> Split via fixed ILO 2022 global proportions (forced
+        labour 55%, illegal profits 28%, sexual exploitation 10%, children 7%). Not per-country
+        learned.
+      </p>
+    </article>
+  );
+}
+
+// -------------------------------------------------------------------
+// Similar countries from the cluster model
+// -------------------------------------------------------------------
+
+function SimilarCountriesCard({ ml }: { ml: MlPrediction }) {
+  const list = ml.cluster.similar_countries;
+  const max = list.reduce((m, c) => Math.max(m, c.distance), 0);
+
+  return (
+    <article className="liquid-glass lumina-model-card">
+      <CardHeading
+        icon={<Compass size={14} />}
+        title="Similar countries"
+        hint={`Cluster ${ml.cluster.cluster_id + 1} of ${ml.cluster.k}`}
+      />
+      <ul className="lumina-similar-list">
+        {list.length === 0 ? (
+          <li className="lumina-empty">No cluster neighbours.</li>
+        ) : (
+          list.map((country) => {
+            const widthPct = max > 0 ? Math.min(100, (country.distance / max) * 100) : 0;
+            return (
+              <li key={country.country} className="lumina-similar-row">
+                <span className="lumina-similar-iso">{country.country}</span>
+                <span className="lumina-similar-name" title={country.country_name}>
+                  {country.country_name}
+                </span>
+                <span className="lumina-similar-bar-track" aria-hidden="true">
+                  <span
+                    className="lumina-similar-bar-fill"
+                    style={{ width: `${widthPct}%` }}
+                  />
+                </span>
+                <span className="lumina-similar-distance">{country.distance.toFixed(2)}</span>
+              </li>
+            );
+          })
+        )}
+      </ul>
+      <p className="lumina-model-disclaimer">
+        <Info size={11} aria-hidden /> KMeans over demographic + economic features; distance
+        is Euclidean in standardised feature space. Silhouette {ml.cluster.silhouette.toFixed(2)}.
+      </p>
+    </article>
+  );
+}
+
+// -------------------------------------------------------------------
+// Model transparency: CV metrics + coverage
+// -------------------------------------------------------------------
+
+function ModelTransparencyCard({ ml }: { ml: MlPrediction }) {
+  const sample = Object.values(ml.geographic)[0];
+  const v = sample?.validation;
+  const coverage = v?.empirical_coverage_80 ?? 0;
+  const nominal = 0.8;
+  const coverageDelta = coverage - nominal;
+
+  return (
+    <article className="liquid-glass lumina-model-card">
+      <CardHeading
+        icon={<ShieldCheck size={14} />}
+        title="Model quality"
+        hint="Honest validation metrics"
+      />
+      <ul className="lumina-metric-list">
+        <MetricRow
+          icon={<TrendingUp size={12} />}
+          label="CV R²"
+          value={v ? v.cv_r2.toFixed(3) : "—"}
+          hint={v ? interpretR2(v.cv_r2) : ""}
+        />
+        <MetricRow
+          icon={<Sigma size={12} />}
+          label="CV MAE"
+          value={v ? `${v.cv_mae.toFixed(2)} / 1k` : "—"}
+          hint="Average error vs GSI"
+        />
+        <MetricRow
+          icon={<Activity size={12} />}
+          label="Conformal width"
+          value={v ? `± ${v.conformal_half_width.toFixed(2)}` : "—"}
+          hint="80% interval half-width"
+        />
+        <MetricRow
+          icon={<Gauge size={12} />}
+          label="Empirical coverage"
+          value={`${(coverage * 100).toFixed(0)}%`}
+          hint={`Nominal 80% · ${coverageDelta >= 0 ? "+" : ""}${(coverageDelta * 100).toFixed(0)} pts`}
+          tone={Math.abs(coverageDelta) > 0.1 ? "warn" : "ok"}
+        />
+      </ul>
+      <p className="lumina-model-disclaimer">
+        <Info size={11} aria-hidden /> Trained on 153 countries (single cross-section). Real-world
+        prediction is hard; we publish honest numbers rather than tautological ones.
+      </p>
+    </article>
+  );
+}
+
+function MetricRow({
+  icon,
+  label,
+  value,
+  hint,
+  tone,
+}: {
+  icon: ReactNode;
+  label: string;
+  value: string;
+  hint?: string;
+  tone?: "ok" | "warn";
+}) {
+  return (
+    <li className={`lumina-metric-row${tone ? ` lumina-metric-${tone}` : ""}`}>
+      <span className="lumina-metric-icon">{icon}</span>
+      <span className="lumina-metric-label">{label}</span>
+      <span className="lumina-metric-value">{value}</span>
+      {hint ? <span className="lumina-metric-hint">{hint}</span> : null}
+    </li>
+  );
+}
+
+function interpretR2(r2: number): string {
+  if (r2 >= 0.5) return "Solid";
+  if (r2 >= 0.25) return "Modest";
+  if (r2 >= 0.1) return "Weak";
+  return "Very weak";
+}
+
+// -------------------------------------------------------------------
+// Shared bits
+// -------------------------------------------------------------------
 
 function CardHeading({
   icon,
   title,
   hint,
-  tight,
 }: {
   icon: ReactNode;
   title: string;
   hint?: string;
-  tight?: boolean;
 }) {
   return (
-    <div className={tight ? "lumina-model-card-head lumina-model-card-head-tight" : "lumina-model-card-head"}>
+    <div className="lumina-model-card-head">
       <span className="lumina-model-card-icon">{icon}</span>
       <h3>{title}</h3>
       {hint ? <span className="lumina-model-card-hint">{hint}</span> : null}
@@ -251,253 +468,17 @@ function CardHeading({
   );
 }
 
-function SignalMatrix({
-  findings,
-  activeFindingId,
-  onHoverFinding,
-}: {
-  findings: Finding[];
-  activeFindingId: string | null;
-  onHoverFinding: (id: string | null) => void;
-}) {
-  const cellSize = 30;
-  const padding = 26;
-  const size = cellSize * 5 + padding * 2;
-
-  const placed = useMemo(() => {
-    const buckets = new Map<string, number>();
-    return findings.map((finding) => {
-      const sev = Math.max(1, Math.min(5, finding.severity));
-      const cred = Math.max(1, Math.min(5, finding.credibility));
-      const key = `${sev}-${cred}`;
-      const occupant = buckets.get(key) ?? 0;
-      buckets.set(key, occupant + 1);
-      const jitterRadius = 6;
-      const angle = occupant * 1.65;
-      const offsetX = occupant === 0 ? 0 : Math.cos(angle) * jitterRadius;
-      const offsetY = occupant === 0 ? 0 : Math.sin(angle) * jitterRadius;
-      const x = padding + (cred - 0.5) * cellSize + offsetX;
-      const y = padding + (5 - sev + 0.5) * cellSize + offsetY;
-      return { finding, x, y };
-    });
-  }, [findings]);
-
+function MlEmptyState() {
   return (
-    <div className="lumina-matrix-wrap">
-      <svg
-        className="lumina-matrix-svg"
-        viewBox={`0 0 ${size} ${size}`}
-        width="100%"
-        role="img"
-        aria-label="Severity by credibility matrix"
-      >
-        <defs>
-          <linearGradient id="lumina-matrix-bg" x1="0" y1="1" x2="1" y2="0">
-            <stop offset="0%" stopColor="#0ea5e9" stopOpacity="0.04" />
-            <stop offset="100%" stopColor="#ef4444" stopOpacity="0.1" />
-          </linearGradient>
-        </defs>
-        <rect
-          x={padding}
-          y={padding}
-          width={cellSize * 5}
-          height={cellSize * 5}
-          fill="url(#lumina-matrix-bg)"
-          rx="6"
-        />
-        {Array.from({ length: 6 }).map((_, index) => (
-          <line
-            key={`v-${index}`}
-            x1={padding + cellSize * index}
-            x2={padding + cellSize * index}
-            y1={padding}
-            y2={padding + cellSize * 5}
-            stroke="rgba(255,255,255,0.06)"
-          />
-        ))}
-        {Array.from({ length: 6 }).map((_, index) => (
-          <line
-            key={`h-${index}`}
-            y1={padding + cellSize * index}
-            y2={padding + cellSize * index}
-            x1={padding}
-            x2={padding + cellSize * 5}
-            stroke="rgba(255,255,255,0.06)"
-          />
-        ))}
-        {[1, 2, 3, 4, 5].map((tick) => (
-          <text
-            key={`x-${tick}`}
-            x={padding + (tick - 0.5) * cellSize}
-            y={padding + cellSize * 5 + 14}
-            textAnchor="middle"
-            fontSize="9"
-            fill="rgba(255,255,255,0.4)"
-          >
-            {tick}
-          </text>
-        ))}
-        {[1, 2, 3, 4, 5].map((tick) => (
-          <text
-            key={`y-${tick}`}
-            y={padding + (5 - tick + 0.5) * cellSize + 3}
-            x={padding - 10}
-            textAnchor="end"
-            fontSize="9"
-            fill="rgba(255,255,255,0.4)"
-          >
-            {tick}
-          </text>
-        ))}
-        <text
-          x={padding + (cellSize * 5) / 2}
-          y={size - 4}
-          textAnchor="middle"
-          fontSize="9"
-          fill="rgba(255,255,255,0.36)"
-          letterSpacing="0.18em"
-        >
-          CREDIBILITY →
-        </text>
-        <text
-          x={10}
-          y={padding + (cellSize * 5) / 2}
-          textAnchor="middle"
-          fontSize="9"
-          fill="rgba(255,255,255,0.36)"
-          letterSpacing="0.18em"
-          transform={`rotate(-90 10 ${padding + (cellSize * 5) / 2})`}
-        >
-          SEVERITY →
-        </text>
-        {placed.map(({ finding, x, y }) => {
-          const isActive = activeFindingId === finding.id;
-          const color = finding.category ? CATEGORY_COLORS[finding.category] : severityColor(finding.severity);
-          return (
-            <g
-              key={finding.id}
-              onMouseEnter={() => onHoverFinding(finding.id)}
-              onMouseLeave={() => onHoverFinding(null)}
-              style={{ cursor: "pointer" }}
-            >
-              <circle cx={x} cy={y} r={isActive ? 13 : 9} fill={color} opacity={isActive ? 0.18 : 0.12} />
-              <circle cx={x} cy={y} r={isActive ? 6.5 : 5} fill={color} stroke="#0a0a0a" strokeWidth="1.2" />
-            </g>
-          );
-        })}
-      </svg>
-    </div>
-  );
-}
-
-function ActiveFindingHint({
-  findings,
-  activeFindingId,
-}: {
-  findings: Finding[];
-  activeFindingId: string | null;
-}) {
-  const active = activeFindingId ? findings.find((f) => f.id === activeFindingId) : null;
-  return (
-    <div className="lumina-matrix-hint" aria-live="polite">
-      {active ? (
-        <>
-          <strong>{active.signal}</strong>
-          <span>
-            S{active.severity} · C{active.credibility} · {active.geography}
-          </span>
-        </>
-      ) : (
-        <>
-          <strong>{findings.length} signals scored</strong>
-          <span>Hover a dot to inspect.</span>
-        </>
-      )}
-    </div>
-  );
-}
-
-function ExploitDonut({
-  counts,
-  total,
-}: {
-  counts: Record<ExploitCategory, number>;
-  total: number;
-}) {
-  const radius = 42;
-  const inner = 26;
-  const center = 56;
-  const size = center * 2;
-
-  if (total === 0) {
-    return (
-      <svg viewBox={`0 0 ${size} ${size}`} className="lumina-exploit-donut" role="img" aria-label="No exploit tags">
-        <circle cx={center} cy={center} r={radius} fill="rgba(255,255,255,0.04)" />
-        <circle cx={center} cy={center} r={inner} fill="#0a0a0a" />
-        <text x={center} y={center} textAnchor="middle" fontSize="9" fill="rgba(255,255,255,0.4)">
-          NO TAGS
-        </text>
-      </svg>
-    );
-  }
-
-  let cumulative = 0;
-  const segments = EXPLOIT_CATEGORIES.map((category) => {
-    const value = counts[category];
-    if (value === 0) return null;
-    const startAngle = (cumulative / total) * Math.PI * 2 - Math.PI / 2;
-    cumulative += value;
-    const endAngle = (cumulative / total) * Math.PI * 2 - Math.PI / 2;
-    const largeArc = endAngle - startAngle > Math.PI ? 1 : 0;
-    const x1 = center + radius * Math.cos(startAngle);
-    const y1 = center + radius * Math.sin(startAngle);
-    const x2 = center + radius * Math.cos(endAngle);
-    const y2 = center + radius * Math.sin(endAngle);
-    const xi2 = center + inner * Math.cos(endAngle);
-    const yi2 = center + inner * Math.sin(endAngle);
-    const xi1 = center + inner * Math.cos(startAngle);
-    const yi1 = center + inner * Math.sin(startAngle);
-    const path = [
-      `M ${x1} ${y1}`,
-      `A ${radius} ${radius} 0 ${largeArc} 1 ${x2} ${y2}`,
-      `L ${xi2} ${yi2}`,
-      `A ${inner} ${inner} 0 ${largeArc} 0 ${xi1} ${yi1}`,
-      "Z",
-    ].join(" ");
-    return { category, path };
-  }).filter((seg): seg is { category: ExploitCategory; path: string } => Boolean(seg));
-
-  return (
-    <svg viewBox={`0 0 ${size} ${size}`} className="lumina-exploit-donut" role="img" aria-label="Findings by exploit category">
-      {segments.map((segment) => (
-        <path
-          key={segment.category}
-          d={segment.path}
-          fill={CATEGORY_COLORS[segment.category]}
-          opacity="0.92"
-        />
-      ))}
-      <circle cx={center} cy={center} r={inner - 1} fill="#0a0a0a" />
-      <text
-        x={center}
-        y={center - 4}
-        textAnchor="middle"
-        fontSize="20"
-        fontWeight="500"
-        fill="#fff"
-      >
-        {total}
-      </text>
-      <text
-        x={center}
-        y={center + 10}
-        textAnchor="middle"
-        fontSize="8"
-        fill="rgba(255,255,255,0.5)"
-        letterSpacing="0.18em"
-      >
-        TAGGED
-      </text>
-    </svg>
+    <article className="liquid-glass lumina-model-card lumina-ml-empty">
+      <CardHeading icon={<Info size={14} />} title="ML prediction unavailable" />
+      <p>
+        The ML model didn&apos;t produce a prediction for this report. This usually means the
+        primary country resolved from the query (e.g. an ISO3 code) isn&apos;t in the trained
+        GSI+WDI+RSF panel of 153 countries, or the Python CLI was unreachable. Severity,
+        credibility, and overall risk above came from the deterministic fallback scorer
+        instead.
+      </p>
+    </article>
   );
 }
