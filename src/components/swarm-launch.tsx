@@ -18,7 +18,6 @@ import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 
 import { ScoreScrambler } from "@/components/score-scrambler";
 import { VideoBackground } from "@/components/video-background";
-import { LuminaLogo } from "@/components/lumina-brand";
 import { AGENT_LABELS, type AgentLifecycle, type AgentName, type StateUpdate } from "@/agents/types";
 import {
   DEFAULT_SWARM_STATE,
@@ -163,13 +162,6 @@ export function SwarmLaunch({ reportId }: Props) {
     <main className="launch-page lumina-shell">
       <VideoBackground />
       <div className="launch-backdrop" aria-hidden="true" />
-
-      <header className="launch-header">
-        <Link className="launch-brand" href="/">
-          <LuminaLogo size={26} />
-          <span>LUMINA</span>
-        </Link>
-      </header>
 
       <section className="launch-stage">
         <div className="launch-titlebar">

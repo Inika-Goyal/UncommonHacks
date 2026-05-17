@@ -309,55 +309,57 @@ export function ReportDashboard({ initialInputType, initialQuery, reportId }: Re
             transition={{ duration: 0.65, delay: 0.12, ease: "easeOut" }}
             className="liquid-glass lumina-report-card"
           >
-            <section
-              ref={summaryRef}
-              className="lumina-report-summary"
-              data-dashboard-section="summary"
-              tabIndex={-1}
-            >
-              <SectionHeader title="Executive Summary" />
-              <p>{report.summary}</p>
-            </section>
+            <div className="lumina-report-card-scroll">
+              <section
+                ref={summaryRef}
+                className="lumina-report-summary"
+                data-dashboard-section="summary"
+                tabIndex={-1}
+              >
+                <SectionHeader title="Executive Summary" />
+                <p>{report.summary}</p>
+              </section>
 
-            <div className="lumina-score-grid">
-              <ScoreTile label="Overall risk" value={report.overallRisk} suffix="/100" tone="danger" />
-              <ScoreTile label="Severity" value={report.severity} suffix="/5" tone="warning" />
-              <ScoreTile label="Credibility" value={report.credibility} suffix="/5" tone="info" />
-            </div>
-
-            <section ref={findingsRef} data-dashboard-section="findings" tabIndex={-1}>
-              <SectionHeader icon={<AlertTriangle size={14} />} title="Cited Findings" />
-              <div className="lumina-findings-list">
-                {report.findings.map((finding, index) => (
-                  <FindingRow
-                    key={finding.id}
-                    finding={finding}
-                    index={index}
-                    isActive={finding.id === activeFindingId}
-                  />
-                ))}
+              <div className="lumina-score-grid">
+                <ScoreTile label="Overall risk" value={report.overallRisk} suffix="/100" tone="danger" />
+                <ScoreTile label="Severity" value={report.severity} suffix="/5" tone="warning" />
+                <ScoreTile label="Credibility" value={report.credibility} suffix="/5" tone="info" />
               </div>
-            </section>
 
-            <section
-              ref={actionRef}
-              className="lumina-action-block"
-              data-dashboard-section="action"
-              tabIndex={-1}
-            >
-              <SectionHeader icon={<CheckCircle2 size={14} />} title="Recommended Action" />
-              <p>{report.recommendedAction}</p>
-            </section>
+              <section ref={findingsRef} data-dashboard-section="findings" tabIndex={-1}>
+                <SectionHeader icon={<AlertTriangle size={14} />} title="Cited Findings" />
+                <div className="lumina-findings-list">
+                  {report.findings.map((finding, index) => (
+                    <FindingRow
+                      key={finding.id}
+                      finding={finding}
+                      index={index}
+                      isActive={finding.id === activeFindingId}
+                    />
+                  ))}
+                </div>
+              </section>
 
-            <div className="lumina-report-actions">
-              <a ref={pdfLinkRef} className="liquid-glass lumina-primary-action" href={pdfHref}>
-                <FileText aria-hidden="true" size={15} />
-                Generate Complaint PDF
-              </a>
-              <a className="lumina-secondary-action" href={pdfHref}>
-                <Download aria-hidden="true" size={15} />
-                Download letter
-              </a>
+              <section
+                ref={actionRef}
+                className="lumina-action-block"
+                data-dashboard-section="action"
+                tabIndex={-1}
+              >
+                <SectionHeader icon={<CheckCircle2 size={14} />} title="Recommended Action" />
+                <p>{report.recommendedAction}</p>
+              </section>
+
+              <div className="lumina-report-actions">
+                <a ref={pdfLinkRef} className="liquid-glass lumina-primary-action" href={pdfHref}>
+                  <FileText aria-hidden="true" size={15} />
+                  Generate Complaint PDF
+                </a>
+                <a className="lumina-secondary-action" href={pdfHref}>
+                  <Download aria-hidden="true" size={15} />
+                  Download letter
+                </a>
+              </div>
             </div>
           </motion.section>
 

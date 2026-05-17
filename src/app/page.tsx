@@ -20,8 +20,6 @@ const REGIONS = [
   "Middle East & North Africa",
 ];
 
-const DEMO_MODE = process.env.NEXT_PUBLIC_DEMO_MODE === "true";
-
 export default function LandingPage() {
   const router = useRouter();
   const [mode, setMode] = useState<InputMode>("company");
@@ -41,11 +39,6 @@ export default function LandingPage() {
     const query = mode === "company" ? company.trim() : region;
 
     try {
-      if (DEMO_MODE) {
-        router.push(`/dashboard?mode=${mode}&query=${encodeURIComponent(query)}`);
-        return;
-      }
-
       const response = await fetch("/api/onboarding", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
