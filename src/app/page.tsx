@@ -64,19 +64,19 @@ export default function LandingPage() {
   };
 
   return (
-    <div className="laborlens-shell relative min-h-screen overflow-hidden">
+    <div className="laborlens-shell relative min-h-dvh overflow-hidden">
       <VideoBackground />
 
-      <div className="relative z-10 flex min-h-screen gap-6">
+      <div className="relative z-10 flex min-h-dvh gap-6">
         {/* ── LEFT PANEL ── */}
         <motion.div
           initial={{ opacity: 0, x: -20 }}
           animate={{ opacity: 1, x: 0 }}
           transition={{ duration: 0.8, ease: "easeOut" }}
-          className="w-[52%] shrink-0 relative min-h-screen"
+          className="w-[52%] shrink-0 relative min-h-dvh flex"
         >
           {/* glass overlay sits inside the margin */}
-          <div className="liquid-glass-strong m-6 rounded-3xl flex flex-col">
+          <div className="liquid-glass-strong m-6 min-h-[calc(100dvh-3rem)] w-full rounded-3xl flex flex-col">
             {/* Nav */}
             <div className="flex items-center justify-between px-7 pt-7">
               <div className="flex items-center gap-3">
@@ -228,7 +228,7 @@ export default function LandingPage() {
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ duration: 0.9, delay: 0.15 }}
-          className="w-[48%] flex flex-col p-6 min-h-screen"
+          className="w-[48%] flex flex-col p-6 min-h-dvh"
         >
           <div className="flex-1" />
 
