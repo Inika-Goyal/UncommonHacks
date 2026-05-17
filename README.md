@@ -1,6 +1,6 @@
-# UnExploited
+# LaborLens
 
-UnExploited is an Uncommon Hacks MVP for turning a company or geographic-region query into an evidence-backed labor exploitation risk report.
+LaborLens is an Uncommon Hacks MVP for turning a company or geographic-region query into an evidence-backed labor exploitation risk report.
 
 The current `main` implementation has two operating modes:
 
@@ -101,7 +101,6 @@ pnpm test:e2e
 
 ## Current Gaps
 
-- Branding is mixed: the landing page uses `LUMINA`, while metadata, dashboard, and product docs use `UnExploited`.
 - The benchmark panel is still a placeholder; a real NGO report has not been selected or embedded.
 - Snowflake is a product/track plan only; the current implementation uses Supabase/Postgres and local/source-cache paths.
 - Demo fixtures are labeled and useful for the hackathon flow, but they are not live source refreshes.

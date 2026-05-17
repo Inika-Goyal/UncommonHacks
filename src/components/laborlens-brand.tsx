@@ -1,4 +1,4 @@
-export function LuminaLogo({ size = 28 }: { size?: number }) {
+export function LaborLensLogo({ size = 28 }: { size?: number }) {
   return (
     <svg width={size} height={size} viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
       <circle cx="16" cy="16" r="15" stroke="rgba(255,255,255,0.55)" strokeWidth="1.2" />
@@ -26,11 +26,11 @@ export function LuminaLogo({ size = 28 }: { size?: number }) {
   );
 }
 
-export function LuminaWordmark({ size = 28 }: { size?: number }) {
+export function LaborLensWordmark({ size = 28 }: { size?: number }) {
   return (
-    <span className="lumina-wordmark">
-      <LuminaLogo size={size} />
-      <span>LUMINA</span>
+    <span className="laborlens-wordmark">
+      <LaborLensLogo size={size} />
+      <span>LABORLENS</span>
     </span>
   );
 }

@@ -536,11 +536,11 @@ def render_html(
 <html lang='en'>
 <head>
   <meta charset='utf-8'>
-  <title>UnExploited ML — model report</title>
+  <title>LaborLens ML — model report</title>
   <style>{CSS}</style>
 </head>
 <body>
-  <h1>UnExploited ML — model report</h1>
+  <h1>LaborLens ML — model report</h1>
   <p class='subtitle'>
     Generated from <code>ml/artifacts/</code>. Geographic targets are year-(t+1) prevalence.
     Use the year slider on the heatmap below to switch which year's

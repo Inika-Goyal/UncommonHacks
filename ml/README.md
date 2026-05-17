@@ -1,4 +1,4 @@
-# UnExploited ML
+# LaborLens ML
 
 Two trained models that score country-level modern-slavery risk for the
 TS synthesis layer:

@@ -120,7 +120,7 @@ export async function lookupWikidata(query: string): Promise<CacheLookup<Wikidat
         timeoutMs: 20_000,
         headers: {
           Accept: "application/sparql-results+json",
-          "User-Agent": "UnExploitedHackathon/0.1 (https://github.com/UncommonHacks)",
+          "User-Agent": "LaborLensHackathon/0.1 (https://github.com/UncommonHacks)",
         },
       });
       return parseBindings(payload.results?.bindings ?? []);

@@ -376,7 +376,7 @@ function FindingBlock({ finding, index }: { finding: Finding; index: number }) {
 function Footer({ report }: { report: Report }) {
   return (
     <View style={styles.footer} fixed>
-      <Text>UnExploited report artifact | {report.id}</Text>
+      <Text>LaborLens report artifact | {report.id}</Text>
       <Text
         render={({ pageNumber, totalPages }) => `Page ${pageNumber} of ${totalPages}`}
       />
@@ -390,15 +390,15 @@ function ComplaintPdfDocument({ report }: { report: Report }) {
   return (
     <Document
       title={`${report.query} complaint draft`}
-      author="UnExploited"
+      author="LaborLens"
       subject="Labor exploitation risk report and complaint draft"
-      creator="UnExploited"
-      producer="UnExploited"
+      creator="LaborLens"
+      producer="LaborLens"
     >
       <Page size="LETTER" style={styles.page}>
         <View style={styles.coverBand}>
           <View style={styles.brandRow}>
-            <Text style={styles.brand}>UnExploited / Lumina</Text>
+            <Text style={styles.brand}>LaborLens</Text>
             <Text style={styles.brand}>Complaint draft</Text>
           </View>
           <Text style={styles.labelLight}>{inputTypeLabel(report)}</Text>

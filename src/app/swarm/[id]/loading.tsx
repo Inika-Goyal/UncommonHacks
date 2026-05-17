@@ -1,6 +1,6 @@
 export default function Loading() {
   return (
-    <main className="launch-page lumina-shell">
+    <main className="launch-page laborlens-shell">
       <div className="launch-backdrop" aria-hidden="true" />
 
       <section className="launch-loading-shell">

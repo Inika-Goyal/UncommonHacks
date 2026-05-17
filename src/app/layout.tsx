@@ -2,7 +2,7 @@ import type { Metadata, Viewport } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Lumina — Labour Exploitation Intelligence",
+  title: "LaborLens — Labour Exploitation Intelligence",
   description: "AI-powered supply chain labour rights research tool.",
 };
 
