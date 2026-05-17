@@ -1,27 +1,43 @@
 export function LaborLensLogo({ size = 28 }: { size?: number }) {
   return (
-    <svg width={size} height={size} viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
-      <circle cx="16" cy="16" r="15" stroke="rgba(255,255,255,0.55)" strokeWidth="1.2" />
-      <circle cx="16" cy="16" r="6" fill="rgba(255,255,255,0.12)" stroke="rgba(255,255,255,0.38)" strokeWidth="1" />
-      {[0, 60, 120, 180, 240, 300].map((deg) => {
-        const rad = (deg * Math.PI) / 180;
-        const x1 = (16 + 7 * Math.cos(rad)).toFixed(3);
-        const y1 = (16 + 7 * Math.sin(rad)).toFixed(3);
-        const x2 = (16 + 13 * Math.cos(rad)).toFixed(3);
-        const y2 = (16 + 13 * Math.sin(rad)).toFixed(3);
-        return (
-          <line
-            key={deg}
-            x1={x1}
-            y1={y1}
-            x2={x2}
-            y2={y2}
-            stroke="rgba(255,255,255,0.45)"
-            strokeWidth="1"
-          />
-        );
-      })}
-      <circle cx="16" cy="16" r="2" fill="white" />
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 120 120"
+      fill="none"
+      xmlns="http://www.w3.org/2000/svg"
+      aria-hidden="true"
+    >
+      <defs>
+        <mask id="laborlens-outer-cuts">
+          <rect width="100%" height="100%" fill="white" />
+          <line x1="60" y1="60" x2="60" y2="-10" stroke="black" strokeWidth="7" />
+          <line x1="60" y1="60" x2="85" y2="103" stroke="black" strokeWidth="7" />
+        </mask>
+        <mask id="laborlens-middle-cuts">
+          <rect width="100%" height="100%" fill="white" />
+          <line x1="60" y1="60" x2="-10" y2="60" stroke="black" strokeWidth="7" />
+        </mask>
+      </defs>
+      <circle cx="60" cy="60" r="11" fill="#ffffff" />
+      <circle
+        cx="60"
+        cy="60"
+        r="25"
+        fill="none"
+        stroke="#ffffff"
+        strokeWidth="8"
+        mask="url(#laborlens-middle-cuts)"
+      />
+      <circle
+        cx="60"
+        cy="60"
+        r="43"
+        fill="none"
+        stroke="#ffffff"
+        strokeWidth="9"
+        mask="url(#laborlens-outer-cuts)"
+      />
     </svg>
   );
 }
