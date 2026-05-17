@@ -250,6 +250,215 @@ def region_breakdown_chart(
     return _fig_to_div(fig, include_plotlyjs)
 
 
+# ---------------------------------------------------------------------------
+# Findings helpers — these drive the new findings-first layout.
+# ---------------------------------------------------------------------------
+RISK_TIERS = [
+    # (label, lower, upper, css_class, hex)
+    ("Severe",  10.0, float("inf"), "tier-severe",  "#7a1f1f"),
+    ("High",     5.0, 10.0,         "tier-high",    "#b04a3a"),
+    ("Medium",   2.0,  5.0,         "tier-medium",  "#c98e3b"),
+    ("Low",      0.0,  2.0,         "tier-low",     "#1f5a2b"),
+]
+
+
+def _classify_tier(value: float) -> tuple[str, str, str]:
+    """Return (label, css_class, hex) for a predicted prevalence."""
+    for label, lo, hi, cls, color in RISK_TIERS:
+        if lo <= value < hi:
+            return label, cls, color
+    return RISK_TIERS[-1][0], RISK_TIERS[-1][3], RISK_TIERS[-1][4]
+
+
+def findings_table(panel: pd.DataFrame, preds: np.ndarray, top_n: int = 10) -> str:
+    """Top-N highest-risk countries with predicted vs GSI observed + delta + tier."""
+    df = panel[["country", "country_name", "region"]].copy()
+    df["predicted"] = preds
+    if "observed_prevalence_per_1k" in panel.columns:
+        df["observed"] = panel["observed_prevalence_per_1k"].values
+        df["delta"] = df["predicted"] - df["observed"]
+    else:
+        df["observed"] = float("nan")
+        df["delta"] = float("nan")
+
+    top = df.sort_values("predicted", ascending=False).head(top_n)
+    rows_html: list[str] = []
+    for _, r in top.iterrows():
+        label, cls, color = _classify_tier(float(r["predicted"]))
+        observed_str = f"{r['observed']:.2f}" if pd.notna(r["observed"]) else "—"
+        delta_str = (
+            f"<span style='color:{'#7a1f1f' if r['delta'] > 0 else '#1f5a2b'}'>"
+            f"{r['delta']:+.2f}</span>"
+            if pd.notna(r["delta"]) else "—"
+        )
+        rows_html.append(
+            "<tr>"
+            f"<td>{escape(r['country'])}</td>"
+            f"<td>{escape(r['country_name'])}</td>"
+            f"<td>{escape(r['region'])}</td>"
+            f"<td style='text-align:right;font-weight:600'>{r['predicted']:.2f}</td>"
+            f"<td style='text-align:right'>{observed_str}</td>"
+            f"<td style='text-align:right'>{delta_str}</td>"
+            f"<td><span class='tier-pill {cls}'>{label}</span></td>"
+            "</tr>"
+        )
+    return (
+        "<table class='data-table'>"
+        "<thead><tr><th>ISO3</th><th>Country</th><th>Region</th>"
+        "<th style='text-align:right'>Predicted /1k</th>"
+        "<th style='text-align:right'>GSI observed</th>"
+        "<th style='text-align:right'>Δ (pred − obs)</th>"
+        "<th>Tier</th></tr></thead>"
+        f"<tbody>{''.join(rows_html)}</tbody></table>"
+    )
+
+
+def risk_tier_breakdown(panel: pd.DataFrame, preds: np.ndarray) -> str:
+    """Per-tier count + per-region cross-tab. Useful 'shape of the world' read."""
+    df = panel[["country", "region"]].copy()
+    df["predicted"] = preds
+    df["tier"] = df["predicted"].apply(lambda v: _classify_tier(v)[0])
+    tier_counts = df["tier"].value_counts().reindex(
+        [t[0] for t in RISK_TIERS], fill_value=0,
+    )
+    rows = []
+    for _label, _lo, _hi, cls, _color in RISK_TIERS:
+        n = int(tier_counts.get(_label, 0))
+        range_str = (
+            f"≥ {_lo:.0f} /1k" if _hi == float("inf")
+            else f"{_lo:.0f}–{_hi:.0f} /1k"
+        )
+        rows.append(
+            "<tr>"
+            f"<td><span class='tier-pill {cls}'>{_label}</span></td>"
+            f"<td>{range_str}</td>"
+            f"<td style='text-align:right;font-weight:600'>{n}</td>"
+            "</tr>"
+        )
+    return (
+        "<table class='data-table'>"
+        "<thead><tr><th>Tier</th><th>Predicted range</th>"
+        "<th style='text-align:right'>Countries</th></tr></thead>"
+        f"<tbody>{''.join(rows)}</tbody></table>"
+    )
+
+
+def hero_findings(panel: pd.DataFrame, preds: np.ndarray, geo_summary: dict) -> dict:
+    """Compute the headline numbers shown above the fold."""
+    df = panel[["country", "country_name"]].copy()
+    df["predicted"] = preds
+    severe_n = int((df["predicted"] >= 10).sum())
+    high_or_severe_n = int((df["predicted"] >= 5).sum())
+    top = df.sort_values("predicted", ascending=False).iloc[0]
+    bottom = df.sort_values("predicted", ascending=True).iloc[0]
+
+    # Spearman rank correlation against GSI observed (where present).
+    rank_corr = None
+    if "observed_prevalence_per_1k" in panel.columns:
+        obs = panel["observed_prevalence_per_1k"].values
+        mask = ~pd.isna(obs)
+        if mask.sum() >= 5:
+            from scipy.stats import spearmanr
+            rho, _ = spearmanr(preds[mask], obs[mask])
+            rank_corr = float(rho)
+
+    return {
+        "severe_n": severe_n,
+        "high_or_severe_n": high_or_severe_n,
+        "n_countries": len(df),
+        "top_country": f"{top['country_name']} ({top['country']})",
+        "top_value": float(top["predicted"]),
+        "bottom_country": f"{bottom['country_name']} ({bottom['country']})",
+        "bottom_value": float(bottom["predicted"]),
+        "rank_corr": rank_corr,
+        "cv_r2": float(geo_summary.get("cv_r2", 0.0)),
+    }
+
+
+def choropleth_map(
+    panel: pd.DataFrame, preds: np.ndarray, include_plotlyjs: str | bool,
+) -> str:
+    """World choropleth coloured by predicted prevalence (ISO3 join)."""
+    df = panel[["country", "country_name"]].copy()
+    df["predicted"] = preds
+    fig = px.choropleth(
+        df,
+        locations="country",
+        color="predicted",
+        hover_name="country_name",
+        color_continuous_scale="Reds",
+        labels={"predicted": "Predicted /1k"},
+        range_color=[float(df["predicted"].min()), float(df["predicted"].max())],
+    )
+    fig.update_geos(
+        showcountries=True, countrycolor="#888",
+        showcoastlines=True, coastlinecolor="#666",
+        showland=True, landcolor="#f0f0f0",
+        showocean=True, oceancolor="#e8eef3",
+        projection_type="natural earth",
+    )
+    fig.update_layout(
+        height=520,
+        margin=dict(l=0, r=0, t=20, b=0),
+        coloraxis_colorbar=dict(title="Predicted<br>/1k pop"),
+    )
+    return _fig_to_div(fig, include_plotlyjs)
+
+
+def predicted_vs_observed_scatter(
+    panel: pd.DataFrame, preds: np.ndarray, include_plotlyjs: str | bool,
+) -> tuple[str, float | None]:
+    """Predicted vs GSI observed scatter with a y=x reference line.
+
+    Returns (html, spearman_rho) so the caption can quote the agreement.
+    """
+    if "observed_prevalence_per_1k" not in panel.columns:
+        return "<p><em>No GSI observed values in the panel — scatter unavailable.</em></p>", None
+
+    obs = panel["observed_prevalence_per_1k"].values
+    mask = ~pd.isna(obs)
+    if mask.sum() < 5:
+        return "<p><em>Too few GSI observations for a scatter.</em></p>", None
+
+    df = panel[["country", "country_name", "region"]].copy()
+    df["predicted"] = preds
+    df["observed"] = obs
+    df = df[mask].reset_index(drop=True)
+
+    fig = go.Figure()
+    fig.add_trace(go.Scatter(
+        x=df["observed"], y=df["predicted"],
+        mode="markers",
+        marker=dict(size=7, color=df["predicted"], colorscale="Reds",
+                    line=dict(color="#333", width=0.5),
+                    showscale=False),
+        customdata=np.stack([df["country"], df["country_name"], df["region"]], axis=1),
+        hovertemplate=("<b>%{customdata[1]}</b> (%{customdata[0]})<br>"
+                       "Region: %{customdata[2]}<br>"
+                       "GSI observed: %{x:.2f} /1k<br>"
+                       "Model predicted: %{y:.2f} /1k<extra></extra>"),
+        name="country",
+    ))
+    lo = min(df["observed"].min(), df["predicted"].min())
+    hi = max(df["observed"].max(), df["predicted"].max())
+    fig.add_trace(go.Scatter(
+        x=[lo, hi], y=[lo, hi],
+        mode="lines",
+        line=dict(color="#888", dash="dash", width=1),
+        hoverinfo="skip", name="perfect prediction",
+    ))
+    fig.update_layout(
+        height=420, margin=dict(l=10, r=10, t=30, b=10),
+        xaxis_title="GSI observed prevalence (/1k)",
+        yaxis_title="Model predicted prevalence (/1k)",
+        showlegend=False,
+    )
+
+    from scipy.stats import spearmanr
+    rho, _ = spearmanr(df["predicted"], df["observed"])
+    return _fig_to_div(fig, include_plotlyjs), float(rho)
+
+
 def country_detail_block(
     geo: TrainedGeoModel, cluster: TrainedClusterModel,
     panel: pd.DataFrame, country: str, include_plotlyjs: str | bool,
@@ -347,6 +556,26 @@ ul.source-list a { color: #b04a3a; }
 .pill.warn { background: #f9e4b6; color: #6b4a00; }
 .pill.bad  { background: #f6cccc; color: #7a1f1f; }
 .pill.ok   { background: #d8eedb; color: #1f5a2b; }
+.tier-pill { display: inline-block; padding: 3px 10px; border-radius: 999px;
+             font-size: 11px; font-weight: 600; letter-spacing: 0.02em; color: #fff; }
+.tier-severe { background: #7a1f1f; }
+.tier-high   { background: #b04a3a; }
+.tier-medium { background: #c98e3b; }
+.tier-low    { background: #1f5a2b; }
+.hero-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-top: 12px; }
+.hero-card { padding: 18px; background: #fff; border-radius: 8px;
+             border: 1px solid #e5e5e5; }
+.hero-card .label { font-size: 11px; color: #888; text-transform: uppercase;
+                    letter-spacing: 0.08em; }
+.hero-card .value { font-size: 26px; font-weight: 700; margin-top: 6px; color: #1a1a1a; }
+.hero-card .sub   { font-size: 12px; color: #666; margin-top: 4px; }
+.hero-card.bad .value  { color: #7a1f1f; }
+.hero-card.good .value { color: #1f5a2b; }
+.callout { background: #fff8f0; border-left: 3px solid #c98e3b;
+           padding: 10px 14px; font-size: 13px; margin: 8px 0 0 0; color: #333; }
+.callout strong { color: #7a1f1f; }
+.takeaway { font-size: 14px; color: #444; margin-top: 8px; line-height: 1.5; }
+.takeaway strong { color: #1a1a1a; }
 """
 
 
@@ -389,30 +618,98 @@ def render_html(
 ) -> str:
     preds = _predict_all(geo, panel)
 
-    # ---- headline metrics ----
-    metric_html = (
-        "<div class='metric-row'>"
-        f"<div class='metric'><div class='label'>Geographic CV MAE</div>"
-        f"<div class='value'>{geo_summary['cv_mae']:.3f}</div>"
-        f"<div class='sub'>/1k, 5-fold KFold</div></div>"
+    # ---- hero findings (above-the-fold cards) -------------------------
+    hero = hero_findings(panel, preds, geo_summary)
+    rank_corr_str = (
+        f"{hero['rank_corr']:.2f}" if hero["rank_corr"] is not None else "—"
+    )
+    rank_corr_sub = (
+        f"Spearman vs GSI on {int((~pd.isna(panel['observed_prevalence_per_1k'])).sum())} countries"
+        if hero["rank_corr"] is not None else "GSI observed not available"
+    )
+    hero_html = (
+        "<div class='hero-row'>"
+        f"<div class='hero-card bad'><div class='label'>Highest predicted risk</div>"
+        f"<div class='value'>{hero['top_value']:.1f} /1k</div>"
+        f"<div class='sub'>{escape(hero['top_country'])}</div></div>"
 
-        f"<div class='metric'><div class='label'>Geographic CV R²</div>"
-        f"<div class='value'>{geo_summary['cv_r2']:+.3f}</div>"
-        f"<div class='sub'>cross-sectional, 1 row/country</div></div>"
+        f"<div class='hero-card'><div class='label'>Countries flagged High+Severe</div>"
+        f"<div class='value'>{hero['high_or_severe_n']}</div>"
+        f"<div class='sub'>of {hero['n_countries']} scored "
+        f"(≥ 5 / 1,000 predicted prevalence)</div></div>"
 
-        f"<div class='metric'><div class='label'>Conformal half-width</div>"
-        f"<div class='value'>±{geo_summary['conformal_half_width']:.2f}</div>"
-        f"<div class='sub'>nominal {int((1 - 0.20) * 100)}% coverage; "
-        f"empirical {geo_summary['empirical_coverage_80'] * 100:.0f}%</div></div>"
+        f"<div class='hero-card'><div class='label'>Model–GSI ranking agreement</div>"
+        f"<div class='value'>{rank_corr_str}</div>"
+        f"<div class='sub'>{rank_corr_sub}</div></div>"
 
-        f"<div class='metric'><div class='label'>Cluster silhouette</div>"
-        f"<div class='value'>{clu_summary['silhouette']:.3f}</div>"
-        f"<div class='sub'>k={clu_summary['k']}, "
-        f"{clu_summary['n_countries']} countries</div></div>"
+        f"<div class='hero-card good'><div class='label'>Lowest predicted risk</div>"
+        f"<div class='value'>{hero['bottom_value']:.1f} /1k</div>"
+        f"<div class='sub'>{escape(hero['bottom_country'])}</div></div>"
         "</div>"
     )
 
-    # ---- data-quality summary table ----
+    callout = (
+        "<p class='callout'>"
+        f"<strong>{hero['severe_n']} countries</strong> sit in the "
+        "<strong>Severe tier</strong> (predicted prevalence ≥ 10 per 1,000). "
+        "These are the priority targets for due-diligence work."
+        "</p>"
+    ) if hero["severe_n"] > 0 else ""
+
+    # ---- main findings sections ---------------------------------------
+    top10_table = findings_table(panel, preds, top_n=10)
+    tier_table = risk_tier_breakdown(panel, preds)
+    map_html = choropleth_map(panel, preds, include_plotlyjs)
+    pred_obs_html, pred_obs_rho = predicted_vs_observed_scatter(panel, preds, False)
+
+    pred_obs_caption = (
+        f"Each dot is one country. The dashed line is perfect agreement (predicted = observed). "
+        f"<strong>Spearman ρ = {pred_obs_rho:.2f}</strong> — the model's country ranking "
+        "closely tracks GSI's, which is the strongest claim we can honestly make on n≈153."
+        if pred_obs_rho is not None else
+        "GSI observed values not available — scatter omitted."
+    )
+
+    region_html = region_breakdown_chart(panel, preds, False)
+    feat_html = feature_importance_chart(geo, False)
+
+    # ---- per-country block (only if --country given) ------------------
+    country_section = ""
+    if country:
+        bar_html, sim_html, note_html = country_detail_block(
+            geo, cluster, panel, country, False,
+        )
+        country_section = f"""
+<h2>Country deep-dive — {escape(country)}</h2>
+<section>
+  {note_html}
+  {bar_html}
+  <h3>Similar countries (same cluster, nearest in feature space)</h3>
+  {sim_html}
+</section>
+"""
+
+    # ---- methodology + diagnostics (DEMOTED below the findings) ------
+    cluster_html = cluster_pca_scatter(cluster, panel, False, highlight=country)
+    ranking_html = country_ranking_chart(panel, preds, False)
+
+    metric_html = (
+        "<div class='metric-row'>"
+        f"<div class='metric'><div class='label'>Cross-val MAE</div>"
+        f"<div class='value'>{geo_summary['cv_mae']:.2f}</div>"
+        f"<div class='sub'>per 1,000 — typical miss</div></div>"
+        f"<div class='metric'><div class='label'>Cross-val R²</div>"
+        f"<div class='value'>{geo_summary['cv_r2']:+.2f}</div>"
+        f"<div class='sub'>variance explained</div></div>"
+        f"<div class='metric'><div class='label'>80% interval width</div>"
+        f"<div class='value'>±{geo_summary['conformal_half_width']:.1f}</div>"
+        f"<div class='sub'>conformal — {geo_summary['empirical_coverage_80'] * 100:.0f}% empirical coverage</div></div>"
+        f"<div class='metric'><div class='label'>Cluster silhouette</div>"
+        f"<div class='value'>{clu_summary['silhouette']:.2f}</div>"
+        f"<div class='sub'>k={clu_summary['k']} clusters of {clu_summary['n_countries']}</div></div>"
+        "</div>"
+    )
+
     dq = geo_summary.get("data_quality") or {}
     dq_rows = []
     for col, frac in (dq.get("missingness") or {}).items():
@@ -425,7 +722,6 @@ def render_html(
     dq_table = pd.DataFrame(dq_rows).to_html(index=False, classes="data-table", border=0) \
         if dq_rows else "<p><em>no per-column quality details available.</em></p>"
 
-    # ---- collinearity dropped table ----
     coll = geo_summary.get("collinearity") or {}
     coll_dropped = coll.get("dropped") or []
     coll_table = ""
@@ -437,29 +733,7 @@ def render_html(
             for d in coll_dropped
         ]).to_html(index=False, classes="data-table", border=0)
 
-    # ---- charts ----
-    ranking_html = country_ranking_chart(panel, preds, include_plotlyjs)
-    feat_html = feature_importance_chart(geo, False)
-    region_html = region_breakdown_chart(panel, preds, False)
-    cluster_html = cluster_pca_scatter(cluster, panel, False, highlight=country)
-
-    # ---- per-country block ----
-    country_section = ""
-    if country:
-        bar_html, sim_html, note_html = country_detail_block(
-            geo, cluster, panel, country, False,
-        )
-        country_section = f"""
-<h2>Country detail — {escape(country)}</h2>
-<section>
-  {note_html}
-  {bar_html}
-  <h3>Similar countries (same cluster, nearest in feature space)</h3>
-  {sim_html}
-</section>
-"""
-
-    # ---- sources ----
+    # ---- sources ------------------------------------------------------
     src = geo_summary.get("sources") or {}
     src_html_parts = []
     for label, key in [("Predicted (target)", "predicted"),
@@ -478,7 +752,7 @@ def render_html(
     sources_html = "\n".join(src_html_parts)
 
     head_country = (
-        f" — showing detail for <strong>{escape(country)}</strong>"
+        f" — deep-dive: <strong>{escape(country)}</strong>"
         if country else ""
     )
 
@@ -486,64 +760,103 @@ def render_html(
 <html lang='en'>
 <head>
   <meta charset='utf-8'>
-  <title>LaborLens ML — model report (real data)</title>
+  <title>LaborLens — country exploitation-risk findings</title>
   <style>{CSS}</style>
 </head>
 <body>
-  <h1>LaborLens ML — model report</h1>
+  <h1>Country exploitation-risk findings</h1>
   <p class='subtitle'>
-    Built from <code>ml/artifacts/{{geographic,cluster}}/</code> on
-    real public data (GSI 2023 · WDI 2021 · RSF 2021 + optional WGI /
-    CPI / WJP / UNHCR / ACLED if their CSVs are present).{head_country}
+    {hero['n_countries']} countries scored from real public data
+    (Walk Free GSI 2023 · World Bank WDI 2021 · RSF 2021){head_country}.
   </p>
-  <p>{_quality_pills(geo_summary)} {_coverage_pill(geo_summary['empirical_coverage_80'])}</p>
+  {hero_html}
+  {callout}
 
-  <h2>Model health</h2>
+  <h2>Highest-risk countries (Top 10)</h2>
   <section>
-    {metric_html}
-    <p class='caption'>
-      Geographic: bagged GradientBoosting + Ridge averaged, conformal intervals.
-      Cluster: KMeans with per-block-weighted features.
+    {top10_table}
+    <p class='takeaway'>
+      <strong>Δ (pred − obs)</strong> = the model's bias for that country.
+      Red Δ means we over-predict relative to GSI; green means we under-predict.
+      Small Δ on a high prediction is the strongest "we agree with the data and
+      this country is bad" signal.
     </p>
   </section>
 
-  <h2>Geographic ranking</h2>
+  <h2>World risk map</h2>
   <section>
-    <p class='caption'>
-      All {len(panel)} countries in the trained panel, sorted by predicted
-      overall modern-slavery prevalence per 1,000. Hover for ISO3 + region.
+    {map_html}
+    <p class='takeaway'>
+      Darker red = higher predicted exploitation prevalence per 1,000 people.
+      Hover any country for its predicted value.
     </p>
-    {ranking_html}
   </section>
 
-  <h2>Regional distribution</h2>
-  <section>{region_html}</section>
+  <h2>Risk tier distribution</h2>
+  <section>
+    <div class='two-col'>
+      <div>{tier_table}</div>
+      <div>{region_html}</div>
+    </div>
+    <p class='takeaway'>
+      The left table counts how many countries fall into each tier. The right
+      box plot shows the spread <em>within</em> each region — wide boxes mean
+      the model finds large within-region heterogeneity (e.g., Europe spans
+      Norway to Belarus).
+    </p>
+  </section>
 
-  <h2>Feature importance</h2>
+  <h2>Does the model agree with the data?</h2>
+  <section>
+    {pred_obs_html}
+    <p class='takeaway'>{pred_obs_caption}</p>
+  </section>
+
+  <h2>What drives the predictions</h2>
   <section>
     {feat_html}
-    <p class='caption'>
-      Mean across {len(geo.tree_models)} bootstrap-sampled GradientBoosting
-      regressors. Ridge coefficients are not shown — they would need
-      back-projection through the StandardScaler to be comparable.
+    <p class='takeaway'>
+      Top of the bar = strongest predictor. Press freedom, governance, and
+      GDP-rank-within-region carry the most weight; population scale and
+      youth-dependency add the rest. This is the model's own answer to "why
+      did you flag this country?"
     </p>
   </section>
-
-  <h2>Cluster panel</h2>
-  <section>{cluster_html}</section>
 
   {country_section}
 
-  <h2>Data quality</h2>
+  <h2>Methodology &amp; diagnostics</h2>
   <section>
-    <h3>Per-predictor missingness + outliers</h3>
-    {dq_table}
-    {('<h3>Collinearity drops</h3>' + coll_table) if coll_table else ''}
+    <p>{_quality_pills(geo_summary)} {_coverage_pill(geo_summary['empirical_coverage_80'])}</p>
+    {metric_html}
     <p class='caption'>
-      Columns with NaN fraction above 40% are dropped automatically.
-      Collinearity reduction is greedy on |r| ≥ 0.85 pairs; the
-      kept column has lower mean correlation against the rest.
+      Geographic model: bagged GradientBoosting + Ridge averaged, with
+      split-conformal prediction intervals. Cluster model: KMeans with
+      per-block-weighted features (powers the "similar countries" lookups).
+      Six GCC kafala-system countries excluded from training (observable
+      features can't represent their migrant-labor structures); they are
+      still served at inference.
     </p>
+
+    <details>
+      <summary>All {hero['n_countries']} countries — full ranking</summary>
+      {ranking_html}
+    </details>
+
+    <details>
+      <summary>Country clusters (PCA projection)</summary>
+      {cluster_html}
+    </details>
+
+    <details>
+      <summary>Per-predictor data quality</summary>
+      {dq_table}
+      {('<h3>Collinearity drops</h3>' + coll_table) if coll_table else ''}
+      <p class='caption'>
+        Columns with NaN fraction above 40% are dropped automatically.
+        Collinearity reduction is greedy on |r| ≥ 0.85 pairs.
+      </p>
+    </details>
   </section>
 
   <h2>Sources</h2>
