@@ -65,12 +65,17 @@ export async function POST(request: Request) {
     query: onboarding.query,
     onboarding,
     countries: onboarding.countries,
+    panelCountries: [],
+    countryWeights: {},
+    primaryCountry: null,
     agents: {},
     mapPoints: [],
     errors: [],
     featureBundle: undefined,
     synthesis: undefined,
     mlPrediction: undefined,
+    mlPredictionReason: undefined,
+    mlInsight: undefined,
   };
 
   const ingest = await ingestNode(baseState);

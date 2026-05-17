@@ -12,6 +12,7 @@ export async function persistNode(state: OrchestratorState): Promise<Orchestrato
       state.synthesis,
       state.agents,
       state.mlPrediction,
+      state.mlPredictionReason,
     );
   } else {
     await patchReport(state.reportId, {

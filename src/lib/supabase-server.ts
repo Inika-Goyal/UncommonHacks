@@ -5,6 +5,7 @@ import type {
   MapPoint,
   MapPointStage,
   MlPrediction,
+  MlPredictionReason,
   Report,
   ReportRequest,
   SourceStatus,
@@ -56,6 +57,8 @@ type SupabaseReportRow = {
     detail: string;
   }>;
   ml_prediction: MlPrediction | null;
+  ml_prediction_reason?: MlPredictionReason | null;
+  ml_insight?: string | null;
 };
 
 const reportSelect = `
@@ -162,6 +165,8 @@ function mapSupabaseReport(row: SupabaseReportRow): Report {
       detail: source.detail,
     })),
     mlPrediction: row.ml_prediction ?? null,
+    mlPredictionReason: row.ml_prediction_reason ?? null,
+    mlInsight: row.ml_insight ?? null,
   };
 }
 

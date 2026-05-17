@@ -4453,3 +4453,824 @@ td a {
   color: rgba(255, 255, 255, 0.55);
   margin: 0;
 }
+
+/* ============================================================
+   Supply-chain country strip (multi-country supply chains)
+   ============================================================ */
+.lumina-supply-chain {
+  margin-bottom: 14px;
+}
+
+.lumina-supply-chain-head {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.lumina-supply-summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.55);
+  letter-spacing: 0.04em;
+}
+
+.lumina-supply-summary strong {
+  color: rgba(255, 255, 255, 0.85);
+  margin-left: 4px;
+}
+
+.lumina-supply-chain-list {
+  list-style: none;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  gap: 10px;
+  padding: 0;
+  margin: 0;
+}
+
+.lumina-supply-chain-card {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 12px;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  transition: border-color 0.18s ease, background 0.18s ease;
+}
+
+.lumina-supply-chain-card:hover {
+  border-color: rgba(236, 72, 153, 0.45);
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.lumina-supply-chain-worst {
+  border-color: rgba(239, 68, 68, 0.55);
+  background: rgba(239, 68, 68, 0.06);
+}
+
+.lumina-supply-chain-card header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.lumina-supply-iso {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  color: rgba(255, 255, 255, 0.75);
+}
+
+.lumina-supply-name {
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.55);
+  flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.lumina-supply-weight {
+  font-size: 10px;
+  color: rgba(236, 72, 153, 0.85);
+  padding: 1px 6px;
+  border-radius: 6px;
+  background: rgba(236, 72, 153, 0.1);
+}
+
+.lumina-supply-prevalence {
+  font-size: 22px;
+  font-weight: 500;
+  color: #fff;
+  line-height: 1;
+}
+
+.lumina-supply-prevalence small {
+  font-size: 10px;
+  color: rgba(255, 255, 255, 0.4);
+  margin-left: 4px;
+}
+
+.lumina-supply-chain-card footer {
+  display: flex;
+  gap: 8px;
+  font-size: 10px;
+  color: rgba(255, 255, 255, 0.45);
+  flex-wrap: wrap;
+}
+
+.lumina-supply-imputed {
+  color: rgba(245, 158, 11, 0.9);
+  border: 1px solid rgba(245, 158, 11, 0.4);
+  padding: 1px 5px;
+  border-radius: 4px;
+  letter-spacing: 0.06em;
+}
+
+/* ============================================================
+   Adjustments card (ML + agents in tandem)
+   ============================================================ */
+.lumina-adjustments-card {
+  margin-bottom: 14px;
+}
+
+.lumina-adjustments-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 6px;
+}
+
+.lumina-adjustment-row {
+  display: grid;
+  grid-template-columns: 80px 70px 1fr auto;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.lumina-adjustment-label {
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.88);
+}
+
+.lumina-adjustment-baseline {
+  color: rgba(255, 255, 255, 0.45);
+  font-variant-numeric: tabular-nums;
+}
+
+.lumina-adjustment-delta {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.lumina-adjustment-delta.up {
+  color: rgba(239, 68, 68, 0.85);
+}
+
+.lumina-adjustment-delta.down {
+  color: rgba(34, 197, 94, 0.85);
+}
+
+.lumina-adjustment-final strong {
+  color: #fff;
+  font-weight: 600;
+}
+
+/* ============================================================
+   Feature drivers card
+   ============================================================ */
+.lumina-driver-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.lumina-driver-row {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.lumina-driver-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.75);
+}
+
+.lumina-driver-label {
+  flex: 1;
+}
+
+.lumina-driver-dir {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  font-size: 10px;
+  letter-spacing: 0.04em;
+}
+
+.lumina-driver-dir.up {
+  color: rgba(239, 68, 68, 0.9);
+}
+
+.lumina-driver-dir.down {
+  color: rgba(34, 197, 94, 0.9);
+}
+
+.lumina-driver-bar-track {
+  position: relative;
+  height: 5px;
+  border-radius: 3px;
+  background: rgba(255, 255, 255, 0.06);
+  overflow: hidden;
+}
+
+.lumina-driver-bar-fill {
+  display: block;
+  height: 100%;
+  border-radius: 3px;
+}
+
+.lumina-driver-bar-fill.up {
+  background: linear-gradient(90deg, rgba(239, 68, 68, 0.35), rgba(239, 68, 68, 0.85));
+}
+
+.lumina-driver-bar-fill.down {
+  background: linear-gradient(90deg, rgba(34, 197, 94, 0.35), rgba(34, 197, 94, 0.85));
+}
+
+.lumina-driver-foot {
+  display: flex;
+  justify-content: space-between;
+  font-size: 9.5px;
+  color: rgba(255, 255, 255, 0.4);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ============================================================
+   Gap insights card (predicted vs observed)
+   ============================================================ */
+.lumina-gap-card {
+  /* Lives in the same grid as the other cards */
+}
+
+.lumina-gap-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.lumina-gap-row {
+  display: grid;
+  grid-template-columns: 36px 1fr auto auto;
+  align-items: center;
+  gap: 8px;
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.7);
+  padding: 4px 0;
+  border-bottom: 1px dashed rgba(255, 255, 255, 0.04);
+}
+
+.lumina-gap-iso {
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  color: rgba(255, 255, 255, 0.85);
+  font-size: 10px;
+}
+
+.lumina-gap-name {
+  color: rgba(255, 255, 255, 0.55);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.lumina-gap-numbers {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-variant-numeric: tabular-nums;
+  font-size: 10.5px;
+}
+
+.lumina-gap-numbers strong {
+  color: #fff;
+  font-weight: 600;
+}
+
+.lumina-gap-numbers small {
+  color: rgba(255, 255, 255, 0.35);
+  font-size: 9px;
+}
+
+.lumina-gap-delta {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 1px 6px;
+  border-radius: 5px;
+  font-variant-numeric: tabular-nums;
+}
+
+.lumina-gap-delta.up {
+  background: rgba(239, 68, 68, 0.12);
+  color: rgba(239, 68, 68, 0.95);
+}
+
+.lumina-gap-delta.down {
+  background: rgba(34, 197, 94, 0.12);
+  color: rgba(34, 197, 94, 0.95);
+}
+
+.lumina-gap-missing {
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.55);
+  margin: 4px 0 0;
+  display: inline-flex;
+  gap: 6px;
+  align-items: flex-start;
+}
+
+.lumina-delta-up {
+  color: rgba(239, 68, 68, 0.95);
+  font-weight: 600;
+}
+
+.lumina-delta-down {
+  color: rgba(34, 197, 94, 0.95);
+  font-weight: 600;
+}
+
+/* ============================================================
+   Tier 1 — Verdict card (split: large score block + body)
+   ============================================================ */
+.lumina-verdict-card {
+  display: grid;
+  grid-template-columns: minmax(220px, 280px) 1fr;
+  gap: 24px;
+  padding: 22px 26px;
+  align-items: stretch;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.lumina-verdict-high {
+  border-color: rgba(239, 68, 68, 0.35);
+  background: linear-gradient(135deg, rgba(239, 68, 68, 0.08), rgba(255, 255, 255, 0.01));
+}
+
+.lumina-verdict-moderate {
+  border-color: rgba(245, 158, 11, 0.32);
+  background: linear-gradient(135deg, rgba(245, 158, 11, 0.07), rgba(255, 255, 255, 0.01));
+}
+
+.lumina-verdict-lower {
+  border-color: rgba(34, 197, 94, 0.32);
+  background: linear-gradient(135deg, rgba(34, 197, 94, 0.07), rgba(255, 255, 255, 0.01));
+}
+
+.lumina-verdict-score-block {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 8px;
+  padding: 18px 20px;
+  border-radius: 18px;
+  background: rgba(0, 0, 0, 0.18);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.lumina-verdict-band {
+  font-size: 10.5px;
+  letter-spacing: 0.18em;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.lumina-verdict-high .lumina-verdict-band {
+  color: rgb(252, 165, 165);
+}
+.lumina-verdict-moderate .lumina-verdict-band {
+  color: rgb(253, 224, 71);
+}
+.lumina-verdict-lower .lumina-verdict-band {
+  color: rgb(134, 239, 172);
+}
+
+.lumina-verdict-overall {
+  display: inline-flex;
+  align-items: baseline;
+  color: #fff;
+  font-size: clamp(48px, 4.5vw, 64px);
+  font-weight: 500;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+}
+
+.lumina-verdict-overall small {
+  margin-left: 4px;
+  color: rgba(255, 255, 255, 0.4);
+  font-size: 0.35em;
+  font-weight: 400;
+}
+
+.lumina-verdict-sub {
+  font-size: 11.5px;
+  color: rgba(255, 255, 255, 0.5);
+  letter-spacing: 0.02em;
+  font-variant-numeric: tabular-nums;
+}
+
+.lumina-verdict-body {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  min-width: 0;
+}
+
+.lumina-verdict-context h2 {
+  margin: 4px 0 0;
+  color: #fff;
+  font-size: clamp(20px, 2vw, 26px);
+  font-weight: 400;
+  letter-spacing: 0;
+}
+
+.lumina-verdict-meta {
+  margin: 6px 0 0;
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.48);
+  letter-spacing: 0.02em;
+}
+
+.lumina-verdict-insight {
+  margin: 0;
+  font-size: 15.5px;
+  line-height: 1.55;
+  color: rgba(255, 255, 255, 0.92);
+  max-width: 70ch;
+}
+
+.lumina-verdict-stats {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  margin: 4px 0 0;
+}
+
+.lumina-verdict-stats > div {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 12px 14px;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.035);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.lumina-verdict-stats dt {
+  font-size: 10.5px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.42);
+}
+
+.lumina-verdict-stats dd {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  margin: 0;
+  font-variant-numeric: tabular-nums;
+}
+
+.lumina-verdict-stats dd strong {
+  color: #fff;
+  font-size: 22px;
+  font-weight: 500;
+  letter-spacing: -0.01em;
+}
+
+.lumina-verdict-stats dd span {
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.45);
+}
+
+.lumina-verdict-note {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+  padding: 6px 10px;
+  border-radius: 8px;
+  background: rgba(239, 68, 68, 0.12);
+  color: rgb(254, 202, 202);
+  font-size: 11.5px;
+  align-self: flex-start;
+}
+
+@media (max-width: 880px) {
+  .lumina-verdict-card {
+    grid-template-columns: 1fr;
+    padding: 18px 18px;
+    gap: 16px;
+  }
+  .lumina-verdict-stats {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ============================================================
+   Tier 2 — Supply-chain grid of country tiles
+   ============================================================ */
+.lumina-supply-section {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.lumina-supply-head {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 0 4px;
+}
+
+.lumina-supply-head h3 {
+  margin: 4px 0 0;
+  color: #fff;
+  font-size: 17px;
+  font-weight: 400;
+}
+
+.lumina-supply-legend {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 10.5px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.42);
+}
+
+.lumina-band-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  display: inline-block;
+  margin-right: 4px;
+}
+
+.lumina-band-high {
+  background: rgb(239, 68, 68);
+  box-shadow: 0 0 10px rgba(239, 68, 68, 0.5);
+}
+.lumina-band-moderate {
+  background: rgb(245, 158, 11);
+  box-shadow: 0 0 10px rgba(245, 158, 11, 0.5);
+}
+.lumina-band-lower {
+  background: rgb(34, 197, 94);
+  box-shadow: 0 0 10px rgba(34, 197, 94, 0.5);
+}
+
+.lumina-supply-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 12px;
+}
+
+.lumina-country-tile {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px 18px;
+  border-radius: 18px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.035);
+  min-width: 0;
+}
+
+.lumina-country-high {
+  border-color: rgba(239, 68, 68, 0.38);
+  background: linear-gradient(180deg, rgba(239, 68, 68, 0.07), rgba(255, 255, 255, 0.02));
+}
+.lumina-country-moderate {
+  border-color: rgba(245, 158, 11, 0.34);
+  background: linear-gradient(180deg, rgba(245, 158, 11, 0.05), rgba(255, 255, 255, 0.02));
+}
+.lumina-country-lower {
+  border-color: rgba(34, 197, 94, 0.32);
+  background: linear-gradient(180deg, rgba(34, 197, 94, 0.05), rgba(255, 255, 255, 0.02));
+}
+
+.lumina-country-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.lumina-country-id {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.lumina-country-iso {
+  font-size: 10px;
+  letter-spacing: 0.18em;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.45);
+}
+
+.lumina-country-name {
+  font-size: 14px;
+  color: #fff;
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.lumina-country-band {
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  font-weight: 600;
+  text-transform: uppercase;
+  padding: 3px 8px;
+  border-radius: 999px;
+  flex-shrink: 0;
+}
+
+.lumina-country-high .lumina-country-band {
+  background: rgba(239, 68, 68, 0.18);
+  color: rgb(252, 165, 165);
+}
+.lumina-country-moderate .lumina-country-band {
+  background: rgba(245, 158, 11, 0.18);
+  color: rgb(253, 224, 71);
+}
+.lumina-country-lower .lumina-country-band {
+  background: rgba(34, 197, 94, 0.18);
+  color: rgb(134, 239, 172);
+}
+
+.lumina-country-metric {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  font-variant-numeric: tabular-nums;
+}
+
+.lumina-country-metric strong {
+  color: #fff;
+  font-size: 36px;
+  font-weight: 500;
+  letter-spacing: -0.02em;
+  line-height: 1;
+}
+
+.lumina-country-metric span {
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.48);
+}
+
+.lumina-country-weight {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  gap: 6px 10px;
+}
+
+.lumina-country-weight-label {
+  grid-column: 1 / -1;
+  font-size: 10.5px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.4);
+}
+
+.lumina-country-weight-track {
+  height: 4px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.06);
+  overflow: hidden;
+}
+
+.lumina-country-weight-fill {
+  display: block;
+  height: 100%;
+  background: rgba(255, 255, 255, 0.55);
+  border-radius: 999px;
+}
+
+.lumina-country-high .lumina-country-weight-fill {
+  background: rgb(239, 68, 68);
+}
+.lumina-country-moderate .lumina-country-weight-fill {
+  background: rgb(245, 158, 11);
+}
+.lumina-country-lower .lumina-country-weight-fill {
+  background: rgb(34, 197, 94);
+}
+
+.lumina-country-weight-value {
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.lumina-country-driver {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin: 0;
+  padding-top: 8px;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.lumina-country-driver-label {
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.4);
+}
+
+.lumina-country-driver > span:not(.lumina-country-driver-label) {
+  font-size: 12.5px;
+  color: rgba(255, 255, 255, 0.85);
+}
+
+.lumina-country-note {
+  display: inline-flex;
+  gap: 6px;
+  align-items: center;
+  margin: 0;
+  font-size: 11px;
+  color: rgba(245, 158, 11, 0.85);
+}
+
+/* ============================================================
+   Tier 3 — Technical details disclosure
+   ============================================================ */
+.lumina-details-disclosure {
+  margin-top: 6px;
+  border-radius: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  background: rgba(255, 255, 255, 0.015);
+}
+
+.lumina-details-disclosure[open] {
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.lumina-details-summary {
+  list-style: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 16px;
+  font-size: 12.5px;
+  color: rgba(255, 255, 255, 0.7);
+  letter-spacing: 0.02em;
+  user-select: none;
+}
+
+.lumina-details-summary::-webkit-details-marker {
+  display: none;
+}
+
+.lumina-details-summary svg {
+  transition: transform 0.2s ease;
+}
+
+.lumina-details-disclosure[open] .lumina-details-summary svg {
+  transform: rotate(180deg);
+}
+
+.lumina-details-hint {
+  margin-left: auto;
+  font-size: 10.5px;
+  color: rgba(255, 255, 255, 0.35);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.lumina-details-body {
+  padding: 14px 12px 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.lumina-tech-preamble {
+  /* Per-card preambles are hidden — replaced by a single intro at
+     the top of the technical disclosure body. */
+  display: none;
+}
+
+.lumina-details-intro {
+  margin: 0;
+  padding: 4px 6px 10px;
+  font-size: 12.5px;
+  line-height: 1.55;
+  color: rgba(255, 255, 255, 0.6);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  margin-bottom: 4px;
+}

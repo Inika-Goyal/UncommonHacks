@@ -307,6 +307,15 @@ export async function supplierNode(state: OrchestratorState): Promise<Orchestrat
       const countriesCovered = Array.from(new Set(merged.map((f) => f.country).filter(Boolean)));
       const sectors = Array.from(new Set(merged.flatMap((f) => f.sectors).filter(Boolean)));
 
+      // Per-country facility counts → drives multi-country ML
+      // weighting in the synthesize node. Use raw counts here; the
+      // enrich-countries node normalizes after resolving to ISO3.
+      const countryWeights: Record<string, number> = {};
+      for (const f of merged) {
+        if (!f.country) continue;
+        countryWeights[f.country] = (countryWeights[f.country] ?? 0) + 1;
+      }
+
       const hasLiveSource = wikidataResult.source === "live" || nikeManufacturingResult.source === "live";
       const status = hasLiveSource ? ("ready" as const) : ("snapshot" as const);
 
@@ -322,6 +331,7 @@ export async function supplierNode(state: OrchestratorState): Promise<Orchestrat
         facilityCount: merged.length,
         countriesCovered,
         sectors,
+        countryWeights,
       };
 
       return {
