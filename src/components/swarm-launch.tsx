@@ -17,6 +17,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 
 import { ScoreScrambler } from "@/components/score-scrambler";
+import { VideoBackground } from "@/components/video-background";
 import { AGENT_LABELS, type AgentLifecycle, type AgentName, type StateUpdate } from "@/agents/types";
 import {
   DEFAULT_SWARM_STATE,
@@ -129,7 +130,9 @@ export function SwarmLaunch({ reportId }: Props) {
   // the user has time to read the scores before transitioning.
   useEffect(() => {
     if (!done) return;
-    setSecondsToRedirect(Math.ceil(AUTO_REDIRECT_MS / 1000));
+    const startCountdown = setTimeout(() => {
+      setSecondsToRedirect(Math.ceil(AUTO_REDIRECT_MS / 1000));
+    }, 0);
     countdownInterval.current = setInterval(() => {
       setSecondsToRedirect((s) => (s !== null && s > 0 ? s - 1 : s));
     }, 1000);
@@ -137,6 +140,7 @@ export function SwarmLaunch({ reportId }: Props) {
       router.push(`/dashboard?id=${reportId}`);
     }, AUTO_REDIRECT_MS);
     return () => {
+      clearTimeout(startCountdown);
       if (redirectTimer.current) clearTimeout(redirectTimer.current);
       if (countdownInterval.current) clearInterval(countdownInterval.current);
     };
@@ -155,105 +159,112 @@ export function SwarmLaunch({ reportId }: Props) {
   const recentEvents = events.slice(-6).reverse();
 
   return (
-    <main className="launch-page">
-      <div className="launch-backdrop" aria-hidden="true">
-        <div className="launch-aurora launch-aurora-1" />
-        <div className="launch-aurora launch-aurora-2" />
-        <div className="launch-aurora launch-aurora-3" />
-        <div className="launch-noise" />
-      </div>
+    <main className="launch-page lumina-shell">
+      <VideoBackground />
+      <div className="launch-backdrop" aria-hidden="true" />
 
       <header className="launch-header">
         <Link className="launch-brand" href="/">
-          <span className="launch-brand-symbol">E</span>
-          UnExploited
+          <LuminaLogo size={26} />
+          <span>LUMINA</span>
         </Link>
         <span className="launch-status">
-          {done ? "Synthesis complete" : `${completedCount} / ${totalAgents} agents reporting`}
+          {done ? "Synthesis complete" : `${completedCount} / ${totalAgents} sources live`}
         </span>
       </header>
 
       <section className="launch-stage">
         <div className="launch-titlebar">
-          <p className="launch-eyebrow">Live agent run</p>
+          <p className="launch-eyebrow">Labour Exploitation Intelligence Platform</p>
           <h1 className="launch-title">
-            {done ? "Synthesis complete" : "Investigating in real time"}
+            {done ? "Evidence synthesis complete" : "Investigating public evidence"}
           </h1>
           <p className="launch-subtitle">
-            Five specialist agents are running in parallel against public sources. The orchestrator
-            fans out, each agent extracts cited findings, and synthesis produces the scored
-            briefing.
+            Five specialist agents are collecting source signals, reconciling citations, and
+            assembling the risk brief that opens next.
           </p>
         </div>
 
-        <div className="launch-constellation">
-          <SwarmConstellation
-            state={swarm}
-            synthesisActive={synthesis !== null}
-            done={done}
-          />
-        </div>
-
-        <div className="launch-progress" aria-hidden="true">
-          <span className="launch-progress-bar" style={{ width: `${progress * 100}%` }} />
-        </div>
-
-        <ul className="launch-agents">
-          {(Object.keys(AGENT_LABELS) as AgentName[]).map((name) => {
-            const cell = swarm[name];
-            const sc = cell.status === "snapshot" ? "ready" : cell.status;
-            return (
-              <li key={name} className={`launch-agent launch-agent-${sc}`}>
-                <span className="launch-agent-icon">{AGENT_ICONS[name]}</span>
-                <div className="launch-agent-body">
-                  <strong>{AGENT_LABELS[name]}</strong>
-                  <span className="launch-agent-detail">
-                    {cell.detail ?? (cell.status === "pending" ? "Queued" : "")}
-                  </span>
-                </div>
-                <span className={`launch-agent-status launch-agent-status-${sc === "running" || sc === "pending" ? "running" : sc}`}>
-                  {(cell.status === "running" || cell.status === "pending") && (
-                    <Loader2 className="spin-icon" size={12} aria-hidden="true" />
-                  )}
-                  {(cell.status === "ready" || cell.status === "snapshot") && (
-                    <CheckCircle2 size={12} aria-hidden="true" />
-                  )}
-                  {cell.status === "blocked" && <CircleSlash size={12} aria-hidden="true" />}
-                  {STATUS_LABEL[cell.status]}
-                </span>
-              </li>
-            );
-          })}
-        </ul>
-
-        {synthesis ? (
-          <div className={`launch-scores ${done ? "launch-scores-done" : ""}`}>
-            <ScoreTile label="Overall risk" value={synthesis.overallRisk} suffix="/100" tone="danger" />
-            <ScoreTile label="Severity" value={synthesis.severity} suffix="/5" tone="warning" />
-            <ScoreTile label="Credibility" value={synthesis.credibility} suffix="/5" tone="info" />
+        <div className="launch-visual-shell liquid-glass">
+          <div className="launch-constellation">
+            <SwarmConstellation
+              state={swarm}
+              synthesisActive={synthesis !== null}
+              done={done}
+            />
           </div>
-        ) : null}
 
-        <div className="launch-log" aria-live="polite">
-          {recentEvents.length === 0 ? (
-            <span className="launch-log-idle">Awaiting first event from the orchestrator…</span>
-          ) : (
-            recentEvents.map((e) => (
-              <span key={`${e.ts}-${e.message}`} className="launch-log-row">
-                <span className="launch-log-time">
-                  {new Date(e.ts).toLocaleTimeString(undefined, {
-                    hour12: false,
-                    minute: "2-digit",
-                    second: "2-digit",
-                  })}
-                </span>
-                {e.agent ? (
-                  <span className="launch-log-agent">{AGENT_LABELS[e.agent]}</span>
-                ) : null}
-                <span className="launch-log-msg">{e.message}</span>
-              </span>
-            ))
-          )}
+          <div className="launch-progress" aria-hidden="true">
+            <span className="launch-progress-bar" style={{ width: `${progress * 100}%` }} />
+          </div>
+        </div>
+
+        <div className="launch-intel-grid">
+          <ul className="launch-agents">
+            {(Object.keys(AGENT_LABELS) as AgentName[]).map((name) => {
+              const cell = swarm[name];
+              const sc = cell.status === "snapshot" ? "ready" : cell.status;
+              return (
+                <li key={name} className={`launch-agent liquid-glass launch-agent-${sc}`}>
+                  <span className="launch-agent-icon">{AGENT_ICONS[name]}</span>
+                  <div className="launch-agent-body">
+                    <strong>{AGENT_LABELS[name]}</strong>
+                    <span className="launch-agent-detail">
+                      {cell.detail ?? (cell.status === "pending" ? "Queued for collection" : "")}
+                    </span>
+                  </div>
+                  <span className={`launch-agent-status launch-agent-status-${sc === "running" || sc === "pending" ? "running" : sc}`}>
+                    {(cell.status === "running" || cell.status === "pending") && (
+                      <Loader2 className="spin-icon" size={12} aria-hidden="true" />
+                    )}
+                    {(cell.status === "ready" || cell.status === "snapshot") && (
+                      <CheckCircle2 size={12} aria-hidden="true" />
+                    )}
+                    {cell.status === "blocked" && <CircleSlash size={12} aria-hidden="true" />}
+                    {STATUS_LABEL[cell.status]}
+                  </span>
+                </li>
+              );
+            })}
+          </ul>
+
+          <aside className="launch-sidecar">
+            {synthesis ? (
+              <div className={`launch-scores ${done ? "launch-scores-done" : ""}`}>
+                <ScoreTile label="Overall risk" value={synthesis.overallRisk} suffix="/100" tone="danger" />
+                <ScoreTile label="Severity" value={synthesis.severity} suffix="/5" tone="warning" />
+                <ScoreTile label="Credibility" value={synthesis.credibility} suffix="/5" tone="info" />
+              </div>
+            ) : (
+              <div className="launch-skeleton liquid-glass" aria-hidden="true">
+                <span />
+                <span />
+                <span />
+              </div>
+            )}
+
+            <div className="launch-log liquid-glass" aria-live="polite">
+              {recentEvents.length === 0 ? (
+                <span className="launch-log-idle">Awaiting first orchestrator event</span>
+              ) : (
+                recentEvents.map((e) => (
+                  <span key={`${e.ts}-${e.message}`} className="launch-log-row">
+                    <span className="launch-log-time">
+                      {new Date(e.ts).toLocaleTimeString(undefined, {
+                        hour12: false,
+                        minute: "2-digit",
+                        second: "2-digit",
+                      })}
+                    </span>
+                    {e.agent ? (
+                      <span className="launch-log-agent">{AGENT_LABELS[e.agent]}</span>
+                    ) : null}
+                    <span className="launch-log-msg">{e.message}</span>
+                  </span>
+                ))
+              )}
+            </div>
+          </aside>
         </div>
 
         {done ? (
@@ -273,6 +284,24 @@ export function SwarmLaunch({ reportId }: Props) {
         {error ? <div className="launch-error">{error}</div> : null}
       </section>
     </main>
+  );
+}
+
+function LuminaLogo({ size = 28 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <circle cx="16" cy="16" r="15" stroke="rgba(255,255,255,0.5)" strokeWidth="1.2" />
+      <circle cx="16" cy="16" r="6" fill="rgba(255,255,255,0.1)" stroke="rgba(255,255,255,0.35)" strokeWidth="1" />
+      {[0, 60, 120, 180, 240, 300].map((deg) => {
+        const rad = (deg * Math.PI) / 180;
+        const x1 = (16 + 7 * Math.cos(rad)).toFixed(3);
+        const y1 = (16 + 7 * Math.sin(rad)).toFixed(3);
+        const x2 = (16 + 13 * Math.cos(rad)).toFixed(3);
+        const y2 = (16 + 13 * Math.sin(rad)).toFixed(3);
+        return <line key={deg} x1={x1} y1={y1} x2={x2} y2={y2} stroke="rgba(255,255,255,0.4)" strokeWidth="1" />;
+      })}
+      <circle cx="16" cy="16" r="2" fill="white" />
+    </svg>
   );
 }
 
