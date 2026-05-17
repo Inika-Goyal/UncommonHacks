@@ -41,3 +41,22 @@ export function getSupabaseServerConfig(env: EnvShape = process.env) {
 
   return { url, secretKey };
 }
+
+export function getElevenLabsConfig(env: EnvShape = process.env) {
+  const apiKey = env.ELEVENLABS_API_KEY;
+  const agentId = env.ELEVENLABS_AGENT_ID ?? env.NEXT_PUBLIC_ELEVENLABS_AGENT_ID;
+
+  if (!apiKey) {
+    throw new ConfigError(
+      "ElevenLabs is not configured. Set ELEVENLABS_API_KEY in .env.local to start the report-aware voice agent.",
+    );
+  }
+
+  if (!agentId) {
+    throw new ConfigError(
+      "ElevenLabs agent is not configured. Set ELEVENLABS_AGENT_ID in .env.local after creating the report-aware agent.",
+    );
+  }
+
+  return { apiKey, agentId };
+}

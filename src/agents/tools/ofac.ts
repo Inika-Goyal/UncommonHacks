@@ -7,14 +7,9 @@ export const SOURCE_OFAC = "ofac_sdn";
 
 const SDN_CSV_URL = "https://www.treasury.gov/ofac/downloads/sdn.csv";
 
-const LABOR_PROGRAM_KEYWORDS = [
-  "FORCED LABOR",
-  "MAGNIT",
-  "GLOMAG",
-  "TRAFFIK",
-  "TCO",
-  "HRIT",
-];
+// OFAC program codes that flag labor-related sanctions. GLOMAG = Global Magnitsky.
+// TCO = Transnational Criminal Organizations. HRIT = Human Rights / Iran Threat.
+const LABOR_PROGRAM_KEYWORDS = ["FORCED LABOR", "MAGNIT", "GLOMAG", "TRAFFIK", "TCO", "HRIT"];
 
 export type OfacEntry = {
   entNum: number;
@@ -52,28 +47,50 @@ function parseSdnCsv(text: string): OfacEntry[] {
   }));
 }
 
-export async function lookupOfac(query: string): Promise<CacheLookup<OfacLookup>> {
-  const key = hashKey(["ofac:sdn", normalize(query)]);
-
-  return withCache<OfacLookup>(
+async function loadFullSdn(): Promise<CacheLookup<OfacEntry[]>> {
+  // Cache the raw parsed SDN list once per week. Per-query filtering happens outside
+  // the cache so filter logic changes take effect without invalidating the dataset.
+  return withCache<OfacEntry[]>(
     SOURCE_OFAC,
-    key,
+    "full",
     { ttlMs: TTL.WEEK, staleTtlMs: TTL.MONTH },
-    async () => {
-      const text = await fetchText(SDN_CSV_URL, { timeoutMs: 30_000 });
-      const all = parseSdnCsv(text);
-      const needle = normalize(query);
-      const matches = all.filter((entry) => {
-        const programHit = LABOR_PROGRAM_KEYWORDS.some((kw) => entry.program.includes(kw));
-        const nameMatch = normalize(entry.name).includes(needle);
-        const remarksMatch = normalize(entry.remarks).includes(needle);
-        return nameMatch && (programHit || remarksMatch || true);
-      });
-
-      return {
-        matches: matches.slice(0, 25),
-        totalScanned: all.length,
-      };
-    },
+    async () => parseSdnCsv(await fetchText(SDN_CSV_URL, { timeoutMs: 30_000 })),
   );
+}
+
+function filterForLaborMatches(all: OfacEntry[], query: string): OfacEntry[] {
+  const needle = normalize(query);
+  // Require name AND a labor link (sanctions program flag or labor wording in remarks)
+  // to avoid false positives from unrelated entries whose name contains the query string.
+  return all
+    .filter((entry) => {
+      const nameMatch = normalize(entry.name).includes(needle);
+      if (!nameMatch) return false;
+      const programHit = LABOR_PROGRAM_KEYWORDS.some((kw) => entry.program.includes(kw));
+      const remarksLaborHit = /forced\s+lab(?:or|our)|trafficking|exploit|wage|worker/i.test(
+        entry.remarks,
+      );
+      return programHit || remarksLaborHit;
+    })
+    .slice(0, 25);
+}
+
+export async function lookupOfac(query: string): Promise<CacheLookup<OfacLookup>> {
+  // The hashKey from the original cache key shape is no longer used since we cache
+  // the full list, but kept around to dedupe per-query work if multiple requests
+  // race for the same string. Currently unused.
+  void hashKey(["ofac:sdn", normalize(query)]);
+
+  const loaded = await loadFullSdn();
+  if (loaded.source === "miss") {
+    return { source: "miss", error: loaded.error };
+  }
+
+  const all = loaded.payload;
+  const matches = filterForLaborMatches(all, query);
+  const result: OfacLookup = { matches, totalScanned: all.length };
+
+  if (loaded.source === "live") return { source: "live", payload: result };
+  if (loaded.source === "cache") return { source: "cache", payload: result, ageMs: loaded.ageMs };
+  return { source: "stale", payload: result, ageMs: loaded.ageMs };
 }

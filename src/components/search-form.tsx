@@ -103,7 +103,7 @@ export function SearchForm({
         return;
       }
 
-      router.push(`/dashboard?id=${payload.reportId}`);
+      router.push(`/swarm/${payload.reportId}`);
     } catch (error) {
       setSubmitError(error instanceof Error ? error.message : "Failed to start the swarm.");
     } finally {
