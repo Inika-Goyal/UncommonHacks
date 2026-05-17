@@ -10,6 +10,7 @@ import type {
 } from "@/lib/report-types";
 
 import type { AgentName, AgentResult, FeatureBundle, SynthesisOutput } from "@/agents/types";
+import { emitReportUpdate } from "@/agents/events";
 import { AGENT_LABELS } from "@/agents/types";
 
 export type ReportShellInput = {
@@ -127,8 +128,9 @@ export async function insertFindings(
 export async function insertMapPoints(reportId: string, points: MapPoint[]): Promise<void> {
   if (points.length === 0) return;
   const supabase = createSupabaseServerClient();
-  await supabase.from("map_points").insert(
+  const { error } = await supabase.from("map_points").insert(
     points.map((point) => ({
+      id: point.id,
       report_id: reportId,
       label: point.label,
       latitude: point.latitude,
@@ -142,6 +144,12 @@ export async function insertMapPoints(reportId: string, points: MapPoint[]): Pro
       sources: point.sources ?? null,
     })),
   );
+  if (error) {
+    throw new Error(`Failed to insert map points: ${error.message}`);
+  }
+  for (const point of points) {
+    emitReportUpdate(reportId, { type: "mappoint", point });
+  }
 }
 
 export async function patchReport(

@@ -13,7 +13,36 @@ import {
 
 export type WorldGlobeProps = {
   points: MapPoint[];
+  ambientArcs?: WorldGlobeAmbientArc[];
+  visiblePointIds?: string[];
+  trackedPointId?: string | null;
+  showPointArcs?: boolean;
+  initialZoom?: number;
+  idleZoom?: number;
+  autoRotateWhileZoomed?: boolean;
+  idleRotationSpeed?: number;
+  showLoadingOverlay?: boolean;
+  showChrome?: boolean;
+  interactive?: boolean;
+  onReady?: () => void;
+  onTrackedPointScreenPosition?: (position: WorldGlobeScreenPosition | null) => void;
 };
+
+export type WorldGlobeScreenPosition = {
+  x: number;
+  y: number;
+  visible: boolean;
+};
+
+export type WorldGlobeAmbientArc = {
+  startLat: number;
+  startLng: number;
+  endLat: number;
+  endLng: number;
+  color?: [string, string];
+};
+
+const EMPTY_AMBIENT_ARCS: WorldGlobeAmbientArc[] = [];
 
 export type WorldGlobePan = {
   x: number;
@@ -30,6 +59,8 @@ export type WorldGlobeLocationTarget = {
   longitude: number;
   zoom?: number;
   pan?: WorldGlobePan;
+  spin?: boolean;
+  spinTurns?: number;
 };
 
 export type WorldGlobeHandle = {
@@ -74,6 +105,7 @@ type ArcLink = {
 };
 
 const GLOBE_RADIUS = 2.4;
+const PIN_SURFACE_OFFSET = 0.035;
 const ARC_HEIGHT = 0.26;
 const ARC_HEIGHT_MIN_FACTOR = 0.18;
 const ARC_RADIUS = 0.006;
@@ -173,6 +205,22 @@ function rotationForLocation(latitude: number, longitude: number): Required<Worl
   return {
     x: THREE.MathUtils.clamp(THREE.MathUtils.degToRad(latitude * 0.72), -0.9, 0.9),
     y: THREE.MathUtils.degToRad(-longitude),
+  };
+}
+
+function clampZoomValue(zoom: number): number {
+  return THREE.MathUtils.clamp(Number(zoom.toFixed(2)), MIN_ZOOM, MAX_ZOOM);
+}
+
+function spinTargetRotation(
+  target: Required<WorldGlobeRotation>,
+  current: Required<WorldGlobeRotation>,
+  spinTurns = 0.6,
+): Required<WorldGlobeRotation> {
+  const direction = target.y >= current.y ? 1 : -1;
+  return {
+    x: target.x,
+    y: target.y + direction * Math.PI * 2 * spinTurns,
   };
 }
 
@@ -401,20 +449,59 @@ function canCreateWebGLContext() {
   return true;
 }
 
-export const WorldGlobe = forwardRef<WorldGlobeHandle, WorldGlobeProps>(function WorldGlobe({ points }, ref) {
+export const WorldGlobe = forwardRef<WorldGlobeHandle, WorldGlobeProps>(function WorldGlobe(
+  {
+    points,
+    ambientArcs = EMPTY_AMBIENT_ARCS,
+    visiblePointIds,
+    trackedPointId = null,
+    showPointArcs = true,
+    initialZoom = MIN_ZOOM,
+    idleZoom = initialZoom,
+    autoRotateWhileZoomed = false,
+    idleRotationSpeed = 0.00028,
+    showLoadingOverlay = true,
+    showChrome = true,
+    interactive = true,
+    onReady,
+    onTrackedPointScreenPosition,
+  },
+  ref,
+) {
   const mountRef = useRef<HTMLDivElement | null>(null);
-  const zoomLevelRef = useRef(1);
+  const initialZoomLevel = clampZoomValue(initialZoom);
+  const idleZoomLevel = clampZoomValue(idleZoom);
+  const zoomLevelRef = useRef(initialZoomLevel);
   const panOffsetRef = useRef({ x: 0, y: 0 });
   const rotationTargetRef = useRef<Required<WorldGlobeRotation> | null>(null);
   const currentRotationRef = useRef<Required<WorldGlobeRotation>>({ x: 0, y: 0 });
+  const hasInitializedRotationRef = useRef(false);
+  const hasReportedReadyRef = useRef(false);
+  const interactiveRef = useRef(interactive);
+  const onReadyRef = useRef(onReady);
+  const visiblePointIdsRef = useRef<Set<string> | null>(visiblePointIds ? new Set(visiblePointIds) : null);
+  const trackedPointIdRef = useRef(trackedPointId);
+  const onTrackedPointScreenPositionRef = useRef(onTrackedPointScreenPosition);
   const [selectedPointId, setSelectedPointId] = useState<string | null>(null);
-  const [zoomLevel, setZoomLevel] = useState(1);
+  const [zoomLevel, setZoomLevel] = useState(initialZoomLevel);
   const [geographyState, setGeographyState] = useState<GeographyState>({ status: "loading" });
   const [rendererError, setRendererError] = useState<string | null>(null);
 
   const activePoints = useMemo(
     () => [...points].sort((a, b) => (a.order ?? 0) - (b.order ?? 0)),
     [points],
+  );
+
+  const ambientArcLinks = useMemo<ArcLink[]>(
+    () =>
+      ambientArcs.map((arc) => ({
+        startLat: arc.startLat,
+        startLng: arc.startLng,
+        endLat: arc.endLat,
+        endLng: arc.endLng,
+        color: arc.color ?? ["#22d3ee", "#f59e0b"],
+      })),
+    [ambientArcs],
   );
 
   const selectedPoint = useMemo(
@@ -426,13 +513,33 @@ export const WorldGlobe = forwardRef<WorldGlobeHandle, WorldGlobeProps>(function
     zoomLevelRef.current = zoomLevel;
   }, [zoomLevel]);
 
+  useEffect(() => {
+    onReadyRef.current = onReady;
+  }, [onReady]);
+
+  useEffect(() => {
+    visiblePointIdsRef.current = visiblePointIds ? new Set(visiblePointIds) : null;
+  }, [visiblePointIds]);
+
+  useEffect(() => {
+    trackedPointIdRef.current = trackedPointId;
+  }, [trackedPointId]);
+
+  useEffect(() => {
+    onTrackedPointScreenPositionRef.current = onTrackedPointScreenPosition;
+  }, [onTrackedPointScreenPosition]);
+
+  useEffect(() => {
+    interactiveRef.current = interactive;
+  }, [interactive]);
+
   const setPan = useCallback((pan: WorldGlobePan) => {
     panOffsetRef.current = clampPan(pan);
   }, []);
 
   const setZoom = useCallback(
     (nextZoom: number, options?: { keepPan?: boolean }) => {
-      const clampedZoom = THREE.MathUtils.clamp(Number(nextZoom.toFixed(2)), MIN_ZOOM, MAX_ZOOM);
+      const clampedZoom = clampZoomValue(nextZoom);
       zoomLevelRef.current = clampedZoom;
       if (clampedZoom <= MIN_ZOOM && !options?.keepPan) {
         setPan({ x: 0, y: 0 });
@@ -448,7 +555,7 @@ export const WorldGlobe = forwardRef<WorldGlobeHandle, WorldGlobeProps>(function
 
   function resetGlobeView() {
     setPan({ x: 0, y: 0 });
-    setZoom(MIN_ZOOM);
+    setZoom(idleZoomLevel);
     if (activePoints[0]) {
       rotationTargetRef.current = rotationForLocation(
         activePoints[0].latitude,
@@ -469,7 +576,10 @@ export const WorldGlobe = forwardRef<WorldGlobeHandle, WorldGlobeProps>(function
         };
       },
       focusLocation: (target) => {
-        rotationTargetRef.current = rotationForLocation(target.latitude, target.longitude);
+        const nextRotation = rotationForLocation(target.latitude, target.longitude);
+        rotationTargetRef.current = target.spin
+          ? spinTargetRotation(nextRotation, currentRotationRef.current, target.spinTurns)
+          : nextRotation;
         if (typeof target.zoom === "number") {
           setZoom(target.zoom);
         }
@@ -483,7 +593,10 @@ export const WorldGlobe = forwardRef<WorldGlobeHandle, WorldGlobeProps>(function
           return false;
         }
         setSelectedPointId(point.id);
-        rotationTargetRef.current = rotationForLocation(point.latitude, point.longitude);
+        rotationTargetRef.current = spinTargetRotation(
+          rotationForLocation(point.latitude, point.longitude),
+          currentRotationRef.current,
+        );
         setZoom(Math.max(1.32, zoomLevelRef.current), { keepPan: true });
         return true;
       },
@@ -619,7 +732,7 @@ export const WorldGlobe = forwardRef<WorldGlobeHandle, WorldGlobeProps>(function
       const arcGroup = new THREE.Group();
       const arcPulseMaterials: THREE.ShaderMaterial[] = [];
       const arcBaseMaterials: THREE.ShaderMaterial[] = [];
-      makeArcLinks(activePoints).forEach((link, index) => {
+      [...ambientArcLinks, ...(showPointArcs ? makeArcLinks(activePoints) : [])].forEach((link, index) => {
         const signalArc = makeSignalArc(link, index);
         arcGroup.add(signalArc.group);
         arcPulseMaterials.push(...signalArc.pulseMaterials);
@@ -640,6 +753,8 @@ export const WorldGlobe = forwardRef<WorldGlobeHandle, WorldGlobeProps>(function
       const pinGroup = new THREE.Group();
       globeGroup.add(pinGroup);
       const pinMeshes: THREE.Object3D[] = [];
+      const pointSurfaceVectors = new Map<string, THREE.Vector3>();
+      const pointPinGroups = new Map<string, THREE.Group>();
       const pinPulseRings: THREE.Mesh<THREE.TorusGeometry, THREE.MeshBasicMaterial>[] = [];
       const pinRayMaterials: THREE.ShaderMaterial[] = [];
       const pinBaseGlows: THREE.Mesh<THREE.CircleGeometry, THREE.MeshBasicMaterial>[] = [];
@@ -661,14 +776,16 @@ export const WorldGlobe = forwardRef<WorldGlobeHandle, WorldGlobeProps>(function
 
       for (const [pointIndex, point] of activePoints.entries()) {
         const surface = latLngToVector3(point.latitude, point.longitude, GLOBE_RADIUS);
+        const elevatedSurface = latLngToVector3(point.latitude, point.longitude, GLOBE_RADIUS + PIN_SURFACE_OFFSET);
         const color = new THREE.Color(exploitColor(point));
         const severity = point.severity ?? (point.risk === "high" ? 4 : point.risk === "medium" ? 3 : 2);
         const spec = beamSpec(severity);
 
         const pin = new THREE.Group();
         pin.userData.pointId = point.id;
-        pin.position.copy(surface);
+        pin.position.copy(elevatedSurface);
         pin.quaternion.setFromUnitVectors(SURFACE_NORMAL, surface.clone().normalize());
+        pin.renderOrder = 20;
 
         const coreMaterial = new THREE.ShaderMaterial({
           uniforms: {
@@ -684,6 +801,7 @@ export const WorldGlobe = forwardRef<WorldGlobeHandle, WorldGlobeProps>(function
           transparent: true,
           blending: THREE.AdditiveBlending,
           depthWrite: false,
+          depthTest: false,
           side: THREE.DoubleSide,
         });
         coreMaterial.userData.phase = pointIndex * 0.41;
@@ -713,6 +831,7 @@ export const WorldGlobe = forwardRef<WorldGlobeHandle, WorldGlobeProps>(function
           transparent: true,
           blending: THREE.AdditiveBlending,
           depthWrite: false,
+          depthTest: false,
           side: THREE.DoubleSide,
         });
         glowMaterial.userData.phase = pointIndex * 0.31;
@@ -736,6 +855,7 @@ export const WorldGlobe = forwardRef<WorldGlobeHandle, WorldGlobeProps>(function
             opacity: 0.95,
             blending: THREE.AdditiveBlending,
             depthWrite: false,
+            depthTest: false,
           }),
         );
         tip.position.z = 0.0012;
@@ -750,6 +870,7 @@ export const WorldGlobe = forwardRef<WorldGlobeHandle, WorldGlobeProps>(function
             opacity: 0.9,
             blending: THREE.AdditiveBlending,
             depthWrite: false,
+            depthTest: false,
           }),
         );
         baseRing.position.z = 0.0014;
@@ -762,6 +883,7 @@ export const WorldGlobe = forwardRef<WorldGlobeHandle, WorldGlobeProps>(function
             opacity: 0.24,
             blending: THREE.AdditiveBlending,
             depthWrite: false,
+            depthTest: false,
           }),
         );
         baseGlow.position.z = 0.0007;
@@ -776,6 +898,7 @@ export const WorldGlobe = forwardRef<WorldGlobeHandle, WorldGlobeProps>(function
               opacity: 0.32,
               blending: THREE.AdditiveBlending,
               depthWrite: false,
+              depthTest: false,
             }),
           );
           pulseRing.position.z = 0.0018 + ringIndex * 0.0006;
@@ -793,6 +916,8 @@ export const WorldGlobe = forwardRef<WorldGlobeHandle, WorldGlobeProps>(function
         pin.add(tip);
         pinGroup.add(pin);
 
+        pointSurfaceVectors.set(point.id, elevatedSurface.clone());
+        pointPinGroups.set(point.id, pin);
         pinMeshes.push(pin);
         pinPulseRings.push(...pulseRings);
         pinRayMaterials.push(coreMaterial, glowMaterial);
@@ -800,7 +925,7 @@ export const WorldGlobe = forwardRef<WorldGlobeHandle, WorldGlobeProps>(function
         pinTips.push(tip);
       }
 
-      if (activePoints[0]) {
+      if (activePoints[0] && !hasInitializedRotationRef.current) {
         const initialRotation = rotationForLocation(
           activePoints[0].latitude,
           activePoints[0].longitude,
@@ -809,6 +934,7 @@ export const WorldGlobe = forwardRef<WorldGlobeHandle, WorldGlobeProps>(function
         globeGroup.rotation.y = initialRotation.y;
         currentRotationRef.current = initialRotation;
         rotationTargetRef.current = initialRotation;
+        hasInitializedRotationRef.current = true;
       }
 
       const starsGeometry = new THREE.BufferGeometry();
@@ -846,6 +972,9 @@ export const WorldGlobe = forwardRef<WorldGlobeHandle, WorldGlobeProps>(function
       let startPanX = 0;
       let startPanY = 0;
       let dragMode: "rotate" | "pan" = "rotate";
+      let lastTrackedScreenPositionKey = "";
+      const globeWorldCenter = new THREE.Vector3();
+      const cameraWorldPosition = new THREE.Vector3();
       const rotationVelocity = new THREE.Vector2(0, 0.00028);
 
       const resize = () => {
@@ -858,8 +987,15 @@ export const WorldGlobe = forwardRef<WorldGlobeHandle, WorldGlobeProps>(function
       const resizeObserver = new ResizeObserver(resize);
       resizeObserver.observe(mountElement);
       resize();
+      if (!hasReportedReadyRef.current) {
+        hasReportedReadyRef.current = true;
+        onReadyRef.current?.();
+      }
 
       const selectFromPointer = (event: PointerEvent) => {
+        if (!interactiveRef.current) {
+          return;
+        }
         const bounds = renderer.domElement.getBoundingClientRect();
         pointer.x = ((event.clientX - bounds.left) / bounds.width) * 2 - 1;
         pointer.y = -((event.clientY - bounds.top) / bounds.height) * 2 + 1;
@@ -891,6 +1027,9 @@ export const WorldGlobe = forwardRef<WorldGlobeHandle, WorldGlobeProps>(function
       };
 
       const handlePointerDown = (event: PointerEvent) => {
+        if (!interactiveRef.current) {
+          return;
+        }
         if (event.metaKey || event.ctrlKey) {
           event.preventDefault();
         }
@@ -910,6 +1049,9 @@ export const WorldGlobe = forwardRef<WorldGlobeHandle, WorldGlobeProps>(function
       };
 
       const handlePointerMove = (event: PointerEvent) => {
+        if (!interactiveRef.current) {
+          return;
+        }
         if (!isDragging) {
           return;
         }
@@ -939,6 +1081,9 @@ export const WorldGlobe = forwardRef<WorldGlobeHandle, WorldGlobeProps>(function
       };
 
       const handlePointerUp = (event: PointerEvent) => {
+        if (!interactiveRef.current) {
+          return;
+        }
         const moved = Math.abs(event.clientX - dragStartX) + Math.abs(event.clientY - dragStartY);
         isDragging = false;
         renderer.domElement.releasePointerCapture(event.pointerId);
@@ -949,6 +1094,9 @@ export const WorldGlobe = forwardRef<WorldGlobeHandle, WorldGlobeProps>(function
       };
 
       const handleWheel = (event: WheelEvent) => {
+        if (!interactiveRef.current) {
+          return;
+        }
         event.preventDefault();
         const oldZoom = zoomLevelRef.current;
         const nextZoom = THREE.MathUtils.clamp(
@@ -1001,16 +1149,68 @@ export const WorldGlobe = forwardRef<WorldGlobeHandle, WorldGlobeProps>(function
             globeGroup.rotation.y = rotationTargetRef.current.y;
             rotationTargetRef.current = null;
           }
-        } else if (!isDragging && !reducedMotion && zoomLevelRef.current <= MIN_ZOOM + 0.02) {
+        } else if (
+          !isDragging &&
+          !reducedMotion &&
+          (autoRotateWhileZoomed || zoomLevelRef.current <= MIN_ZOOM + 0.02)
+        ) {
           globeGroup.rotation.y += rotationVelocity.y;
           globeGroup.rotation.x += rotationVelocity.x;
           rotationVelocity.multiplyScalar(0.992);
-          rotationVelocity.y = Math.max(rotationVelocity.y, 0.00028);
+          rotationVelocity.y = Math.max(rotationVelocity.y, idleRotationSpeed);
         }
         currentRotationRef.current = {
           x: globeGroup.rotation.x,
           y: globeGroup.rotation.y,
         };
+        globeGroup.updateMatrixWorld();
+        camera.updateMatrixWorld();
+        globeGroup.getWorldPosition(globeWorldCenter);
+        camera.getWorldPosition(cameraWorldPosition);
+
+        const visiblePointIds = visiblePointIdsRef.current;
+        pointPinGroups.forEach((pin, pointId) => {
+          const localSurface = pointSurfaceVectors.get(pointId);
+          if (!localSurface) {
+            pin.visible = false;
+            return;
+          }
+          const worldSurface = localSurface.clone().applyMatrix4(globeGroup.matrixWorld);
+          const normal = worldSurface.clone().sub(globeWorldCenter).normalize();
+          const toCamera = cameraWorldPosition.clone().sub(worldSurface).normalize();
+          const isFrontFacing = normal.dot(toCamera) > 0.02;
+          pin.visible = (!visiblePointIds || visiblePointIds.has(pointId)) && isFrontFacing;
+        });
+
+        const trackedPointId = trackedPointIdRef.current;
+        const trackedCallback = onTrackedPointScreenPositionRef.current;
+        if (trackedCallback) {
+          const localSurface = trackedPointId ? pointSurfaceVectors.get(trackedPointId) : undefined;
+          const trackedPin = trackedPointId ? pointPinGroups.get(trackedPointId) : undefined;
+          if (!localSurface || (visiblePointIds && trackedPointId && !visiblePointIds.has(trackedPointId))) {
+            if (lastTrackedScreenPositionKey !== "null") {
+              lastTrackedScreenPositionKey = "null";
+              trackedCallback(null);
+            }
+          } else {
+            const projected = localSurface.clone().applyMatrix4(globeGroup.matrixWorld).project(camera);
+            const bounds = renderer.domElement.getBoundingClientRect();
+            const isVisible =
+              Boolean(trackedPin?.visible) &&
+              projected.z >= -1 &&
+              projected.z <= 1;
+            const screenPosition = {
+              x: bounds.left + ((projected.x + 1) / 2) * bounds.width,
+              y: bounds.top + ((1 - projected.y) / 2) * bounds.height,
+              visible: isVisible,
+            };
+            const nextKey = `${Math.round(screenPosition.x)}:${Math.round(screenPosition.y)}:${screenPosition.visible ? 1 : 0}`;
+            if (nextKey !== lastTrackedScreenPositionKey) {
+              lastTrackedScreenPositionKey = nextKey;
+              trackedCallback(screenPosition);
+            }
+          }
+        }
 
         if (!reducedMotion) {
           stars.rotation.y += 0.00018;
@@ -1112,7 +1312,7 @@ export const WorldGlobe = forwardRef<WorldGlobeHandle, WorldGlobeProps>(function
       isDisposed = true;
       disposeScene?.();
     };
-  }, [activePoints, geographyState, setPan, setZoom]);
+  }, [activePoints, ambientArcLinks, autoRotateWhileZoomed, geographyState, idleRotationSpeed, setPan, setZoom, showPointArcs]);
 
   return (
     <div className="globe-stage" aria-label="3D geographic report signals">
@@ -1123,36 +1323,40 @@ export const WorldGlobe = forwardRef<WorldGlobeHandle, WorldGlobeProps>(function
           role="img"
           aria-label="Rotating globe with risk pins"
         />
-        <div className="globe-overlay globe-overlay-top">
-          <span>Supply-chain footprint</span>
-          <strong>
-            {activePoints.length} mapped {activePoints.length === 1 ? "signal" : "signals"}
-          </strong>
-        </div>
-        <div className="globe-zoom-control" aria-label="Globe zoom">
-          <button
-            type="button"
-            aria-label="Zoom out"
-            title="Zoom out"
-            onClick={() => changeZoom(-0.1)}
-            disabled={zoomLevel <= MIN_ZOOM}
-          >
-            <Minus aria-hidden="true" size={13} />
-          </button>
-          <button
-            type="button"
-            aria-label="Zoom in"
-            title="Zoom in"
-            onClick={() => changeZoom(0.1)}
-            disabled={zoomLevel >= MAX_ZOOM}
-          >
-            <Plus aria-hidden="true" size={13} />
-          </button>
-          <button type="button" aria-label="Reset globe view" title="Reset globe view" onClick={resetGlobeView}>
-            <RotateCcw aria-hidden="true" size={13} />
-          </button>
-        </div>
-        {geographyState.status === "loading" ? (
+        {showChrome ? (
+          <div className="globe-overlay globe-overlay-top">
+            <span>Supply-chain footprint</span>
+            <strong>
+              {activePoints.length} mapped {activePoints.length === 1 ? "signal" : "signals"}
+            </strong>
+          </div>
+        ) : null}
+        {showChrome ? (
+          <div className="globe-zoom-control" aria-label="Globe zoom">
+            <button
+              type="button"
+              aria-label="Zoom out"
+              title="Zoom out"
+              onClick={() => changeZoom(-0.1)}
+              disabled={zoomLevel <= MIN_ZOOM}
+            >
+              <Minus aria-hidden="true" size={13} />
+            </button>
+            <button
+              type="button"
+              aria-label="Zoom in"
+              title="Zoom in"
+              onClick={() => changeZoom(0.1)}
+              disabled={zoomLevel >= MAX_ZOOM}
+            >
+              <Plus aria-hidden="true" size={13} />
+            </button>
+            <button type="button" aria-label="Reset globe view" title="Reset globe view" onClick={resetGlobeView}>
+              <RotateCcw aria-hidden="true" size={13} />
+            </button>
+          </div>
+        ) : null}
+        {showLoadingOverlay && geographyState.status === "loading" ? (
           <div className="globe-overlay globe-asset-state" aria-live="polite">
             <span>Loading map geometry</span>
             <strong>Preparing globe</strong>
@@ -1174,32 +1378,34 @@ export const WorldGlobe = forwardRef<WorldGlobeHandle, WorldGlobeProps>(function
           <strong>{rendererError}</strong>
         </div>
       ) : null}
-      <div className="globe-legend" aria-label="Mapped exploitation signals">
-        {activePoints.map((point) => {
-          const color = exploitColor(point);
-          const stageLabel = point.stage ? STAGE_LABEL[point.stage] : null;
-          return (
-            <button
-              key={point.id}
-              className={point.id === selectedPoint?.id ? "legend-row legend-row-active" : "legend-row"}
-              type="button"
-              data-map-point-id={point.id}
-              onClick={() => setSelectedPointId(point.id)}
-            >
-              <span className="legend-dot" style={{ background: color, boxShadow: `0 0 10px ${color}` }} />
-              <span className="legend-row-main">
-                <span className="legend-row-label">{point.label}</span>
-                {stageLabel ? <span className="legend-row-stage">{stageLabel}</span> : null}
-              </span>
-              {point.severity ? (
-                <span className="legend-row-severity" style={{ color: severityColor(point.severity) }}>
-                  S{point.severity}
+      {showChrome ? (
+        <div className="globe-legend" aria-label="Mapped exploitation signals">
+          {activePoints.map((point) => {
+            const color = exploitColor(point);
+            const stageLabel = point.stage ? STAGE_LABEL[point.stage] : null;
+            return (
+              <button
+                key={point.id}
+                className={point.id === selectedPoint?.id ? "legend-row legend-row-active" : "legend-row"}
+                type="button"
+                data-map-point-id={point.id}
+                onClick={() => setSelectedPointId(point.id)}
+              >
+                <span className="legend-dot" style={{ background: color, boxShadow: `0 0 10px ${color}` }} />
+                <span className="legend-row-main">
+                  <span className="legend-row-label">{point.label}</span>
+                  {stageLabel ? <span className="legend-row-stage">{stageLabel}</span> : null}
                 </span>
-              ) : null}
-            </button>
-          );
-        })}
-      </div>
+                {point.severity ? (
+                  <span className="legend-row-severity" style={{ color: severityColor(point.severity) }}>
+                    S{point.severity}
+                  </span>
+                ) : null}
+              </button>
+            );
+          })}
+        </div>
+      ) : null}
     </div>
   );
 });
