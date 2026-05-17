@@ -16,6 +16,12 @@ export function parseInputType(value: unknown): InputType | null {
   return value === "company" || value === "region" ? value : null;
 }
 
+const supabaseUuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+export function isSupabaseReportId(id: string) {
+  return supabaseUuidPattern.test(id);
+}
+
 export function normalizeReportRequest(body: unknown): ReportRequest {
   if (!body || typeof body !== "object") {
     throw new Error("Request body must be a JSON object.");
@@ -65,20 +71,32 @@ export async function getReportById(id: string): Promise<{
   report: Report;
   mode: "demo" | "supabase";
 }> {
+  const cleanId = id.trim();
+
+  if (!cleanId) {
+    throw new NotFoundError("Report id is required.");
+  }
+
   if (isDemoMode()) {
-    const report = demoReports.find((candidate) => candidate.id === id);
+    const report = demoReports.find((candidate) => candidate.id === cleanId);
 
     if (!report) {
-      throw new NotFoundError(`No demo report exists with id ${id}.`);
+      throw new NotFoundError(`No demo report exists with id ${cleanId}.`);
     }
 
     return { report, mode: "demo" };
   }
 
-  const report = await findSupabaseReportById(id);
+  if (!isSupabaseReportId(cleanId)) {
+    throw new NotFoundError(
+      "That report id is not a live Supabase report id. Use the demo query route for fixture reports, or enable demo mode.",
+    );
+  }
+
+  const report = await findSupabaseReportById(cleanId);
 
   if (!report) {
-    throw new NotFoundError(`No Supabase report exists with id ${id}.`);
+    throw new NotFoundError(`No Supabase report exists with id ${cleanId}.`);
   }
 
   return { report, mode: "supabase" };

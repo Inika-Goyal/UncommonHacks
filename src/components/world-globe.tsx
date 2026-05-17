@@ -160,10 +160,10 @@ function isCountryFeatureCollection(value: unknown): value is CountryFeatureColl
 
 function latLngToVector3(latitude: number, longitude: number, radius: number) {
   const phi = THREE.MathUtils.degToRad(90 - latitude);
-  const theta = THREE.MathUtils.degToRad(longitude + 180);
+  const theta = THREE.MathUtils.degToRad(90 - longitude);
 
   return new THREE.Vector3(
-    -radius * Math.sin(phi) * Math.cos(theta),
+    radius * Math.sin(phi) * Math.cos(theta),
     radius * Math.cos(phi),
     radius * Math.sin(phi) * Math.sin(theta),
   );
@@ -172,7 +172,7 @@ function latLngToVector3(latitude: number, longitude: number, radius: number) {
 function rotationForLocation(latitude: number, longitude: number): Required<WorldGlobeRotation> {
   return {
     x: THREE.MathUtils.clamp(THREE.MathUtils.degToRad(latitude * 0.72), -0.9, 0.9),
-    y: THREE.MathUtils.degToRad(-longitude - 90),
+    y: THREE.MathUtils.degToRad(-longitude),
   };
 }
 

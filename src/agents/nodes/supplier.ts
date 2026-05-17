@@ -4,9 +4,15 @@ import type { Citation, ExploitCategory, MapPoint, MapPointStage } from "@/lib/r
 
 import type { OrchestratorState, OrchestratorUpdate } from "@/agents/state";
 import { lookupWikidata, type WikidataLookup } from "@/agents/tools/wikidata";
-import { lookupSupplierRegistry, type RegistryFacility } from "@/agents/tools/supplier-registry";
+import {
+  lookupNikeManufacturingMap,
+  type NikeManufacturingFacility,
+} from "@/agents/tools/nike-manufacturing-map";
 import { runAgentNode, extractFindingsWithLlm } from "@/agents/nodes/_helpers";
 
+// Supplier-agent records can come from live corporate-footprint lookup or a
+// source-backed facility disclosure source. The map should plot factory/facility
+// coordinates discovered by this research step, not broad country centroids.
 type ResolvedFacility = {
   name: string;
   address: string;
@@ -17,23 +23,27 @@ type ResolvedFacility = {
   sectors: string[];
   citationLabel: string;
   citationUrl: string;
-  origin: "wikidata" | "registry";
+  workers?: number;
+  factoryTier?: string;
+  origin: "wikidata" | "nike_manufacturing_map";
 };
 
 const accessedAt = () => new Date().toISOString().slice(0, 10);
 
-function fromRegistry(f: RegistryFacility): ResolvedFacility {
+function fromNikeManufacturingMap(facility: NikeManufacturingFacility): ResolvedFacility {
   return {
-    name: f.name,
-    address: f.address,
-    country: f.country,
-    countryCode: f.countryCode,
-    latitude: f.latitude,
-    longitude: f.longitude,
-    sectors: f.sectors,
-    citationLabel: f.name,
-    citationUrl: f.source,
-    origin: "registry",
+    name: facility.name,
+    address: facility.address,
+    country: facility.country,
+    countryCode: facility.countryCode,
+    latitude: facility.latitude,
+    longitude: facility.longitude,
+    sectors: facility.sectors,
+    citationLabel: facility.name,
+    citationUrl: facility.source,
+    workers: facility.workers,
+    factoryTier: facility.factoryTier,
+    origin: "nike_manufacturing_map",
   };
 }
 
@@ -96,20 +106,53 @@ function formatFacilities(facilities: ResolvedFacility[]): string {
       (f, idx) =>
         `${idx + 1}. ${f.name} | ${f.address || "—"} | ${f.country || "—"} | sectors=${
           f.sectors.join(", ") || "n/a"
-        } | source=${f.origin} | ${f.citationUrl}`,
+        } | workers=${f.workers ?? "n/a"} | source=${f.origin} | ${f.citationUrl}`,
     )
     .join("\n");
 }
 
-function pickHighRiskCountries(state: OrchestratorState): Set<string> {
-  return new Set(state.countries.map((country) => country.toLowerCase()));
+function normalizeCountry(value: string): string {
+  return value.toLowerCase().replace(/[^a-z ]/g, " ").replace(/\s+/g, " ").trim();
+}
+
+function countriesFromState(state: OrchestratorState): Set<string> {
+  const countries = new Set(state.countries.map(normalizeCountry).filter(Boolean));
+  for (const result of Object.values(state.agents)) {
+    for (const finding of result?.findings ?? []) {
+      const geography = normalizeCountry(finding.geography);
+      for (const token of geography.split(/\band\b|,|\/|;|\bwith\b/)) {
+        const clean = normalizeCountry(token);
+        if (clean) countries.add(clean);
+      }
+    }
+  }
+  return countries;
+}
+
+function countryMatches(facility: ResolvedFacility, countries: Set<string>): boolean {
+  if (countries.size === 0) return false;
+  const country = normalizeCountry(facility.country);
+  return Array.from(countries).some((candidate) => country === candidate || candidate.endsWith(` ${country}`));
+}
+
+function rankFacilities(
+  facilities: ResolvedFacility[],
+  relevantCountries: Set<string>,
+): ResolvedFacility[] {
+  return [...facilities].sort((a, b) => {
+    const countryDelta = Number(countryMatches(b, relevantCountries)) - Number(countryMatches(a, relevantCountries));
+    if (countryDelta !== 0) return countryDelta;
+    const tierDelta = Number((b.factoryTier ?? "").includes("Tier 1")) - Number((a.factoryTier ?? "").includes("Tier 1"));
+    if (tierDelta !== 0) return tierDelta;
+    return (b.workers ?? 0) - (a.workers ?? 0);
+  });
 }
 
 function facilityRisk(
   facility: ResolvedFacility,
   highRisk: Set<string>,
 ): "high" | "medium" | "low" {
-  if (highRisk.has(facility.country.toLowerCase())) return "high";
+  if (countryMatches(facility, highRisk)) return "high";
   if (
     facility.sectors.some((s) =>
       /apparel|garment|textile|mining|electronics|seafood|agriculture|footwear|retail|manufactur/i.test(
@@ -163,7 +206,7 @@ function facilityCauses(
   highRisk: Set<string>,
 ): string[] {
   const causes: string[] = [];
-  if (highRisk.has(facility.country.toLowerCase())) {
+  if (countryMatches(facility, highRisk)) {
     causes.push(`${facility.country} listed in user-defined high-risk geography`);
   }
   if (facility.sectors.some((s) => /apparel|garment|textile|footwear/i.test(s))) {
@@ -176,7 +219,7 @@ function facilityCauses(
     causes.push("Corporate-footprint entity surfaced via Wikidata — verify operational tier");
   }
   if (causes.length === 0) {
-    causes.push("Listed in curated supplier registry — review for tier-2/3 subcontracting");
+    causes.push("Source-backed facility candidate — verify operational tier");
   }
   return causes;
 }
@@ -186,21 +229,25 @@ export async function supplierNode(state: OrchestratorState): Promise<Orchestrat
     agent: "supplier",
     reportId: state.reportId,
     runner: async () => {
-      const [wikidataResult, registryFacilities] = await Promise.all([
+      const [wikidataResult, nikeManufacturingResult] = await Promise.all([
         lookupWikidata(state.query),
-        Promise.resolve(lookupSupplierRegistry(state.query)),
+        lookupNikeManufacturingMap(state.query),
       ]);
 
       const fromWiki =
         wikidataResult.source !== "miss" ? fromWikidata(state.query, wikidataResult.payload) : [];
-      const fromReg = registryFacilities.map(fromRegistry);
+      const fromNike =
+        nikeManufacturingResult.source !== "miss"
+          ? nikeManufacturingResult.payload.facilities.map(fromNikeManufacturingMap)
+          : [];
+      const relevantCountries = countriesFromState(state);
 
-      const merged = dedupe([...fromWiki, ...fromReg]);
+      const merged = rankFacilities(dedupe([...fromNike, ...fromWiki]), relevantCountries);
 
       if (merged.length === 0) {
         return {
           status: "ready" as const,
-          detail: `No corporate-footprint or supplier records found for "${state.query}". Wikidata returned no business entity by that name.`,
+          detail: `No supplier or corporate-footprint records found for "${state.query}".`,
           findings: [],
           mapPoints: [],
           rawFeatures: { facilityCount: 0, countriesCovered: [], sectors: [] },
@@ -212,7 +259,7 @@ export async function supplierNode(state: OrchestratorState): Promise<Orchestrat
       const findings = await extractFindingsWithLlm({
         agent: "supplier",
         evidence,
-        instructions: `Subject: ${state.query}. Identify supplier-transparency, geographic-concentration, or corporate-footprint findings about labor risk. Each citation MUST use the URL from one of the records above (Wikidata or the registry source). Accessed date: ${accessedAt()}.`,
+        instructions: `Subject: ${state.query}. Identify supplier-transparency, geographic-concentration, or corporate-footprint findings about labor risk. Each citation MUST use the URL from one of the facility or Wikidata records above. Accessed date: ${accessedAt()}.`,
       });
 
       const decoratedFindings = findings.map((finding) => ({
@@ -223,19 +270,18 @@ export async function supplierNode(state: OrchestratorState): Promise<Orchestrat
             : ([
                 {
                   label: `Wikidata entity: ${state.query}`,
-                  source: "Wikidata",
+                  source: merged[0]?.origin === "nike_manufacturing_map" ? "Nike Manufacturing Map" : "Wikidata",
                   url: merged[0]?.citationUrl ?? "https://www.wikidata.org/",
                   accessedAt: accessedAt(),
                 },
               ] satisfies Citation[]),
       }));
 
-      const highRisk = pickHighRiskCountries(state);
       const mapPoints: MapPoint[] = merged
         .filter((f) => typeof f.latitude === "number" && typeof f.longitude === "number")
         .slice(0, 6)
         .map((f) => {
-          const risk = facilityRisk(f, highRisk);
+          const risk = facilityRisk(f, relevantCountries);
           const stage = facilityStage(f);
           return {
             id: randomUUID(),
@@ -247,10 +293,10 @@ export async function supplierNode(state: OrchestratorState): Promise<Orchestrat
             severity: facilitySeverity(risk),
             stage,
             order: STAGE_ORDER[stage],
-            causes: facilityCauses(f, highRisk),
+            causes: facilityCauses(f, relevantCountries),
             sources: [
               {
-                label: f.citationLabel || `${f.origin === "wikidata" ? "Wikidata" : "Registry"} record`,
+                label: f.citationLabel || `${f.origin === "nike_manufacturing_map" ? "Nike Manufacturing Map" : "Wikidata"} record`,
                 url: f.citationUrl,
               },
             ],
@@ -261,14 +307,15 @@ export async function supplierNode(state: OrchestratorState): Promise<Orchestrat
       const countriesCovered = Array.from(new Set(merged.map((f) => f.country).filter(Boolean)));
       const sectors = Array.from(new Set(merged.flatMap((f) => f.sectors).filter(Boolean)));
 
-      const wikidataLive = wikidataResult.source === "live";
-      const status = wikidataLive ? ("ready" as const) : ("snapshot" as const);
+      const hasLiveSource = wikidataResult.source === "live" || nikeManufacturingResult.source === "live";
+      const status = hasLiveSource ? ("ready" as const) : ("snapshot" as const);
 
-      const wikiCount = fromWiki.length;
-      const regCount = fromReg.length;
       const detailBits = [`${merged.length} records`];
-      if (wikiCount > 0) detailBits.push(`${wikiCount} via Wikidata`);
-      if (regCount > 0) detailBits.push(`${regCount} via curated registry`);
+      if (fromNike.length > 0) {
+        const sourceMode = nikeManufacturingResult.source === "live" ? "live" : nikeManufacturingResult.source;
+        detailBits.push(`${fromNike.length} Nike Manufacturing Map facilities (${sourceMode})`);
+      }
+      if (fromWiki.length > 0) detailBits.push(`${fromWiki.length} via Wikidata`);
       detailBits.push(`${countriesCovered.length} countries`);
 
       const rawFeatures = {
