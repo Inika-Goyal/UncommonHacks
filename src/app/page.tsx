@@ -1,31 +1,13 @@
 "use client";
 
 import { useState } from "react";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { motion } from "motion/react";
-import {
-  ArrowRight,
-  ChevronDown,
-  FileText,
-  Globe2,
-  Loader2,
-  Search,
-  ShieldAlert,
-} from "lucide-react";
+import { ChevronDown, Loader2, Search } from "lucide-react";
 
 import { VideoBackground } from "@/components/video-background";
 import { LandingFooter } from "@/components/landing-footer";
-import {
-  INDUSTRIES,
-  OUTPUT_GOALS,
-  REPORTER_PERSONAS,
-  TIME_WINDOW_MONTHS,
-  type Industry,
-  type OutputGoal,
-  type ReporterPersona,
-  type TimeWindowMonths,
-} from "@/lib/onboarding-types";
+import { LuminaLogo } from "@/components/lumina-brand";
 
 type InputMode = "company" | "region";
 
@@ -49,28 +31,7 @@ export default function LandingPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const [industry, setIndustry] = useState<Industry>("Apparel");
-  const [timeWindowMonths, setTimeWindowMonths] = useState<TimeWindowMonths>(12);
-  const [countries, setCountries] = useState<string[]>([]);
-  const [countryDraft, setCountryDraft] = useState("");
-  const [reporterPersona, setReporterPersona] = useState<ReporterPersona>("NGO");
-  const [outputGoal, setOutputGoal] = useState<OutputGoal>("complaint");
-
   const isValid = mode === "company" ? company.trim().length > 0 : region.length > 0;
-
-  function addCountry(value: string) {
-    const trimmed = value.trim();
-    if (!trimmed || countries.includes(trimmed)) {
-      setCountryDraft("");
-      return;
-    }
-    setCountries((prev) => [...prev, trimmed]);
-    setCountryDraft("");
-  }
-
-  function removeCountry(country: string) {
-    setCountries((prev) => prev.filter((c) => c !== country));
-  }
 
   const handleSubmit = async () => {
     if (loading || !isValid) return;
@@ -91,11 +52,6 @@ export default function LandingPage() {
         body: JSON.stringify({
           inputType: mode,
           query,
-          industry,
-          countries,
-          timeWindowMonths,
-          reporterPersona,
-          outputGoal,
         }),
       });
       const payload = (await response.json()) as
@@ -119,21 +75,7 @@ export default function LandingPage() {
     <div className="lumina-shell relative min-h-screen flex flex-col">
       <VideoBackground />
 
-      <header className="lumina-nav relative z-10 flex items-center justify-between px-6 md:px-10 py-5">
-        <Link href="/" className="flex items-center gap-3 text-white">
-          <LuminaLogo size={26} />
-          <span className="text-base tracking-[0.32em] uppercase font-light">LUMINA</span>
-        </Link>
-        <Link
-          href="/dashboard?mode=company&query=Shein"
-          className="inline-flex items-center gap-2 text-white/70 hover:text-white text-sm transition-colors"
-        >
-          Open dashboard
-          <ArrowRight size={15} />
-        </Link>
-      </header>
-
-      <main className="relative z-10 flex-1 flex items-center justify-center px-4 py-10">
+      <main className="relative z-10 flex-1 flex items-center justify-center px-4 py-12">
         <motion.div
           initial={{ opacity: 0, y: 30 }}
           animate={{ opacity: 1, y: 0 }}
@@ -223,122 +165,6 @@ export default function LandingPage() {
               </div>
             )}
 
-            {!DEMO_MODE ? (
-              <div className="lumina-extras">
-                <div className="lumina-extras-row">
-                  <label className="lumina-field">
-                    <span>Industry</span>
-                    <select
-                      value={industry}
-                      onChange={(e) => setIndustry(e.target.value as Industry)}
-                    >
-                      {INDUSTRIES.map((option) => (
-                        <option key={option} value={option}>
-                          {option}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-
-                  <label className="lumina-field">
-                    <span>Time window</span>
-                    <select
-                      value={timeWindowMonths}
-                      onChange={(e) =>
-                        setTimeWindowMonths(Number(e.target.value) as TimeWindowMonths)
-                      }
-                    >
-                      {TIME_WINDOW_MONTHS.map((option) => (
-                        <option key={option} value={option}>
-                          Last {option} months
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                </div>
-
-                <label className="lumina-field">
-                  <span>Countries to weight</span>
-                  <div className="lumina-chip-input">
-                    {countries.map((country) => (
-                      <button
-                        key={country}
-                        type="button"
-                        className="lumina-chip"
-                        onClick={() => removeCountry(country)}
-                      >
-                        {country} <span aria-hidden>×</span>
-                      </button>
-                    ))}
-                    <input
-                      value={countryDraft}
-                      onChange={(e) => setCountryDraft(e.target.value)}
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter" || e.key === ",") {
-                          e.preventDefault();
-                          addCountry(countryDraft);
-                        } else if (e.key === "Backspace" && !countryDraft && countries.length) {
-                          setCountries((prev) => prev.slice(0, -1));
-                        }
-                      }}
-                      onBlur={() => addCountry(countryDraft)}
-                      placeholder="Add country, press Enter"
-                    />
-                  </div>
-                </label>
-
-                <fieldset className="lumina-fieldset">
-                  <legend>Reporter persona</legend>
-                  <div className="lumina-radio-row">
-                    {REPORTER_PERSONAS.map((option) => (
-                      <label
-                        key={option}
-                        className={
-                          reporterPersona === option
-                            ? "lumina-radio-chip lumina-radio-chip-active"
-                            : "lumina-radio-chip"
-                        }
-                      >
-                        <input
-                          type="radio"
-                          name="reporterPersona"
-                          value={option}
-                          checked={reporterPersona === option}
-                          onChange={() => setReporterPersona(option)}
-                        />
-                        {option}
-                      </label>
-                    ))}
-                  </div>
-                </fieldset>
-
-                <fieldset className="lumina-fieldset">
-                  <legend>Output goal</legend>
-                  <div className="lumina-radio-row">
-                    {OUTPUT_GOALS.map((option) => (
-                      <label
-                        key={option}
-                        className={
-                          outputGoal === option
-                            ? "lumina-radio-chip lumina-radio-chip-active"
-                            : "lumina-radio-chip"
-                        }
-                      >
-                        <input
-                          type="radio"
-                          name="outputGoal"
-                          value={option}
-                          checked={outputGoal === option}
-                          onChange={() => setOutputGoal(option)}
-                        />
-                        {option === "complaint" ? "Labor-authority complaint" : "Compliance letter"}
-                      </label>
-                    ))}
-                  </div>
-                </fieldset>
-              </div>
-            ) : null}
-
             <motion.button
               onClick={handleSubmit}
               disabled={!isValid || loading}
@@ -376,74 +202,10 @@ export default function LandingPage() {
               Analysis uses public data sources only. Not legal advice.
             </p>
           </div>
-
-          <motion.div
-            initial={{ opacity: 0, y: 12 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.45, duration: 0.7 }}
-            className="lumina-strip mt-8"
-            aria-label="MVP flow"
-          >
-            <div>
-              <ShieldAlert size={18} aria-hidden="true" />
-              <span>Score exploitation risk</span>
-            </div>
-            <div>
-              <Globe2 size={18} aria-hidden="true" />
-              <span>Map source signals</span>
-            </div>
-            <div>
-              <FileText size={18} aria-hidden="true" />
-              <span>Generate complaint PDF</span>
-            </div>
-          </motion.div>
-
-          <motion.div
-            initial={{ opacity: 0, y: 12 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.6, duration: 0.7 }}
-            className="lumina-demo mt-6"
-          >
-            <p className="text-white/40 text-xs uppercase tracking-[0.25em] text-center mb-3">
-              Demo paths
-            </p>
-            <div className="flex flex-col sm:flex-row gap-2 justify-center">
-              <Link
-                href="/dashboard?mode=company&query=Shein"
-                className="lumina-demo-btn liquid-glass"
-              >
-                Shein company brief
-              </Link>
-              <Link
-                href="/dashboard?mode=region&query=Cambodia%20garment%20sector"
-                className="lumina-demo-btn liquid-glass"
-              >
-                Cambodia region brief
-              </Link>
-            </div>
-          </motion.div>
         </motion.div>
       </main>
 
       <LandingFooter />
     </div>
-  );
-}
-
-function LuminaLogo({ size = 28 }: { size?: number }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
-      <circle cx="16" cy="16" r="15" stroke="rgba(255,255,255,0.5)" strokeWidth="1.2" />
-      <circle cx="16" cy="16" r="6" fill="rgba(255,255,255,0.1)" stroke="rgba(255,255,255,0.35)" strokeWidth="1" />
-      {[0, 60, 120, 180, 240, 300].map((deg) => {
-        const rad = (deg * Math.PI) / 180;
-        const x1 = (16 + 7 * Math.cos(rad)).toFixed(3);
-        const y1 = (16 + 7 * Math.sin(rad)).toFixed(3);
-        const x2 = (16 + 13 * Math.cos(rad)).toFixed(3);
-        const y2 = (16 + 13 * Math.sin(rad)).toFixed(3);
-        return <line key={deg} x1={x1} y1={y1} x2={x2} y2={y2} stroke="rgba(255,255,255,0.4)" strokeWidth="1" />;
-      })}
-      <circle cx="16" cy="16" r="2" fill="white" />
-    </svg>
   );
 }

@@ -126,6 +126,12 @@ export async function insertMapPoints(reportId: string, points: MapPoint[]): Pro
       latitude: point.latitude,
       longitude: point.longitude,
       risk: point.risk,
+      exploit_type: point.exploitType ?? null,
+      severity: point.severity ?? null,
+      stage: point.stage ?? null,
+      order: point.order ?? null,
+      causes: point.causes ?? null,
+      sources: point.sources ?? null,
     })),
   );
 }
