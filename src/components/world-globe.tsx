@@ -32,6 +32,7 @@ export type WorldGlobeHandle = {
   panTo: (pan: WorldGlobePan) => void;
   rotateTo: (rotation: WorldGlobeRotation) => void;
   focusLocation: (target: WorldGlobeLocationTarget) => void;
+  focusPoint: (pointId: string) => boolean;
   resetView: () => void;
   getView: () => {
     zoom: number;
@@ -452,6 +453,20 @@ export const WorldGlobe = forwardRef<WorldGlobeHandle, WorldGlobeProps>(function
         if (target.pan) {
           setPan(target.pan);
         }
+      },
+      focusPoint: (pointId) => {
+        const reportPoint = points.find((candidate) => candidate.id === pointId);
+        const point = reportPoint ?? activePoints.find((candidate) => candidate.id === pointId);
+        if (!point) {
+          return false;
+        }
+        if (reportPoint) {
+          setShowDemoNetwork(false);
+        }
+        setSelectedPointId(point.id);
+        rotationTargetRef.current = rotationForLocation(point.latitude, point.longitude);
+        setZoom(Math.max(1.32, zoomLevelRef.current), { keepPan: true });
+        return true;
       },
       resetView: resetGlobeView,
       getView: () => ({

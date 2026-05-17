@@ -10,12 +10,16 @@ import {
   ShieldAlert,
 } from "lucide-react";
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { SearchForm } from "@/components/search-form";
-import { ElevenLabsReportAgent } from "@/components/elevenlabs-report-agent";
+import {
+  ElevenLabsReportAgent,
+  type DashboardSection,
+  type ElevenLabsDashboardTools,
+} from "@/components/elevenlabs-report-agent";
 import { ScoreScrambler } from "@/components/score-scrambler";
-import { WorldGlobe } from "@/components/world-globe";
+import { WorldGlobe, type WorldGlobeHandle } from "@/components/world-globe";
 import type { InputType, Report, ReportResponse, SourceStatus } from "@/lib/report-types";
 
 type ReportDashboardProps = {
@@ -42,6 +46,14 @@ export function ReportDashboard({ initialInputType, initialQuery, reportId }: Re
   const [error, setError] = useState<string | null>(null);
   const [mode, setMode] = useState<Mode>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [activeFindingId, setActiveFindingId] = useState<string | null>(null);
+  const summaryRef = useRef<HTMLDivElement | null>(null);
+  const mapRef = useRef<HTMLElement | null>(null);
+  const sourcesRef = useRef<HTMLElement | null>(null);
+  const findingsRef = useRef<HTMLElement | null>(null);
+  const actionRef = useRef<HTMLElement | null>(null);
+  const globeRef = useRef<WorldGlobeHandle | null>(null);
+  const pdfLinkRef = useRef<HTMLAnchorElement | null>(null);
 
   useEffect(() => {
     let aborted = false;
@@ -115,6 +127,91 @@ export function ReportDashboard({ initialInputType, initialQuery, reportId }: Re
   const modeLabel =
     mode === "demo" ? "Demo fixtures" : mode === "supabase" ? "Live · ready" : "Loading";
 
+  const scrollElementIntoView = useCallback((element: HTMLElement) => {
+    element.scrollIntoView({ behavior: "smooth", block: "center" });
+    element.focus({ preventScroll: true });
+  }, []);
+
+  const scrollToDashboardSection = useCallback(
+    (section: DashboardSection) => {
+      const sectionRefs: Record<DashboardSection, HTMLElement | null> = {
+        summary: summaryRef.current,
+        map: mapRef.current,
+        sources: sourcesRef.current,
+        findings: findingsRef.current,
+        action: actionRef.current,
+      };
+      const element = sectionRefs[section];
+      if (!element) {
+        return `The ${section} section is not available yet.`;
+      }
+      scrollElementIntoView(element);
+      return `Scrolled to the ${section} section.`;
+    },
+    [scrollElementIntoView],
+  );
+
+  const highlightFinding = useCallback(
+    (findingId: string) => {
+      if (!report) {
+        return "No report is loaded yet.";
+      }
+      const finding = report.findings.find((candidate) => candidate.id === findingId);
+      if (!finding) {
+        return `Finding ${findingId} was not found in this report.`;
+      }
+      setActiveFindingId(finding.id);
+      window.requestAnimationFrame(() => {
+        const row = document.querySelector<HTMLElement>(`[data-finding-id="${CSS.escape(finding.id)}"]`);
+        if (row) {
+          scrollElementIntoView(row);
+        }
+      });
+      return `Highlighted ${finding.signal}: severity ${finding.severity}/5, credibility ${finding.credibility}/5.`;
+    },
+    [report, scrollElementIntoView],
+  );
+
+  const focusMapPoint = useCallback(
+    (pointId: string) => {
+      if (!report) {
+        return "No report is loaded yet.";
+      }
+      const point = report.mapPoints.find((candidate) => candidate.id === pointId);
+      if (!point) {
+        return `Map point ${pointId} was not found in this report.`;
+      }
+      scrollToDashboardSection("map");
+      const focused = globeRef.current?.focusPoint(point.id) ?? false;
+      return focused
+        ? `Focused ${point.label} on the signal map.`
+        : `The map is still loading, but ${point.label} is the requested point.`;
+    },
+    [report, scrollToDashboardSection],
+  );
+
+  const openComplaintLetter = useCallback(() => {
+    if (!report || pdfHref === "#") {
+      return "No complaint letter is available yet.";
+    }
+    const opened = window.open(pdfHref, "_blank", "noopener,noreferrer");
+    if (!opened) {
+      pdfLinkRef.current?.click();
+      return "Opening the complaint letter using the dashboard link.";
+    }
+    return "Opening the complaint letter PDF.";
+  }, [pdfHref, report]);
+
+  const voiceTools = useMemo<ElevenLabsDashboardTools>(
+    () => ({
+      highlightFinding,
+      focusMapPoint,
+      scrollToDashboardSection,
+      openComplaintLetter,
+    }),
+    [focusMapPoint, highlightFinding, openComplaintLetter, scrollToDashboardSection],
+  );
+
   return (
     <main className="dashboard-page">
       <header className="app-topbar">
@@ -139,7 +236,6 @@ export function ReportDashboard({ initialInputType, initialQuery, reportId }: Re
             </p>
           </div>
           <SearchForm compact initialInputType={initialInputType} initialQuery={initialQuery} />
-          {report ? <ElevenLabsReportAgent report={report} mode={mode ?? "demo"} /> : null}
           <div className="panel benchmark-panel">
             <p className="eyebrow">Benchmark</p>
             <h2>Demo comparison target needed</h2>
@@ -156,7 +252,12 @@ export function ReportDashboard({ initialInputType, initialQuery, reportId }: Re
 
           {report ? (
             <>
-              <div className="report-header panel">
+              <div
+                ref={summaryRef}
+                className="report-header panel"
+                data-dashboard-section="summary"
+                tabIndex={-1}
+              >
                 <div>
                   <p className="eyebrow">
                     {report.inputType === "company" ? "Company report" : "Region report"}
@@ -164,10 +265,13 @@ export function ReportDashboard({ initialInputType, initialQuery, reportId }: Re
                   <h2>{report.title}</h2>
                   <p>{report.summary}</p>
                 </div>
-                <a className="secondary-button" href={pdfHref}>
-                  <Download aria-hidden="true" size={16} />
-                  Complaint PDF
-                </a>
+                <div className="report-header-actions">
+                  <a ref={pdfLinkRef} className="secondary-button" href={pdfHref}>
+                    <Download aria-hidden="true" size={16} />
+                    Complaint PDF
+                  </a>
+                  <ElevenLabsReportAgent report={report} mode={mode ?? "demo"} pdfHref={pdfHref} tools={voiceTools} />
+                </div>
               </div>
 
               <div className="score-grid">
@@ -177,7 +281,7 @@ export function ReportDashboard({ initialInputType, initialQuery, reportId }: Re
               </div>
 
               <div className="dashboard-content-grid">
-                <section className="panel map-panel">
+                <section ref={mapRef} className="panel map-panel" data-dashboard-section="map" tabIndex={-1}>
                   <div className="panel-heading">
                     <div>
                       <p className="eyebrow">Geography</p>
@@ -185,10 +289,10 @@ export function ReportDashboard({ initialInputType, initialQuery, reportId }: Re
                     </div>
                     <ShieldAlert aria-hidden="true" size={20} />
                   </div>
-                  <WorldGlobe points={report.mapPoints} />
+                  <WorldGlobe ref={globeRef} points={report.mapPoints} />
                 </section>
 
-                <section className="panel source-panel">
+                <section ref={sourcesRef} className="panel source-panel" data-dashboard-section="sources" tabIndex={-1}>
                   <div className="panel-heading">
                     <div>
                       <p className="eyebrow">Sources</p>
@@ -212,7 +316,7 @@ export function ReportDashboard({ initialInputType, initialQuery, reportId }: Re
                 </section>
               </div>
 
-              <section className="panel findings-panel">
+              <section ref={findingsRef} className="panel findings-panel" data-dashboard-section="findings" tabIndex={-1}>
                 <div className="panel-heading">
                   <div>
                     <p className="eyebrow">Evidence</p>
@@ -233,7 +337,12 @@ export function ReportDashboard({ initialInputType, initialQuery, reportId }: Re
                     </thead>
                     <tbody>
                       {report.findings.map((finding) => (
-                        <tr key={finding.id}>
+                        <tr
+                          key={finding.id}
+                          className={finding.id === activeFindingId ? "finding-row-active" : undefined}
+                          data-finding-id={finding.id}
+                          tabIndex={-1}
+                        >
                           <td>{finding.signal}</td>
                           <td>{finding.geography}</td>
                           <td>
@@ -255,7 +364,7 @@ export function ReportDashboard({ initialInputType, initialQuery, reportId }: Re
                 </div>
               </section>
 
-              <section className="panel action-panel">
+              <section ref={actionRef} className="panel action-panel" data-dashboard-section="action" tabIndex={-1}>
                 <div>
                   <p className="eyebrow">Recommended action</p>
                   <h2>{report.recommendedAction}</h2>
