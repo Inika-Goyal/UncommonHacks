@@ -47,18 +47,39 @@ from sklearn.model_selection import KFold, train_test_split
 from sklearn.preprocessing import StandardScaler
 
 from ..data.real import PREDICTOR_COLS
+from ..data.quality import run_quality_checks, QualityReport
+from ..features.imputation import impute, ImputationReport
+from ..features.multicollinearity import drop_redundant_columns, CollinearityReport
 
 
 TARGET_COL = "observed_prevalence_per_1k"
 
 
-def build_supervised_table(panel: pd.DataFrame) -> pd.DataFrame:
-    sub = panel.dropna(subset=[TARGET_COL] + list(PREDICTOR_COLS)).reset_index(drop=True)
+def build_supervised_table(
+    panel: pd.DataFrame,
+    predictor_cols: List[str] | None = None,
+) -> pd.DataFrame:
+    """Filter to rows with a non-null target. Predictor NaNs are tolerated
+    here — `train_geographic` runs imputation before fitting."""
+    cols = list(predictor_cols) if predictor_cols is not None else list(PREDICTOR_COLS)
+    sub = panel.dropna(subset=[TARGET_COL]).reset_index(drop=True)
+    # Make sure every predictor column at least exists in the frame; if
+    # an optional source wasn't loaded the caller should have filtered
+    # the column out before calling us.
+    missing_cols = [c for c in cols if c not in sub.columns]
+    if missing_cols:
+        raise ValueError(
+            f"predictor columns not in panel: {missing_cols}. "
+            "Pass an explicit `predictor_cols` matching the loaded panel."
+        )
     return sub
 
 
-def feature_matrix(df: pd.DataFrame) -> Tuple[pd.DataFrame, List[str]]:
-    return df[PREDICTOR_COLS].copy(), list(PREDICTOR_COLS)
+def feature_matrix(
+    df: pd.DataFrame, predictor_cols: List[str] | None = None,
+) -> Tuple[pd.DataFrame, List[str]]:
+    cols = list(predictor_cols) if predictor_cols is not None else list(PREDICTOR_COLS)
+    return df[cols].copy(), cols
 
 
 @dataclass
@@ -73,6 +94,12 @@ class TrainedGeoModel:
     conformal_half_width: float
     empirical_coverage_80: float
     n_training_rows: int
+    # New, optional fields populated by the expanded-data pipeline.
+    # Default-None so existing joblib artifacts continue to load.
+    quality_report: QualityReport | None = None
+    imputation_report: ImputationReport | None = None
+    collinearity_report: CollinearityReport | None = None
+    log_target: bool = False  # train_geographic may switch to log1p(y)
 
     def predict(self, X: pd.DataFrame) -> Dict[str, np.ndarray]:
         Xs = self.scaler.transform(X[self.feature_cols])
@@ -84,13 +111,25 @@ class TrainedGeoModel:
         tree_std = tree_preds.std(axis=0)
         lin_pred = self.linear_model.predict(Xs)
 
-        mean = 0.5 * tree_mean + 0.5 * lin_pred
-        # Spread kept only for the downstream credibility heuristic; it
-        # no longer defines the prediction band.
-        spread = tree_std + 0.5 * np.abs(tree_mean - lin_pred)
+        mean_internal = 0.5 * tree_mean + 0.5 * lin_pred
+        spread_internal = tree_std + 0.5 * np.abs(tree_mean - lin_pred)
+        lower_internal = mean_internal - self.conformal_half_width
+        upper_internal = mean_internal + self.conformal_half_width
 
-        lower = np.clip(mean - self.conformal_half_width, 0, None)
-        upper = mean + self.conformal_half_width
+        # If the model was fit on log1p(y), expm1 the predictions back to
+        # the original scale. The conformal half-width was derived on the
+        # log scale, so the interval endpoints must be expm1-ed too, then
+        # clipped — *NOT* mean ± expm1(half_width).
+        if self.log_target:
+            mean = np.expm1(mean_internal)
+            lower = np.clip(np.expm1(lower_internal), 0, None)
+            upper = np.expm1(upper_internal)
+            spread = np.expm1(mean_internal + spread_internal) - np.expm1(mean_internal)
+        else:
+            mean = mean_internal
+            lower = np.clip(lower_internal, 0, None)
+            upper = upper_internal
+            spread = spread_internal
         return {"mean": mean, "lower": lower, "upper": upper, "spread": spread}
 
 
@@ -130,21 +169,65 @@ def _ensemble_predict(
 
 def train_geographic(
     panel: pd.DataFrame,
+    predictor_cols: List[str] | None = None,
     n_bags: int = 8,
     seed: int = 0,
     n_splits: int = 5,
     conformal_alpha: float = 0.20,
+    auto_log_target: bool = True,
+    drop_collinear: bool = True,
+    ridge_alpha: float | None = None,
 ) -> TrainedGeoModel:
-    """Fit one geographic model and return it.
+    """Fit one geographic model on (possibly expanded) predictors.
 
-    1. KFold CV → fold-wise MAE / R² and per-fold empirical coverage
-       of a conformal half-width derived inside each fold.
-    2. Dedicated calibration split → the production half-width.
-    3. Refit on the full panel for the production tree + ridge.
+    Pipeline:
+      0. Quality scan — missingness, outliers, multicollinearity, target
+         skew. Columns above the missingness threshold are dropped.
+      1. Region-aware median imputation of remaining NaNs.
+      2. Optional greedy collinearity reduction (|r| > 0.85 pairs).
+      3. Optional log1p target if it's approximately log-normal.
+      4. Ridge alpha auto-scales with the (post-drop) predictor count
+         when not overridden — more predictors → stronger regularisation.
+      5. KFold CV → fold MAE / R² and per-fold empirical coverage.
+      6. Dedicated calibration split → production conformal half-width.
+      7. Refit on the full panel for the production tree + ridge.
+
+    `predictor_cols=None` keeps backwards-compatible behavior (uses
+    `data.real.PREDICTOR_COLS`).
     """
-    table = build_supervised_table(panel)
-    X_df, cols = feature_matrix(table)
-    y = table[TARGET_COL].values
+    cols_in = list(predictor_cols) if predictor_cols is not None else list(PREDICTOR_COLS)
+
+    # ---- 0. Quality scan -------------------------------------------------
+    quality = run_quality_checks(panel, predictor_cols=cols_in, target_col=TARGET_COL)
+    # Drop high-missingness columns the report flagged.
+    retained = [c for c in cols_in if c not in quality.columns_to_drop]
+
+    # ---- 1. Region-aware imputation -------------------------------------
+    imputed, imp_report = impute(panel, columns=retained)
+
+    # ---- 2. Collinearity reduction --------------------------------------
+    collin_report = CollinearityReport()
+    if drop_collinear and len(retained) > 1:
+        retained, collin_report = drop_redundant_columns(imputed, retained)
+
+    # ---- 3. Decide on log target ----------------------------------------
+    log_target = bool(
+        auto_log_target
+        and not np.isnan(quality.target_log_normality_p)
+        and quality.target_log_normality_p > 0.05
+        and (imputed[TARGET_COL] >= 0).all()
+    )
+
+    # ---- 4. Build supervised table on the cleaned panel -----------------
+    table = build_supervised_table(imputed, predictor_cols=retained)
+    X_df, cols = feature_matrix(table, predictor_cols=retained)
+    y_raw = table[TARGET_COL].values
+    y = np.log1p(y_raw) if log_target else y_raw
+
+    # Auto-scale Ridge alpha when caller didn't override: more predictors
+    # → more regularisation, capped so we don't oversmooth small models.
+    if ridge_alpha is None:
+        ridge_alpha = float(min(10.0, 1.0 + 0.5 * max(0, len(cols) - 5)))
 
     fold_maes: List[float] = []
     fold_r2s: List[float] = []
@@ -159,7 +242,7 @@ def train_geographic(
         trees = _bagged_trees(
             X_df.iloc[tr_idx].values, y[tr_idx], n_bags=4, seed=seed + fold
         )
-        ridge = Ridge(alpha=1.0).fit(X_tr_s, y[tr_idx])
+        ridge = Ridge(alpha=ridge_alpha).fit(X_tr_s, y[tr_idx])
 
         ens_te = _ensemble_predict(trees, ridge, X_df.iloc[te_idx], X_te_s)
         fold_maes.append(mean_absolute_error(y[te_idx], ens_te))
@@ -191,7 +274,7 @@ def train_geographic(
     trees_cal = _bagged_trees(
         X_df.iloc[cal_train_idx].values, y[cal_train_idx], n_bags=n_bags, seed=seed
     )
-    ridge_cal = Ridge(alpha=1.0).fit(X_train_s, y[cal_train_idx])
+    ridge_cal = Ridge(alpha=ridge_alpha).fit(X_train_s, y[cal_train_idx])
     cal_pred = _ensemble_predict(
         trees_cal,
         ridge_cal,
@@ -206,7 +289,7 @@ def train_geographic(
     scaler = StandardScaler().fit(X_df)
     X_full = scaler.transform(X_df)
     trees_full = _bagged_trees(X_df.values, y, n_bags=n_bags, seed=seed)
-    ridge_full = Ridge(alpha=1.0).fit(X_full, y)
+    ridge_full = Ridge(alpha=ridge_alpha).fit(X_full, y)
 
     return TrainedGeoModel(
         target_name=TARGET_COL,
@@ -219,4 +302,8 @@ def train_geographic(
         conformal_half_width=half_width,
         empirical_coverage_80=float(np.mean(fold_covers)),
         n_training_rows=int(len(X_df)),
+        quality_report=quality,
+        imputation_report=imp_report,
+        collinearity_report=collin_report,
+        log_target=log_target,
     )

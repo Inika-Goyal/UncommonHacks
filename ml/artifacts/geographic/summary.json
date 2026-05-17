@@ -1,15 +1,104 @@
 {
   "model_family": "tree_ensemble + ridge (averaged)",
   "target": "observed_prevalence_per_1k",
+  "target_transform": "identity",
   "validation": "KFold(5) random split, cross-sectional",
   "uncertainty": "split-conformal prediction (~80% marginal coverage)",
-  "cv_mae": 2.1748,
-  "cv_r2": 0.2731,
-  "conformal_half_width": 3.0117,
-  "empirical_coverage_80": 0.6606,
-  "n_features": 9,
+  "cv_mae": 2.3965,
+  "cv_r2": 0.1507,
+  "conformal_half_width": 3.5067,
+  "empirical_coverage_80": 0.6935,
+  "n_features": 8,
   "n_training_rows": 153,
   "n_bagged_trees": 8,
+  "feature_cols": [
+    "gdp_per_capita_log",
+    "urban_share",
+    "unemployment",
+    "gini",
+    "youth_dep_ratio",
+    "population_log",
+    "press_freedom_score",
+    "govt_response_total"
+  ],
+  "optional_blocks_loaded": {
+    "governance_optional": [],
+    "migration_optional": [],
+    "help_optional": []
+  },
+  "data_quality": {
+    "n_rows": 153,
+    "n_columns": 14,
+    "schema_errors": [],
+    "missingness": {
+      "gdp_per_capita_log": 0.0,
+      "urban_share": 0.0,
+      "unemployment": 0.0,
+      "gini": 0.0,
+      "youth_dep_ratio": 0.0,
+      "population_log": 0.0,
+      "press_freedom_score": 0.0,
+      "vulnerability_total": 0.0,
+      "govt_response_total": 0.0
+    },
+    "columns_to_drop": [],
+    "outliers": {
+      "gdp_per_capita_log": 0,
+      "urban_share": 0,
+      "unemployment": 3,
+      "gini": 2,
+      "youth_dep_ratio": 0,
+      "population_log": 2,
+      "press_freedom_score": 0,
+      "vulnerability_total": 0,
+      "govt_response_total": 2
+    },
+    "high_correlation_pairs": [
+      {
+        "a": "gdp_per_capita_log",
+        "b": "vulnerability_total",
+        "r": 0.85
+      }
+    ],
+    "high_vif_columns": [],
+    "target_stats": {
+      "n": 153.0,
+      "mean": 6.0003,
+      "median": 5.2474,
+      "std": 4.0483,
+      "min": 0.4981,
+      "max": 32.0155,
+      "skew": 2.2991
+    },
+    "target_log_normality_p": 0.0202,
+    "warnings": []
+  },
+  "imputation": {
+    "regional_imputed_counts": {},
+    "global_imputed_counts": {},
+    "column_used_region": {
+      "gdp_per_capita_log": false,
+      "urban_share": false,
+      "unemployment": false,
+      "gini": false,
+      "youth_dep_ratio": false,
+      "population_log": false,
+      "press_freedom_score": false,
+      "vulnerability_total": false,
+      "govt_response_total": false
+    }
+  },
+  "collinearity": {
+    "dropped": [
+      "vulnerability_total"
+    ],
+    "kept_representatives": {
+      "gdp_per_capita_log": [
+        "vulnerability_total"
+      ]
+    },
+    "threshold": 0.85
+  },
   "sources": {
     "predicted": [
       {
