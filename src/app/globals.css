@@ -2346,10 +2346,11 @@ td a {
 /* -------------------------------------------------------------------------- */
 
 .launch-page.lumina-shell {
-  height: 100dvh;
+  min-height: 100dvh;
   color: #ededed;
   background: #0a0a0a;
-  overflow: hidden;
+  overflow-x: hidden;
+  overflow-y: auto;
 }
 
 .launch-page .fixed.inset-0 {
@@ -2815,6 +2816,10 @@ td a {
 
   .launch-constellation {
     height: 310px;
+  }
+
+  .launch-visual-shell {
+    min-height: 354px;
   }
 
   .launch-agents {
