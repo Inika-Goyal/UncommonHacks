@@ -1194,6 +1194,7 @@ export const WorldGlobe = forwardRef<WorldGlobeHandle, WorldGlobeProps>(function
             key={point.id}
             className={point.id === selectedPoint?.id ? "legend-row legend-row-active" : "legend-row"}
             type="button"
+            data-map-point-id={point.id}
             onClick={() => setSelectedPointId(point.id)}
           >
             <span className={`legend-dot globe-risk-${point.risk}`} />
