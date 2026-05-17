@@ -22,8 +22,6 @@ type SearchFormProps = {
   compact?: boolean;
 };
 
-const DEMO_MODE = process.env.NEXT_PUBLIC_DEMO_MODE === "true";
-
 export function SearchForm({
   initialInputType = "company",
   initialQuery = "Shein",
@@ -73,11 +71,6 @@ export function SearchForm({
     if (!cleanQuery) return;
 
     setSubmitError(null);
-
-    if (DEMO_MODE) {
-      router.push(`/dashboard?mode=${inputType}&query=${encodeURIComponent(cleanQuery)}`);
-      return;
-    }
 
     setSubmitting(true);
     try {
@@ -155,98 +148,96 @@ export function SearchForm({
         </button>
       </div>
 
-      {!DEMO_MODE ? (
-        <div className="onboarding-extras">
-          <div className="onboarding-row">
-            <label className="onboarding-field">
-              <span>Industry</span>
-              <select
-                value={industry}
-                onChange={(event) => setIndustry(event.target.value as Industry)}
-              >
-                {INDUSTRIES.map((option) => (
-                  <option key={option} value={option}>
-                    {option}
-                  </option>
-                ))}
-              </select>
-            </label>
-
-            <label className="onboarding-field">
-              <span>Time window</span>
-              <select
-                value={timeWindowMonths}
-                onChange={(event) => setTimeWindow(Number(event.target.value) as TimeWindowMonths)}
-              >
-                {TIME_WINDOW_MONTHS.map((option) => (
-                  <option key={option} value={option}>
-                    Last {option} months
-                  </option>
-                ))}
-              </select>
-            </label>
-          </div>
-
+      <div className="onboarding-extras">
+        <div className="onboarding-row">
           <label className="onboarding-field">
-            <span>Countries to weight</span>
-            <div className="chip-input">
-              {countries.map((country) => (
-                <button
-                  key={country}
-                  type="button"
-                  className="chip"
-                  onClick={() => removeCountry(country)}
-                >
-                  {country} <span aria-hidden>×</span>
-                </button>
+            <span>Industry</span>
+            <select
+              value={industry}
+              onChange={(event) => setIndustry(event.target.value as Industry)}
+            >
+              {INDUSTRIES.map((option) => (
+                <option key={option} value={option}>
+                  {option}
+                </option>
               ))}
-              <input
-                value={countryDraft}
-                onChange={(event) => setCountryDraft(event.target.value)}
-                onKeyDown={handleCountryKey}
-                onBlur={() => addCountry(countryDraft)}
-                placeholder="Add country, press Enter"
-              />
-            </div>
+            </select>
           </label>
 
-          <fieldset className="onboarding-fieldset">
-            <legend>Reporter persona</legend>
-            <div className="onboarding-radio-row">
-              {REPORTER_PERSONAS.map((option) => (
-                <label key={option} className={reporterPersona === option ? "radio-chip radio-chip-active" : "radio-chip"}>
-                  <input
-                    type="radio"
-                    name="reporterPersona"
-                    value={option}
-                    checked={reporterPersona === option}
-                    onChange={() => setReporterPersona(option)}
-                  />
-                  {option}
-                </label>
+          <label className="onboarding-field">
+            <span>Time window</span>
+            <select
+              value={timeWindowMonths}
+              onChange={(event) => setTimeWindow(Number(event.target.value) as TimeWindowMonths)}
+            >
+              {TIME_WINDOW_MONTHS.map((option) => (
+                <option key={option} value={option}>
+                  Last {option} months
+                </option>
               ))}
-            </div>
-          </fieldset>
-
-          <fieldset className="onboarding-fieldset">
-            <legend>Output goal</legend>
-            <div className="onboarding-radio-row">
-              {OUTPUT_GOALS.map((option) => (
-                <label key={option} className={outputGoal === option ? "radio-chip radio-chip-active" : "radio-chip"}>
-                  <input
-                    type="radio"
-                    name="outputGoal"
-                    value={option}
-                    checked={outputGoal === option}
-                    onChange={() => setOutputGoal(option)}
-                  />
-                  {option === "complaint" ? "Labor-authority complaint" : "Compliance letter"}
-                </label>
-              ))}
-            </div>
-          </fieldset>
+            </select>
+          </label>
         </div>
-      ) : null}
+
+        <label className="onboarding-field">
+          <span>Countries to weight</span>
+          <div className="chip-input">
+            {countries.map((country) => (
+              <button
+                key={country}
+                type="button"
+                className="chip"
+                onClick={() => removeCountry(country)}
+              >
+                {country} <span aria-hidden>×</span>
+              </button>
+            ))}
+            <input
+              value={countryDraft}
+              onChange={(event) => setCountryDraft(event.target.value)}
+              onKeyDown={handleCountryKey}
+              onBlur={() => addCountry(countryDraft)}
+              placeholder="Add country, press Enter"
+            />
+          </div>
+        </label>
+
+        <fieldset className="onboarding-fieldset">
+          <legend>Reporter persona</legend>
+          <div className="onboarding-radio-row">
+            {REPORTER_PERSONAS.map((option) => (
+              <label key={option} className={reporterPersona === option ? "radio-chip radio-chip-active" : "radio-chip"}>
+                <input
+                  type="radio"
+                  name="reporterPersona"
+                  value={option}
+                  checked={reporterPersona === option}
+                  onChange={() => setReporterPersona(option)}
+                />
+                {option}
+              </label>
+            ))}
+          </div>
+        </fieldset>
+
+        <fieldset className="onboarding-fieldset">
+          <legend>Output goal</legend>
+          <div className="onboarding-radio-row">
+            {OUTPUT_GOALS.map((option) => (
+              <label key={option} className={outputGoal === option ? "radio-chip radio-chip-active" : "radio-chip"}>
+                <input
+                  type="radio"
+                  name="outputGoal"
+                  value={option}
+                  checked={outputGoal === option}
+                  onChange={() => setOutputGoal(option)}
+                />
+                {option === "complaint" ? "Labor-authority complaint" : "Compliance letter"}
+              </label>
+            ))}
+          </div>
+        </fieldset>
+      </div>
 
       {submitError ? <p className="form-error">{submitError}</p> : null}
     </form>
