@@ -65,7 +65,8 @@ async function getScores(
   state: OrchestratorState,
   bundle: ReturnType<typeof buildFeatureBundle>,
 ): Promise<{ scores: ReturnType<typeof localScoring>; mlPrediction: MlPrediction | null }> {
-  const iso3 = await resolveIso3(state.countries[0]);
+  const primaryCountry = state.countries[0] ?? bundle.supplier.countriesCovered[0];
+  const iso3 = await resolveIso3(primaryCountry);
 
   if (iso3) {
     try {
