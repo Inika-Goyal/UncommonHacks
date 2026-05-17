@@ -1,0 +1,181 @@
+iso3,press_freedom_score,country_name
+NOR,93.28,Norway
+FIN,93.01,Finland
+SWE,92.76,Sweden
+DNK,91.43,Denmark
+CRI,91.24,Costa Rica
+NLD,90.33,Netherlands
+JAM,90.04,Jamaica
+NZL,89.96,New Zealand
+PRT,89.89,Portugal
+CHE,89.45,Switzerland
+BEL,88.31,Belgium
+IRL,88.09,Ireland
+DEU,84.76,Germany
+CAN,84.75,Canada
+EST,84.75,Estonia
+ISL,84.63,Iceland
+AUT,83.66,Austria
+URY,83.62,Uruguay
+SUR,83.05,Suriname
+LUX,82.44,Luxembourg
+WSM,80.76,Samoa
+LVA,80.74,Latvia
+LIE,80.51,Liechtenstein
+NAM,80.28,Namibia
+AUS,80.21,Australia
+CYP,80.15,Cyprus
+CPV,79.91,Cape Verde
+LTU,79.85,Lithuania
+ESP,79.56,Spain
+GHA,78.67,Ghana
+TTO,78.45,Trinidad and Tobago
+GBR,78.41,United Kingdom
+ZAF,78.41,South Africa
+FRA,77.4,France
+SVK,76.98,Slovakia
+SVN,76.9,Slovenia
+BFA,76.83,Burkina Faso
+BWA,76.75,Botswana
+AND,76.68,Andorra
+CZE,76.62,Czech Republic
+ITA,76.61,Italy
+KOR,76.57,South Korea
+TWN,76.14,Taiwan
+USA,76.07,United States
+XCD,76.02,OECS
+TON,75.41,Tonga
+PNG,75.12,Papua New Guinea
+ROU,75.09,Romania
+SEN,74.78,Senegal
+DOM,74.4,Dominican Republic
+GUY,74.39,Guyana
+SYC,74.34,Seychelles
+BLZ,72.39,Belize
+CHL,72.11,Chile
+FJI,72.08,Fiji
+HRV,72.05,Croatia
+MDG,71.76,Madagascar
+BIH,71.66,Bosnia and Herzegovina
+NER,71.56,Niger
+GEO,71.36,Georgia
+MUS,71.26,Mauritius
+MWI,71.2,Malawi
+ARM,71.17,Armenia
+POL,71.16,Poland
+BTN,71.14,Bhutan
+CIV,71.13,Ivory Coast
+JPN,71.12,Japan
+MNG,71.03,Mongolia
+ARG,71.01,Argentina
+GRC,70.99,Greece
+TLS,70.89,East Timor
+MDV,70.87,Maldives
+TUN,70.47,Tunisia
+TGO,70.41,Togo
+SLE,70.39,Sierra Leone
+CTU,70.18,Cyprus North
+PAN,70.06,Panama
+XKO,69.68,Kosovo
+KGZ,69.63,Kyrgyzstan
+HKG,69.56,Hong Kong
+MLT,69.54,Malta
+SLV,69.51,El Salvador
+ALB,69.41,Albania
+COM,69.35,Comoros
+GMB,69.24,Gambia
+ISR,69.1,Israel
+HTI,68.88,Haiti
+LSO,68.39,Lesotho
+MDA,68.39,Moldova
+MKD,68.33,North Macedonia
+PER,68.29,Peru
+HUN,68.24,Hungary
+SRB,67.97,Serbia
+MRT,67.75,Mauritania
+GNB,67.32,Guinea-Bissau
+ECU,67.17,Ecuador
+UKR,67.04,Ukraine
+LBR,66.64,Liberia
+MLI,66.5,Mali
+PRY,66.48,Paraguay
+ETH,66.37,Ethiopia
+KEN,66.35,Kenya
+AGO,65.94,Angola
+MNE,65.67,Montenegro
+KWT,65.64,Kuwait
+NPL,65.38,Nepal
+LBN,65.07,Lebanon
+MOZ,64.61,Mozambique
+GIN,64.58,Guinea
+BOL,64.53,Bolivia
+BRA,63.75,Brazil
+BGR,62.71,Bulgaria
+IDN,62.6,Indonesia
+BEN,61.82,Benin
+ZMB,61.79,Zambia
+GTM,61.55,Guatemala
+GAB,61.4,Gabon
+COG,61.17,Congo
+MYS,60.53,Malaysia
+NGA,60.31,Nigeria
+NIC,60.02,Nicaragua
+AFG,59.81,Afghanistan
+TCD,59.8,Chad
+TZA,59.31,Tanzania
+UGA,58.81,Uganda
+CAF,58.08,Central African Republic
+LKA,57.8,Sri Lanka
+QAT,57.4,Qatar
+JOR,57.11,Jordan
+ZWE,56.88,Zimbabwe
+ARE,56.87,United Arab Emirates
+PSE,56.82,Palestine
+OMN,56.63,Oman
+COL,56.26,Colombia
+CMR,56.22,Cameroon
+MAR,56.06,Morocco
+THA,54.78,Thailand
+PHL,54.36,Philippines
+SSD,54.22,South Sudan
+MMR,53.86,Myanmar
+SWZ,53.66,Eswatini
+IND,53.44,India
+MEX,53.29,Mexico
+KHM,53.16,Cambodia
+PAK,53.14,Pakistan
+DZA,52.74,Algeria
+BDI,52.43,Burundi
+VEN,52.4,Venezuela
+COD,51.41,The Democratic Republic Of The Congo
+RUS,51.29,Russian Federation
+HND,50.65,Honduras
+BGD,50.29,Bangladesh
+TUR,50.21,Turkey
+BRN,50.09,Brunei Darussalam
+KAZ,49.72,Kazakhstan
+RWA,49.34,Rwanda
+UZB,49.26,Uzbekistan
+BLR,49.18,Belarus
+SDN,47.07,Sudan
+SGP,44.8,Singapore
+SOM,44.53,Somalia
+TJK,44.48,Tajikistan
+IRQ,44.43,Iraq
+GNQ,44.33,Equatorial Guinea
+LBY,44.27,Libya
+EGY,43.83,Egypt
+AZE,41.23,Azerbaijan
+BHR,38.9,Bahrain
+YEM,37.65,Yemen
+SAU,37.27,Saudi Arabia
+CUB,36.06,Cuba
+LAO,29.44,Lao People's Democratic Republic
+SYR,29.37,Syrian Arab Republic
+IRN,27.3,Islamic Republic of Iran
+VNM,21.54,Vietnam
+DJI,21.38,Djibouti
+CHN,21.28,China
+TKM,19.97,Turkmenistan
+PRK,18.72,Democratic People's Republic of Korea
+ERI,18.55,Eritrea
