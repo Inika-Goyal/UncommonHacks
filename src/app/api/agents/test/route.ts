@@ -68,6 +68,7 @@ export async function POST(request: Request) {
     errors: [],
     featureBundle: undefined,
     synthesis: undefined,
+    mlPrediction: undefined,
   };
 
   const ingest = await ingestNode(baseState);

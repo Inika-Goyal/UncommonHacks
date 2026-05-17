@@ -3769,3 +3769,310 @@ td a {
     justify-items: center;
   }
 }
+
+/* ============================================================
+   ML model intelligence — predicted prevalence feature card
+   ============================================================ */
+.lumina-prevalence-feature {
+  margin-bottom: 14px;
+}
+
+.lumina-prevalence-feature-grid {
+  display: grid;
+  grid-template-columns: minmax(220px, 1fr) minmax(260px, 1.4fr);
+  gap: 18px;
+  align-items: center;
+}
+
+@media (max-width: 720px) {
+  .lumina-prevalence-feature-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.lumina-prevalence-headline {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.lumina-prevalence-number {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  font-family: var(--font-heading, "Helvetica Neue", Helvetica, sans-serif);
+  line-height: 1;
+}
+
+.lumina-prevalence-mean {
+  font-size: clamp(36px, 5vw, 54px);
+  font-weight: 500;
+  color: #ec4899;
+  letter-spacing: -0.01em;
+}
+
+.lumina-prevalence-unit {
+  font-size: 14px;
+  color: rgba(255, 255, 255, 0.5);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.lumina-prevalence-band-text {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.7);
+  margin: 0;
+}
+
+.lumina-prevalence-band-text strong {
+  color: #fff;
+  font-weight: 500;
+}
+
+.lumina-prevalence-foot {
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.45);
+  letter-spacing: 0.04em;
+  margin: 0;
+}
+
+.lumina-prevalence-dial {
+  width: 100%;
+  max-width: 380px;
+  height: auto;
+  justify-self: end;
+}
+
+@media (max-width: 720px) {
+  .lumina-prevalence-dial {
+    justify-self: stretch;
+  }
+}
+
+/* ============================================================
+   Exploit-type breakdown bars
+   ============================================================ */
+.lumina-exploit-bars {
+  list-style: none;
+  margin: 4px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.lumina-exploit-bar-row {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.lumina-exploit-bar-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.85);
+}
+
+.lumina-exploit-bar-head .lumina-exploit-name {
+  flex: 1;
+  letter-spacing: 0.02em;
+}
+
+.lumina-exploit-value {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 3px;
+  font-feature-settings: "tnum" 1;
+  font-weight: 500;
+  color: #fff;
+}
+
+.lumina-exploit-value small {
+  font-size: 9px;
+  color: rgba(255, 255, 255, 0.4);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.lumina-exploit-bar-track {
+  position: relative;
+  height: 10px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.04);
+  overflow: hidden;
+}
+
+.lumina-exploit-bar-band {
+  position: absolute;
+  top: -2px;
+  bottom: -2px;
+  border-radius: 6px;
+  border: 1px solid;
+}
+
+.lumina-exploit-bar-mean {
+  position: absolute;
+  top: -3px;
+  bottom: -3px;
+  width: 2px;
+  border-radius: 1px;
+  box-shadow: 0 0 6px currentColor;
+}
+
+/* ============================================================
+   Similar countries (cluster neighbours)
+   ============================================================ */
+.lumina-similar-list {
+  list-style: none;
+  margin: 4px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.lumina-similar-row {
+  display: grid;
+  grid-template-columns: 40px minmax(0, 1fr) minmax(80px, 1.2fr) 48px;
+  align-items: center;
+  gap: 10px;
+  font-size: 12px;
+  padding: 6px 4px;
+  border-radius: 8px;
+}
+
+.lumina-similar-row:hover {
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.lumina-similar-iso {
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  color: rgba(255, 255, 255, 0.55);
+}
+
+.lumina-similar-name {
+  color: rgba(255, 255, 255, 0.85);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.lumina-similar-bar-track {
+  height: 4px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.06);
+  overflow: hidden;
+}
+
+.lumina-similar-bar-fill {
+  display: block;
+  height: 100%;
+  background: linear-gradient(90deg, rgba(34, 197, 94, 0.4), rgba(236, 72, 153, 0.55));
+}
+
+.lumina-similar-distance {
+  text-align: right;
+  font-feature-settings: "tnum" 1;
+  color: rgba(255, 255, 255, 0.7);
+}
+
+/* ============================================================
+   Model transparency metrics
+   ============================================================ */
+.lumina-metric-list {
+  list-style: none;
+  margin: 4px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.lumina-metric-row {
+  display: grid;
+  grid-template-columns: 16px minmax(0, 1fr) auto;
+  grid-template-rows: auto auto;
+  column-gap: 8px;
+  align-items: center;
+  padding: 8px 10px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(255, 255, 255, 0.04);
+}
+
+.lumina-metric-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: rgba(255, 255, 255, 0.45);
+  grid-row: 1;
+}
+
+.lumina-metric-label {
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.55);
+  grid-row: 1;
+}
+
+.lumina-metric-value {
+  font-size: 14px;
+  font-weight: 500;
+  font-feature-settings: "tnum" 1;
+  color: #fff;
+  grid-row: 1;
+  text-align: right;
+}
+
+.lumina-metric-hint {
+  grid-column: 1 / -1;
+  grid-row: 2;
+  font-size: 10px;
+  color: rgba(255, 255, 255, 0.4);
+  margin-top: 2px;
+}
+
+.lumina-metric-warn {
+  border-color: rgba(245, 158, 11, 0.25);
+  background: rgba(245, 158, 11, 0.04);
+}
+
+.lumina-metric-warn .lumina-metric-value {
+  color: #f59e0b;
+}
+
+.lumina-metric-ok {
+  border-color: rgba(34, 197, 94, 0.2);
+}
+
+/* ============================================================
+   Shared disclaimer / ML empty state
+   ============================================================ */
+.lumina-model-disclaimer {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  margin: 8px 0 0;
+  font-size: 10px;
+  color: rgba(255, 255, 255, 0.4);
+  letter-spacing: 0.02em;
+  line-height: 1.45;
+}
+
+.lumina-model-disclaimer svg {
+  flex-shrink: 0;
+  margin-top: 2px;
+  color: rgba(255, 255, 255, 0.35);
+}
+
+.lumina-ml-empty p {
+  font-size: 12px;
+  line-height: 1.5;
+  color: rgba(255, 255, 255, 0.55);
+  margin: 0;
+}

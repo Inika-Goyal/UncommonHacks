@@ -1,8 +1,18 @@
+import { z } from "zod";
+
 import { createChatModel } from "@/agents/llm";
 import { buildFeatureBundle } from "@/agents/ml/feature-bundle";
-import { SYNTHESIS_SYSTEM_PROMPT } from "@/agents/prompts";
+import { localScoring, predictWithMl, type MlPrediction } from "@/agents/ml/predict-bridge";
+import { NARRATIVE_SYSTEM_PROMPT } from "@/agents/prompts";
 import type { OrchestratorState, OrchestratorUpdate } from "@/agents/state";
-import { synthesisSchema, type AgentResult, type SynthesisOutput } from "@/agents/types";
+import { lookupGsi } from "@/agents/tools/global-slavery-index";
+import type { AgentResult, SynthesisOutput } from "@/agents/types";
+
+const narrativeSchema = z.object({
+  title: z.string().min(5),
+  summary: z.string().min(20),
+  recommendedAction: z.string().min(20),
+});
 
 function describeFindings(state: OrchestratorState): string {
   const lines: string[] = [];
@@ -20,29 +30,80 @@ function describeFindings(state: OrchestratorState): string {
   return lines.join("\n");
 }
 
-function fallbackSynthesis(state: OrchestratorState): SynthesisOutput {
-  const allFindings = Object.values(state.agents).flatMap((agent) => agent?.findings ?? []);
-  const severity = allFindings.length
-    ? Math.max(...allFindings.map((f) => f.severity))
-    : 1;
-  const credibility = allFindings.length
-    ? Math.round(
-        allFindings.reduce((sum, f) => sum + f.credibility, 0) / allFindings.length,
-      )
-    : 1;
-  const overallRisk = Math.min(100, severity * 15 + credibility * 5 + allFindings.length * 4);
-
+function fallbackNarrative(state: OrchestratorState): {
+  title: string;
+  summary: string;
+  recommendedAction: string;
+} {
+  const findingCount = Object.values(state.agents).reduce(
+    (n, a) => n + (a?.findings.length ?? 0),
+    0,
+  );
   return {
     title: `${state.query}: preliminary exploitation-risk briefing`,
     summary:
-      allFindings.length > 0
-        ? `Synthesis fallback: ${allFindings.length} findings were collected across ${Object.keys(state.agents).length} agents. The OpenAI synthesis call did not return a valid response.`
-        : "The agent swarm did not collect enough evidence to produce a synthesis.",
+      findingCount > 0
+        ? `Narrative fallback: ${findingCount} agent findings were collected; the LLM call did not return valid prose.`
+        : "The agent swarm did not collect enough evidence to produce a narrative.",
     recommendedAction:
       "Re-run the investigation after confirming source availability and API access.",
-    severity,
-    credibility,
-    overallRisk,
+  };
+}
+
+async function resolveIso3(primaryCountry: string | undefined): Promise<string | null> {
+  if (!primaryCountry) return null;
+  try {
+    const gsi = await lookupGsi([primaryCountry]);
+    if (gsi.source === "miss") return null;
+    return gsi.payload.scores[0]?.iso3 ?? null;
+  } catch {
+    return null;
+  }
+}
+
+async function getScores(
+  state: OrchestratorState,
+  bundle: ReturnType<typeof buildFeatureBundle>,
+): Promise<{ scores: ReturnType<typeof localScoring>; mlPrediction: MlPrediction | null }> {
+  const iso3 = await resolveIso3(state.countries[0]);
+
+  if (iso3) {
+    try {
+      const prediction = await predictWithMl({ country: iso3 });
+      return {
+        scores: {
+          severity: prediction.scores.severity,
+          credibility: prediction.scores.credibility,
+          overallRisk: prediction.scores.overall_risk,
+          rationale: prediction.scores.rationale,
+        },
+        mlPrediction: prediction,
+      };
+    } catch (err) {
+      console.warn(
+        `[ml] predictWithMl(${iso3}) failed, falling back to localScoring:`,
+        (err as Error).message,
+      );
+    }
+  } else if (state.countries[0]) {
+    console.warn(
+      `[ml] could not resolve "${state.countries[0]}" to an ISO3 code in the GSI lookup — using localScoring`,
+    );
+  }
+
+  const findingCount = Object.values(state.agents).reduce(
+    (n, a) => n + (a?.findings.length ?? 0),
+    0,
+  );
+  return {
+    scores: localScoring({
+      watchlistMatches: bundle.watchlist.matchCount,
+      courtCases: bundle.legal.courtCaseCount,
+      newsArticles: bundle.news.articleCount,
+      gsiWeighted: bundle.riskIndex.weightedScore,
+      findingCount,
+    }),
+    mlPrediction: null,
   };
 }
 
@@ -51,16 +112,17 @@ export async function synthesizeNode(state: OrchestratorState): Promise<Orchestr
   const persona = state.onboarding.reporterPersona ?? "NGO";
   const outputGoal = state.onboarding.outputGoal ?? "complaint";
 
-  const evidence = describeFindings(state);
+  const { scores, mlPrediction } = await getScores(state, bundle);
 
-  const model = createChatModel("synthesis").withStructuredOutput(synthesisSchema, {
-    name: "synthesis_output",
+  const evidence = describeFindings(state);
+  const model = createChatModel("synthesis").withStructuredOutput(narrativeSchema, {
+    name: "narrative_output",
   });
 
-  let synthesis: SynthesisOutput;
+  let narrative: { title: string; summary: string; recommendedAction: string };
   try {
-    synthesis = await model.invoke([
-      { role: "system", content: SYNTHESIS_SYSTEM_PROMPT },
+    narrative = await model.invoke([
+      { role: "system", content: NARRATIVE_SYSTEM_PROMPT },
       {
         role: "user",
         content: `Subject: ${state.query} (${state.inputType})
@@ -69,24 +131,29 @@ Industry: ${state.onboarding.industry ?? "unspecified"}
 Reporter persona: ${persona}
 Output goal: ${outputGoal}
 
-Agent findings:
-${evidence || "(none)"}
+ML-derived scores (do NOT contradict these — narrate them):
+- severity: ${scores.severity}/5
+- credibility: ${scores.credibility}/5
+- overallRisk: ${scores.overallRisk}/100
 
-Feature bundle summary:
-- News articles: ${bundle.news.articleCount} (${bundle.news.last30dCount} in last 30d)
-- Watchlist matches: ${bundle.watchlist.matchCount}
-- Facility records: ${bundle.supplier.facilityCount}
-- Court cases: ${bundle.legal.courtCaseCount} (FLSA: ${bundle.legal.flsaCaseCount})
-- ILO complaints: ${bundle.legal.iloComplaintCount}
-- GSI weighted prevalence: ${bundle.riskIndex.weightedScore ?? "n/a"}`,
+Agent findings:
+${evidence || "(none)"}`,
       },
     ]);
   } catch {
-    synthesis = fallbackSynthesis(state);
+    narrative = fallbackNarrative(state);
   }
+
+  const synthesis: SynthesisOutput = {
+    ...narrative,
+    severity: scores.severity,
+    credibility: scores.credibility,
+    overallRisk: scores.overallRisk,
+  };
 
   return {
     featureBundle: bundle,
     synthesis,
+    mlPrediction,
   };
 }

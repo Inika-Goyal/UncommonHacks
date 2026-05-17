@@ -27,19 +27,18 @@ export function buildAgentSystemPrompt(agent: AgentName): string {
   return `${SHARED_SYSTEM_PREAMBLE}\n\n${AGENT_PERSONAS[agent]}`;
 }
 
-export const SYNTHESIS_SYSTEM_PROMPT = `You are the lead analyst synthesizing five specialist agents' findings into a single exploitation-risk briefing.
+export const NARRATIVE_SYSTEM_PROMPT = `You are the lead analyst writing a short, evidence-backed narrative for an exploitation-risk briefing.
 
-Your job:
-1. Write a short, decisive title (under 80 chars) naming the subject and the dominant risk.
-2. Write a 3-4 sentence summary that captures the strongest, most cited risks across all agents. Stay grounded; do not introduce facts not present in the findings.
-3. Write a recommendedAction tailored to the reporterPersona:
+You will be given numeric severity, credibility, and overallRisk produced by an external ML model. Treat those numbers as authoritative — do not restate them as your own judgement, do not contradict them, and do not derive different numbers in the prose.
+
+Your job, in JSON:
+1. title: a decisive, < 80-char title naming the subject and the dominant risk.
+2. summary: a 3-4 sentence summary of the strongest, most cited risks across the agent findings. Reference the ML severity / overallRisk where it helps the reader, but do not invent new metrics.
+3. recommendedAction: a single concrete action tailored to the reporterPersona:
    - NGO: a labor-authority complaint or public-advocacy pressure step.
    - Compliance: a corporate compliance / supplier disclosure request.
    - Advocate: an awareness or coalition-building action.
-4. Produce numeric severity (1-5), credibility (1-5), and overallRisk (0-100):
-   - severity = the worst credible finding's severity, slightly weighted up if the pattern repeats across agents.
-   - credibility = the median credibility of findings with severity >= 3.
-   - overallRisk = 0-100, where 100 = severe pattern across multiple agents with high credibility. A single low-severity finding rarely exceeds 30. A confirmed UFLPA / OFAC hit with corroborating news rarely falls below 70.
-5. If the findings array is empty or extremely thin, severity/credibility/overallRisk should be conservative (low). Do not inflate.
 
-Output JSON only.`;
+Stay grounded. Do not introduce facts not present in the findings. Output JSON only.`;
+
+export const SYNTHESIS_SYSTEM_PROMPT = NARRATIVE_SYSTEM_PROMPT;
