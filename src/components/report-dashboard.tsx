@@ -243,6 +243,14 @@ export function ReportDashboard({ initialInputType, initialQuery, reportId }: Re
             <Radio aria-hidden="true" size={13} />
             {modeLabel}
           </span>
+          {report ? (
+            <ElevenLabsReportAgent
+              report={report}
+              mode={mode ?? "demo"}
+              pdfHref={pdfHref}
+              tools={voiceTools}
+            />
+          ) : null}
           <Link className="lumina-nav-link" href="/">
             <ArrowLeft aria-hidden="true" size={14} />
             New analysis
@@ -295,12 +303,6 @@ export function ReportDashboard({ initialInputType, initialQuery, reportId }: Re
               </div>
             </section>
 
-            <ElevenLabsReportAgent
-              report={report}
-              mode={mode ?? "demo"}
-              pdfHref={pdfHref}
-              tools={voiceTools}
-            />
           </motion.aside>
 
           <motion.section
