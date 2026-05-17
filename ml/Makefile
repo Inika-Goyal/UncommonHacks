@@ -18,7 +18,7 @@ PY        := $(ML_DIR).venv/bin/python
 EVAL_OUT  := $(ML_DIR)artifacts/eval
 
 .DEFAULT_GOAL := help
-.PHONY: help models performance
+.PHONY: help train models performance
 
 help:  ## Show available targets.
 	@echo "Targets:"
@@ -27,14 +27,17 @@ help:  ## Show available targets.
 	@echo ""
 	@echo "Run \`make models\` first if artifacts/ is empty."
 
-models:  ## Train geographic + cluster models. (HTML report skipped — see note.)
+train:  ## Retrain geographic + cluster models from the real-data panel (no report).
 	@echo "==> training geographic model"
 	cd $(REPO_ROOT) && $(PY) -m ml.pipelines.train_geographic
 	@echo "==> training cluster model"
 	cd $(REPO_ROOT) && $(PY) -m ml.pipelines.train_cluster
 	@echo "==> done. summaries: $(ML_DIR)artifacts/{geographic,cluster}/summary.json"
-	@echo "    (ml.app.build_report not run — it still expects the old synthetic-era"
-	@echo "     summary schema and needs updating for the real-data summary)"
+
+models: train  ## Retrain + build the real-data HTML report.
+	@echo "==> building real-data HTML report"
+	cd $(REPO_ROOT) && $(PY) -m ml.app.build_report
+	@echo "==> done. open $(ML_DIR)artifacts/report/index.html"
 
 performance:  ## Held-out test metrics + categorical sanity test (-> artifacts/eval/).
 	@mkdir -p $(EVAL_OUT)

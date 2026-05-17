@@ -51,6 +51,7 @@ ml/
 │   ├── real.py               # base GSI+WDI+RSF + optional source loaders
 │   ├── quality.py            # data-quality report (schema, missingness, VIF, skew)
 │   ├── sources.py            # citation catalog
+│   ├── synthetic_sample.py   # DEPRECATED synthetic generator (sample data only)
 │   └── raw/                  # bundled public CSVs (committed)
 │       ├── gsi_2023.csv
 │       ├── wdi.csv
@@ -73,10 +74,12 @@ ml/
 │   ├── train_cluster.py      # → artifacts/cluster/{cluster_model.joblib, panel.csv, summary.json}
 │   └── predict.py            # stdin → stdout CLI used by the TS bridge
 ├── app/
-│   └── build_report.py       # static HTML model report (no server)
+│   ├── build_report.py       # static HTML model report (REAL data)
+│   └── build_sample.py       # DEPRECATED synthetic-era report (sample data only)
 ├── docs/
 │   ├── questionable_choices.md
 │   └── statistical_resolutions.md
+├── Makefile                  # `make models` + `make performance`
 ├── artifacts/                # outputs (gitignored)
 └── requirements.txt
 ```
@@ -103,9 +106,19 @@ echo '{"country":"KHM"}' | python -m ml.pipelines.predict | jq .
 python -m ml.eval.performance --out perf.txt
 python -m ml.eval.sanity      --out sanity.txt
 
-# 5. interactive HTML model report
+# 5. interactive HTML model report (real data)
 python -m ml.app.build_report --country KHM
+python -m ml.app.build_report --refresh           # also re-trains both models
 # → ml/artifacts/report/index.html
+```
+
+Or use the Makefile:
+
+```bash
+cd ml
+make            # show commands
+make models     # train both models + build the HTML report
+make performance# held-out perf + categorical sanity, → artifacts/eval/*.txt
 ```
 
 **All commands must be run from the repository root**, not from `ml/`,
@@ -264,10 +277,30 @@ of the prediction distribution.
   centroids on the original scale.
 
 **`artifacts/report/index.html`** — static HTML model report built by
-`app/build_report.py`. Self-contained, no server required. Includes
-year-sliderable heatmap, cluster PCA scatter, optional per-country
-detail block, and the source catalog. CDN-loaded plotly.js by default
-(~115 KB); pass `--inline-js` for a fully-offline ~4 MB file.
+`app/build_report.py` (real-data edition). Self-contained, no server
+required. Includes:
+
+- model-health metric tiles + quality-flag pills (collinearity drops,
+  VIF flags, target transform, coverage),
+- country-ranking bar chart (all panel countries sorted by predicted
+  prevalence /1k),
+- regional box plot,
+- mean-bagged GradientBoosting feature importance,
+- cluster PCA scatter (with optional star highlight for `--country`),
+- per-country detail block (ILO-bucket bars with 80% uncertainty
+  whiskers + similar countries table + observed-vs-predicted note),
+- data-quality table (per-predictor NaN% + outlier count + whether
+  the column survived collinearity reduction),
+- source catalog grouped by role.
+
+CDN-loaded plotly.js by default (~65 KB); pass `--inline-js` for a
+fully-offline ~4 MB file. `--refresh` re-trains both models before
+rendering. `--serve` also serves on `:8765` via stdlib `http.server`.
+
+The previous synthetic-era builder lives at `app/build_sample.py`
+(it reads per-exploit `geo_<exploit>.joblib` files and a multi-year
+panel — neither of which the real-data pipeline produces). It is
+kept for reference and not part of `make models`.
 
 ### Predict CLI output schema
 

@@ -1,9 +1,21 @@
-"""Synthetic country-year panel for training and testing both models.
+"""DEPRECATED — synthetic country-year panel (sample data only).
 
-Real GSI/TIP/ILOSTAT pulls are heavy and require API keys, so this module
-fabricates a panel with the *shape* of the real data: ~60 countries, 8
-years, predictor blocks for demographics, economy, governance, migration,
-help-resource access, plus the predicted exploit prevalence per type.
+The production pipeline trains on the real GSI+WDI+RSF panel built
+in `ml/data/real.py`. This generator stays in the tree for two
+narrow purposes:
+
+  1. Regression-testing the synthetic-era report builder
+     (`ml/app/build_sample.py`) and any other code paths that
+     intentionally pre-date the real-data refactor.
+  2. Reference for the shape of a multi-year, per-exploit-type panel
+     in case we extend the real loader to that level later.
+
+It is NOT loaded by `train_geographic`, `train_cluster`, `predict`,
+`eval/performance`, or `eval/sanity`. Don't import it from real-data
+code paths.
+
+This file was previously imported as `ml.data.synthetic`. It now
+lives at `ml.data.synthetic_sample` to make its purpose unambiguous.
 
 The generator deliberately injects:
   - a country fixed-effect (so holding out whole countries is the only
