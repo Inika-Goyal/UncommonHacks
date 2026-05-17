@@ -15,13 +15,14 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { motion } from "motion/react";
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 
 import { ElevenLabsReportAgent } from "@/components/elevenlabs-report-agent";
 import { LuminaLogo } from "@/components/lumina-brand";
+import { ModelIntelligencePanel } from "@/components/model-intelligence-panel";
 import { ScoreScrambler } from "@/components/score-scrambler";
 import { VideoBackground } from "@/components/video-background";
-import { WorldGlobe } from "@/components/world-globe";
+import { WorldGlobe, type WorldGlobeHandle } from "@/components/world-globe";
 import type { Finding, InputType, Report, ReportResponse, SourceStatus } from "@/lib/report-types";
 
 type ReportDashboardProps = {
@@ -48,6 +49,18 @@ export function ReportDashboard({ initialInputType, initialQuery, reportId }: Re
   const [error, setError] = useState<string | null>(null);
   const [mode, setMode] = useState<Mode>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const globeRef = useRef<WorldGlobeHandle | null>(null);
+
+  const handleFocusGeography = useCallback(
+    (target: { latitude: number; longitude: number; pointId?: string }) => {
+      globeRef.current?.focusLocation({
+        latitude: target.latitude,
+        longitude: target.longitude,
+        zoom: 1.35,
+      });
+    },
+    [],
+  );
 
   useEffect(() => {
     let aborted = false;
@@ -161,7 +174,7 @@ export function ReportDashboard({ initialInputType, initialQuery, reportId }: Re
               <p>{report.title}</p>
             </section>
 
-            <section className="liquid-glass lumina-panel">
+            <section className="liquid-glass lumina-panel" data-dashboard-section="sources">
               <SectionHeader icon={<ShieldAlert size={14} />} title="Source Status" />
               <div className="lumina-source-stack">
                 {report.sourceChecks.map((source) => {
@@ -191,7 +204,7 @@ export function ReportDashboard({ initialInputType, initialQuery, reportId }: Re
             transition={{ duration: 0.65, delay: 0.12, ease: "easeOut" }}
             className="liquid-glass lumina-report-card"
           >
-            <section className="lumina-report-summary">
+            <section className="lumina-report-summary" data-dashboard-section="summary">
               <SectionHeader icon={<Info size={14} />} title="Executive Summary" />
               <h2>{report.title}</h2>
               <p>{report.summary}</p>
@@ -203,7 +216,7 @@ export function ReportDashboard({ initialInputType, initialQuery, reportId }: Re
               <ScoreTile label="Credibility" value={report.credibility} suffix="/5" tone="info" />
             </div>
 
-            <section>
+            <section data-dashboard-section="findings">
               <SectionHeader icon={<AlertTriangle size={14} />} title="Cited Findings" />
               <div className="lumina-findings-list">
                 {report.findings.map((finding, index) => (
@@ -212,7 +225,7 @@ export function ReportDashboard({ initialInputType, initialQuery, reportId }: Re
               </div>
             </section>
 
-            <section className="lumina-action-block">
+            <section className="lumina-action-block" data-dashboard-section="action">
               <SectionHeader icon={<CheckCircle2 size={14} />} title="Recommended Action" />
               <p>{report.recommendedAction}</p>
               <span>{report.sourceNote}</span>
@@ -235,14 +248,19 @@ export function ReportDashboard({ initialInputType, initialQuery, reportId }: Re
             animate={{ opacity: 1, x: 0 }}
             transition={{ duration: 0.65, delay: 0.22, ease: "easeOut" }}
             className="liquid-glass lumina-map-card"
+            data-dashboard-section="map"
           >
             <div className="lumina-map-head">
               <SectionHeader icon={<ShieldAlert size={14} />} title="Signal Map" />
               <p>{report.mapPoints.length} mapped source signal{report.mapPoints.length === 1 ? "" : "s"}</p>
             </div>
-            <WorldGlobe points={report.mapPoints} />
+            <WorldGlobe ref={globeRef} points={report.mapPoints} />
           </motion.aside>
         </section>
+      ) : null}
+
+      {report ? (
+        <ModelIntelligencePanel report={report} onFocusGeography={handleFocusGeography} />
       ) : null}
     </main>
   );
@@ -288,6 +306,7 @@ function FindingRow({ finding, index }: { finding: Finding; index: number }) {
       animate={{ opacity: 1, x: 0 }}
       transition={{ delay: 0.25 + index * 0.06 }}
       className="lumina-finding-row"
+      data-finding-id={finding.id}
     >
       <span className="lumina-finding-dot" style={{ background: riskColor(finding.severity) }} />
       <div className="lumina-finding-main">

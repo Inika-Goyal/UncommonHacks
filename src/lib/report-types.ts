@@ -2,6 +2,21 @@ export type InputType = "company" | "region";
 
 export type SourceStatus = "ready" | "snapshot" | "blocked" | "pending";
 
+export const EXPLOIT_CATEGORIES = [
+  "forced_labor",
+  "illegal_profits",
+  "sexual_exploitation",
+  "child_labor",
+] as const;
+export type ExploitCategory = (typeof EXPLOIT_CATEGORIES)[number];
+
+export const EXPLOIT_CATEGORY_LABELS: Record<ExploitCategory, string> = {
+  forced_labor: "Forced Labor",
+  illegal_profits: "Illegal Profits",
+  sexual_exploitation: "Sexual Exploitation",
+  child_labor: "Children",
+};
+
 export type Citation = {
   label: string;
   source: string;
@@ -17,6 +32,20 @@ export type Finding = {
   geography: string;
   evidence: string;
   citations: Citation[];
+  category?: ExploitCategory;
+};
+
+export type MapPointStage =
+  | "origin"
+  | "labor"
+  | "factory"
+  | "transit"
+  | "distribution"
+  | "consumer";
+
+export type MapPointSource = {
+  label: string;
+  url: string;
 };
 
 export type MapPoint = {
@@ -25,6 +54,12 @@ export type MapPoint = {
   latitude: number;
   longitude: number;
   risk: "high" | "medium" | "low";
+  exploitType?: ExploitCategory;
+  severity?: number;
+  stage?: MapPointStage;
+  order?: number;
+  causes?: string[];
+  sources?: MapPointSource[];
 };
 
 export type SourceCheck = {

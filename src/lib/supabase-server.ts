@@ -1,6 +1,13 @@
 import { createClient } from "@supabase/supabase-js";
 
-import type { Report, ReportRequest, SourceStatus } from "@/lib/report-types";
+import type {
+  ExploitCategory,
+  MapPoint,
+  MapPointStage,
+  Report,
+  ReportRequest,
+  SourceStatus,
+} from "@/lib/report-types";
 import { getSupabaseServerConfig } from "@/lib/runtime-config";
 
 type SupabaseReportRow = {
@@ -35,6 +42,12 @@ type SupabaseReportRow = {
     latitude: number;
     longitude: number;
     risk: "high" | "medium" | "low";
+    exploit_type: string | null;
+    severity: number | null;
+    stage: string | null;
+    order: number | null;
+    causes: string[] | null;
+    sources: Array<{ label: string; url: string }> | null;
   }>;
   source_status: Array<{
     name: string;
@@ -74,7 +87,13 @@ const reportSelect = `
     label,
     latitude,
     longitude,
-    risk
+    risk,
+    exploit_type,
+    severity,
+    stage,
+    order,
+    causes,
+    sources
   ),
   source_status (
     name,
@@ -121,7 +140,19 @@ function mapSupabaseReport(row: SupabaseReportRow): Report {
         accessedAt: citation.accessed_at,
       })),
     })),
-    mapPoints: row.map_points,
+    mapPoints: row.map_points.map<MapPoint>((point) => ({
+      id: point.id,
+      label: point.label,
+      latitude: point.latitude,
+      longitude: point.longitude,
+      risk: point.risk,
+      exploitType: (point.exploit_type as ExploitCategory | null) ?? undefined,
+      severity: point.severity ?? undefined,
+      stage: (point.stage as MapPointStage | null) ?? undefined,
+      order: point.order ?? undefined,
+      causes: point.causes ?? undefined,
+      sources: point.sources ?? undefined,
+    })),
     sourceChecks: row.source_status.map((source) => ({
       name: source.name,
       status: source.status,

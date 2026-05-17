@@ -36,8 +36,58 @@ function ElevenLabsReportAgentPanel({ report, mode }: ElevenLabsReportAgentProps
 
   const context = useMemo(() => buildDashboardContext(report, mode), [report, mode]);
   const prompt = useMemo(() => buildVoicePrompt(report), [report]);
+  const clientTools = useMemo(
+    () => ({
+      highlightFinding: ({ findingId }: { findingId?: string }) => {
+        if (!findingId) return "findingId is required.";
+        const row = document.querySelector<HTMLElement>(
+          `[data-finding-id="${escapeSelectorValue(findingId)}"]`,
+        );
+        if (!row) return `Finding ${findingId} was not found in this dashboard report.`;
+
+        row.scrollIntoView({ behavior: "smooth", block: "center" });
+        row.classList.add("finding-row-highlight");
+        window.setTimeout(() => row.classList.remove("finding-row-highlight"), 2400);
+        return `Highlighted finding ${findingId}.`;
+      },
+      focusMapPoint: ({ pointId }: { pointId?: string }) => {
+        if (!pointId) return "pointId is required.";
+        const mapSection = document.querySelector<HTMLElement>('[data-dashboard-section="map"]');
+        const mapPointButton = document.querySelector<HTMLButtonElement>(
+          `[data-map-point-id="${escapeSelectorValue(pointId)}"]`,
+        );
+        if (!mapPointButton) return `Map point ${pointId} was not found in this dashboard report.`;
+
+        mapSection?.scrollIntoView({ behavior: "smooth", block: "center" });
+        mapPointButton.click();
+        mapPointButton.focus({ preventScroll: true });
+        return `Focused map point ${pointId}.`;
+      },
+      scrollToDashboardSection: ({ section }: { section?: string }) => {
+        if (!section) return "section is required.";
+        const normalized = section.toLowerCase();
+        const dashboardSection = document.querySelector<HTMLElement>(
+          `[data-dashboard-section="${escapeSelectorValue(normalized)}"]`,
+        );
+        if (!dashboardSection) {
+          return `Dashboard section ${section} was not found. Valid sections are summary, map, sources, findings, and action.`;
+        }
+
+        dashboardSection.scrollIntoView({ behavior: "smooth", block: "start" });
+        dashboardSection.classList.add("dashboard-section-highlight");
+        window.setTimeout(() => dashboardSection.classList.remove("dashboard-section-highlight"), 1800);
+        return `Scrolled to ${normalized}.`;
+      },
+      openComplaintLetter: () => {
+        window.open(`/api/reports/${encodeURIComponent(report.id)}/complaint.pdf`, "_blank", "noopener,noreferrer");
+        return "Opened the complaint letter PDF.";
+      },
+    }),
+    [report.id],
+  );
 
   const conversation = useConversation({
+    clientTools,
     onConnect: () => setError(null),
     onDisconnect: () => {
       lastContextIdRef.current = null;
@@ -95,6 +145,7 @@ function ElevenLabsReportAgentPanel({ report, mode }: ElevenLabsReportAgentProps
           report_title: report.title,
           report_mode: mode,
         },
+        clientTools,
       });
     } catch (startError) {
       setError(startError instanceof Error ? startError.message : "Unable to start the ElevenLabs voice agent.");
@@ -162,6 +213,14 @@ function formatVoiceError(error: unknown, fallback: string) {
   if (error instanceof Error) return error.message;
   if (typeof error === "string") return error;
   return fallback;
+}
+
+function escapeSelectorValue(value: string) {
+  if (typeof CSS !== "undefined" && "escape" in CSS) {
+    return CSS.escape(value);
+  }
+
+  return value.replace(/["\\]/g, "\\$&");
 }
 
 function voiceStatusLabel(status: string) {

@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 
-import type { Citation, MapPoint } from "@/lib/report-types";
+import type { Citation, ExploitCategory, MapPoint, MapPointStage } from "@/lib/report-types";
 
 import type { OrchestratorState, OrchestratorUpdate } from "@/agents/state";
 import { lookupWikidata, type WikidataLookup } from "@/agents/tools/wikidata";
@@ -122,6 +122,65 @@ function facilityRisk(
   return "low";
 }
 
+function facilitySeverity(risk: "high" | "medium" | "low"): number {
+  if (risk === "high") return 4;
+  if (risk === "medium") return 3;
+  return 2;
+}
+
+const LABOR_RISK_SECTORS =
+  /apparel|garment|textile|mining|electronics|seafood|agriculture|footwear|construction|manufactur/i;
+const CHILD_LABOR_SECTORS = /agriculture|mining|seafood|cocoa|coffee|tobacco|brick/i;
+const HIGH_PROFIT_SECTORS = /retail|wholesale|brand|fashion|electronics|distribution/i;
+
+function facilityExploitType(facility: ResolvedFacility): ExploitCategory {
+  const blob = facility.sectors.join(" ").toLowerCase();
+  if (CHILD_LABOR_SECTORS.test(blob)) return "child_labor";
+  if (LABOR_RISK_SECTORS.test(blob)) return "forced_labor";
+  if (HIGH_PROFIT_SECTORS.test(blob)) return "illegal_profits";
+  return "forced_labor";
+}
+
+function facilityStage(facility: ResolvedFacility): MapPointStage {
+  const name = facility.name.toLowerCase();
+  if (name.includes("headquarters")) return "consumer";
+  if (facility.origin === "wikidata" && facility.sectors.length === 0) return "distribution";
+  if (LABOR_RISK_SECTORS.test(facility.sectors.join(" "))) return "factory";
+  return "labor";
+}
+
+const STAGE_ORDER: Record<MapPointStage, number> = {
+  origin: 0,
+  labor: 1,
+  factory: 2,
+  transit: 3,
+  distribution: 4,
+  consumer: 5,
+};
+
+function facilityCauses(
+  facility: ResolvedFacility,
+  highRisk: Set<string>,
+): string[] {
+  const causes: string[] = [];
+  if (highRisk.has(facility.country.toLowerCase())) {
+    causes.push(`${facility.country} listed in user-defined high-risk geography`);
+  }
+  if (facility.sectors.some((s) => /apparel|garment|textile|footwear/i.test(s))) {
+    causes.push("Apparel/textile sector — known forced-overtime and wage-theft exposure");
+  }
+  if (facility.sectors.some((s) => /mining|seafood|agriculture/i.test(s))) {
+    causes.push("Primary-extraction sector — elevated child- and bonded-labor risk");
+  }
+  if (facility.origin === "wikidata" && facility.sectors.length === 0) {
+    causes.push("Corporate-footprint entity surfaced via Wikidata — verify operational tier");
+  }
+  if (causes.length === 0) {
+    causes.push("Listed in curated supplier registry — review for tier-2/3 subcontracting");
+  }
+  return causes;
+}
+
 export async function supplierNode(state: OrchestratorState): Promise<OrchestratorUpdate> {
   const result = await runAgentNode({
     agent: "supplier",
@@ -174,14 +233,30 @@ export async function supplierNode(state: OrchestratorState): Promise<Orchestrat
       const highRisk = pickHighRiskCountries(state);
       const mapPoints: MapPoint[] = merged
         .filter((f) => typeof f.latitude === "number" && typeof f.longitude === "number")
-        .slice(0, 5)
-        .map((f) => ({
-          id: randomUUID(),
-          label: f.name || `${f.country} facility`,
-          latitude: f.latitude as number,
-          longitude: f.longitude as number,
-          risk: facilityRisk(f, highRisk),
-        }));
+        .slice(0, 6)
+        .map((f) => {
+          const risk = facilityRisk(f, highRisk);
+          const stage = facilityStage(f);
+          return {
+            id: randomUUID(),
+            label: f.name || `${f.country} facility`,
+            latitude: f.latitude as number,
+            longitude: f.longitude as number,
+            risk,
+            exploitType: facilityExploitType(f),
+            severity: facilitySeverity(risk),
+            stage,
+            order: STAGE_ORDER[stage],
+            causes: facilityCauses(f, highRisk),
+            sources: [
+              {
+                label: f.citationLabel || `${f.origin === "wikidata" ? "Wikidata" : "Registry"} record`,
+                url: f.citationUrl,
+              },
+            ],
+          };
+        })
+        .sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
 
       const countriesCovered = Array.from(new Set(merged.map((f) => f.country).filter(Boolean)));
       const sectors = Array.from(new Set(merged.flatMap((f) => f.sectors).filter(Boolean)));
