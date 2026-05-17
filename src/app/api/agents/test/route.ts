@@ -7,6 +7,7 @@ import { ingestNode } from "@/agents/nodes/ingest";
 import { newsNode } from "@/agents/nodes/news";
 import { watchlistNode } from "@/agents/nodes/watchlist";
 import { supplierNode } from "@/agents/nodes/supplier";
+import { webResearchNode } from "@/agents/nodes/web-research";
 import { pipelineNode } from "@/agents/nodes/pipeline";
 import { legalNode } from "@/agents/nodes/legal";
 import { riskIndexNode } from "@/agents/nodes/risk-index";
@@ -25,6 +26,7 @@ const AGENT_RUNNERS = {
   news: newsNode,
   watchlist: watchlistNode,
   supplier: supplierNode,
+  web_research: webResearchNode,
   pipeline: pipelineNode,
   legal: legalNode,
   risk_index: riskIndexNode,
@@ -70,6 +72,7 @@ export async function POST(request: Request) {
     primaryCountry: null,
     agents: {},
     mapPoints: [],
+    mapArcs: [],
     errors: [],
     featureBundle: undefined,
     synthesis: undefined,

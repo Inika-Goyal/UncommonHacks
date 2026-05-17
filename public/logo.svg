@@ -1,17 +1,24 @@
-<svg width="320" height="90" viewBox="0 0 320 90" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="LaborLens">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 120" width="100%" height="100%">
   <defs>
-    <mask id="laborlens-outer-cuts-intro">
+    <mask id="outer-ring-cuts">
       <rect width="100%" height="100%" fill="white" />
-      <line x1="32" y1="45" x2="32" y2="3" stroke="black" stroke-width="4" />
-      <line x1="32" y1="45" x2="47" y2="72" stroke="black" stroke-width="4" />
+      <line x1="60" y1="60" x2="60" y2="-10" stroke="black" stroke-width="7" />
+      <line x1="60" y1="60" x2="85" y2="103" stroke="black" stroke-width="7" />
     </mask>
-    <mask id="laborlens-middle-cuts-intro">
+
+    <mask id="middle-ring-cuts">
       <rect width="100%" height="100%" fill="white" />
-      <line x1="32" y1="45" x2="6" y2="45" stroke="black" stroke-width="4" />
+      <line x1="60" y1="60" x2="-10" y2="60" stroke="black" stroke-width="7" />
     </mask>
   </defs>
-  <circle cx="32" cy="45" r="6" fill="#ffffff" />
-  <circle cx="32" cy="45" r="14" fill="none" stroke="#ffffff" stroke-width="4.5" mask="url(#laborlens-middle-cuts-intro)" />
-  <circle cx="32" cy="45" r="24" fill="none" stroke="#ffffff" stroke-width="5" mask="url(#laborlens-outer-cuts-intro)" />
-  <text x="76" y="54" fill="#ffffff" font-family="Helvetica, Arial, sans-serif" font-size="24" font-weight="300" letter-spacing="7">LABORLENS</text>
+
+  <g transform="translate(0, 0)">
+    <circle cx="60" cy="60" r="11" fill="#6DC8A0" />
+    <circle cx="60" cy="60" r="25" fill="none" stroke="#6DC8A0" stroke-width="8" mask="url(#middle-ring-cuts)" />
+    <circle cx="60" cy="60" r="43" fill="none" stroke="#6DC8A0" stroke-width="9" mask="url(#outer-ring-cuts)" />
+  </g>
+
+  <text x="120" y="78" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif" font-size="54" fill="#ffffff" letter-spacing="-0.5">
+    <tspan font-weight="400">Labor</tspan><tspan x="252" font-weight="700" fill="#6DC8A0">Lens</tspan>
+  </text>
 </svg>

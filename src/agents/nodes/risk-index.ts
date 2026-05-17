@@ -1,19 +1,40 @@
-import type { Citation } from "@/lib/report-types";
+import { randomUUID } from "node:crypto";
+
+import type { Citation, Finding } from "@/lib/report-types";
 
 import type { OrchestratorState, OrchestratorUpdate } from "@/agents/state";
 import { lookupGsi, type GsiCountry } from "@/agents/tools/global-slavery-index";
-import { runAgentNode, extractFindingsWithLlm } from "@/agents/nodes/_helpers";
+import { runAgentNode } from "@/agents/nodes/_helpers";
 
 const accessedAt = () => new Date().toISOString().slice(0, 10);
 
-function formatScores(scores: GsiCountry[]): string {
-  if (scores.length === 0) return "No country scores resolved for the requested geographies.";
-  return scores
-    .map(
-      (entry, idx) =>
-        `${idx + 1}. ${entry.country} (rank ${entry.rank}): prevalence=${entry.prevalencePer1000.toFixed(1)}/1000, est. victims=${entry.estimatedVictims.toLocaleString()}, gov response=${entry.governmentResponseScore}, vulnerability=${entry.vulnerabilityScore}`,
-    )
-    .join("\n");
+const GSI_CITATION = (): Citation => ({
+  label: "Global Slavery Index 2023 country data",
+  source: "Walk Free Foundation",
+  url: "https://www.walkfree.org/global-slavery-index/",
+  accessedAt: accessedAt(),
+});
+
+function severityFromScore(entry: GsiCountry): number {
+  if (entry.prevalencePer1000 >= 10 || entry.vulnerabilityScore >= 75) return 5;
+  if (entry.prevalencePer1000 >= 7 || entry.vulnerabilityScore >= 60) return 4;
+  if (entry.prevalencePer1000 >= 4 || entry.vulnerabilityScore >= 45) return 3;
+  return 2;
+}
+
+function buildRiskIndexFindings(scores: GsiCountry[]): Finding[] {
+  return [...scores]
+    .sort((a, b) => b.prevalencePer1000 - a.prevalencePer1000)
+    .slice(0, 3)
+    .map((entry) => ({
+      id: randomUUID(),
+      signal: `${entry.country} country-level forced-labor prevalence signal`,
+      severity: severityFromScore(entry),
+      credibility: 5,
+      geography: entry.country,
+      evidence: `Walk Free's 2023 Global Slavery Index ranks ${entry.country} at ${entry.rank}, with estimated modern-slavery prevalence of ${entry.prevalencePer1000.toFixed(1)} per 1,000 people and ${entry.estimatedVictims.toLocaleString()} estimated victims. The country has a vulnerability score of ${entry.vulnerabilityScore} and government response score of ${entry.governmentResponseScore}.`,
+      citations: [GSI_CITATION()],
+    }));
 }
 
 export async function riskIndexNode(state: OrchestratorState): Promise<OrchestratorUpdate> {
@@ -28,29 +49,7 @@ export async function riskIndexNode(state: OrchestratorState): Promise<Orchestra
       }
 
       const { scores, weightedScore } = lookup.payload;
-      const evidence = `Walk Free Global Slavery Index country scores (selected): \n${formatScores(scores)}\n\nWeighted average prevalence per 1000: ${weightedScore?.toFixed(2) ?? "n/a"}`;
-
-      const findings = scores.length > 0
-        ? await extractFindingsWithLlm({
-            agent: "risk_index",
-            evidence,
-            instructions: `Subject: ${state.query}. Convert the country-level scores into findings about the relative forced-labor risk of operating or sourcing in these geographies. Citations should use Walk Free / Global Slavery Index. Accessed date: ${accessedAt()}.`,
-          })
-        : [];
-
-      const decoratedFindings = findings.map((finding) => ({
-        ...finding,
-        citations: finding.citations.length > 0
-          ? finding.citations
-          : ([
-              {
-                label: "Global Slavery Index 2023 country data",
-                source: "Walk Free Foundation",
-                url: "https://www.walkfree.org/global-slavery-index/",
-                accessedAt: accessedAt(),
-              },
-            ] satisfies Citation[]),
-      }));
+      const findings = buildRiskIndexFindings(scores);
 
       const rawFeatures = {
         countryScores: scores.map((entry) => ({
@@ -66,7 +65,7 @@ export async function riskIndexNode(state: OrchestratorState): Promise<Orchestra
         detail: scores.length > 0
           ? `${scores.length} countries scored; weighted prevalence ${weightedScore?.toFixed(2) ?? "n/a"}/1000.`
           : "No countries resolved from the query or onboarding input.",
-        findings: decoratedFindings,
+        findings,
         mapPoints: [],
         rawFeatures,
       };

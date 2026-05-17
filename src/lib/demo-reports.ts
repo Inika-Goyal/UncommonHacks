@@ -311,6 +311,54 @@ export const demoReports: Report[] = [
           },
         ],
       },
+      {
+        id: "point-uk-consumer",
+        label: "UK retail / consumer market",
+        latitude: 54.7024,
+        longitude: -3.2766,
+        risk: "low",
+        exploitType: "illegal_profits",
+        severity: 2,
+        stage: "consumer",
+        order: 4,
+        causes: [
+          "Parallel consumer market for direct-to-consumer fast-fashion distribution",
+          "Limited consumer-facing supply-chain disclosure",
+        ],
+        sources: [
+          {
+            label: "Shein 2024 Sustainability & Social Impact Report",
+            url: "https://www.sheingroup.com/sustainability/",
+          },
+        ],
+      },
+    ],
+    mapArcs: [
+      {
+        id: "arc-xinjiang-guangzhou",
+        fromPointId: "point-xinjiang",
+        toPointId: "point-guangzhou",
+      },
+      {
+        id: "arc-guangzhou-shenzhen",
+        fromPointId: "point-guangzhou",
+        toPointId: "point-shenzhen",
+      },
+      {
+        id: "arc-shenzhen-los-angeles",
+        fromPointId: "point-shenzhen",
+        toPointId: "point-los-angeles",
+      },
+      {
+        id: "arc-los-angeles-us-consumer",
+        fromPointId: "point-los-angeles",
+        toPointId: "point-us-consumer",
+      },
+      {
+        id: "arc-shenzhen-uk-consumer",
+        fromPointId: "point-shenzhen",
+        toPointId: "point-uk-consumer",
+      },
     ],
     sourceChecks: [
       {
@@ -521,6 +569,28 @@ export const demoReports: Report[] = [
             url: "https://normlex.ilo.org/dyn/normlex/en/f?p=NORMLEXPUB:11200:0::NO::P11200_COUNTRY_ID:103055",
           },
         ],
+      },
+    ],
+    mapArcs: [
+      {
+        id: "arc-prey-veng-phnom-penh",
+        fromPointId: "point-prey-veng",
+        toPointId: "point-phnom-penh",
+      },
+      {
+        id: "arc-phnom-penh-sihanoukville",
+        fromPointId: "point-phnom-penh",
+        toPointId: "point-sihanoukville",
+      },
+      {
+        id: "arc-sihanoukville-bangkok",
+        fromPointId: "point-sihanoukville",
+        toPointId: "point-bangkok",
+      },
+      {
+        id: "arc-bangkok-geneva",
+        fromPointId: "point-bangkok",
+        toPointId: "point-geneva",
       },
     ],
     sourceChecks: [

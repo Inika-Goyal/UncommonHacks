@@ -3,11 +3,10 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { motion } from "motion/react";
-import { ChevronDown, Loader2 } from "lucide-react";
+import { BarChart3, ChevronDown, ChevronRight, Loader2, Newspaper, ShieldAlert } from "lucide-react";
 
 import IntroScreen from "@/components/IntroScreen";
 import { VideoBackground } from "@/components/video-background";
-import { LaborLensLogo } from "@/components/laborlens-brand";
 
 type InputMode = "company" | "region";
 
@@ -19,6 +18,93 @@ const REGIONS = [
   "Eastern Europe",
   "Middle East & North Africa",
 ];
+
+const HOME_AGENTS = [
+  { id: "news", label: "News Agent" },
+  { id: "watch", label: "Watchlist" },
+  { id: "supplier", label: "Supplier" },
+  { id: "legal", label: "Legal" },
+  { id: "risk", label: "Risk" },
+];
+
+const LIVE_FEED = [
+  { location: "Xinjiang, China", risk: 5 },
+  { location: "Dhaka, Bangladesh", risk: 3 },
+  { location: "Yangon, Myanmar", risk: 4 },
+];
+
+function getRiskColor(score: number): string {
+  if (score >= 5) return "#ef4444";
+  if (score >= 4) return "#f97316";
+  if (score >= 3) return "#f59e0b";
+  return "#22c55e";
+}
+
+function MiniGlobe() {
+  const R = 36;
+  const cx = 48;
+  const cy = 40;
+  const phi0 = (20 * Math.PI) / 180;
+  const lambda0 = (85 * Math.PI) / 180;
+
+  function project(lat: number, lng: number): [number, number] {
+    const phi = (lat * Math.PI) / 180;
+    const lambda = (lng * Math.PI) / 180;
+    const x = R * Math.cos(phi) * Math.sin(lambda - lambda0);
+    const y = -R * (Math.sin(phi0) * Math.cos(phi) * Math.cos(lambda - lambda0) - Math.cos(phi0) * Math.sin(phi));
+    return [cx + x, cy + y];
+  }
+
+  const pins = [
+    { lat: 41.2, lng: 85.5, color: "#ef4444" },
+    { lat: 23.8, lng: 90.4, color: "#f59e0b" },
+    { lat: 16.9, lng: 96.2, color: "#f97316" },
+  ];
+
+  const latLines = [-60, -30, 0, 30, 60];
+  const lngLines = [30, 60, 90, 120, 150];
+
+  return (
+    <svg width="96" height="80" viewBox="0 0 96 80" aria-hidden>
+      <defs>
+        <radialGradient id="landing-mini-globe" cx="40%" cy="35%">
+          <stop offset="0%" stopColor="#1a2340" />
+          <stop offset="100%" stopColor="#060a18" />
+        </radialGradient>
+        <clipPath id="landing-mini-globe-clip">
+          <circle cx={cx} cy={cy} r={R} />
+        </clipPath>
+      </defs>
+      <circle cx={cx} cy={cy} r={R} fill="url(#landing-mini-globe)" />
+      <g clipPath="url(#landing-mini-globe-clip)" stroke="rgba(255,255,255,0.07)" strokeWidth="0.5" fill="none">
+        {latLines.map((lat) => {
+          const points = Array.from({ length: 37 }, (_, i) => {
+            const [x, y] = project(lat, -180 + i * 10);
+            return `${x},${y}`;
+          });
+          return <polyline key={lat} points={points.join(" ")} />;
+        })}
+        {lngLines.map((lng) => {
+          const points = Array.from({ length: 19 }, (_, i) => {
+            const [x, y] = project(-90 + i * 10, lng);
+            return `${x},${y}`;
+          });
+          return <polyline key={lng} points={points.join(" ")} />;
+        })}
+      </g>
+      {pins.map(({ lat, lng, color }, index) => {
+        const [x, y] = project(lat, lng);
+        return (
+          <g key={index}>
+            <circle cx={x} cy={y} r={5} fill={color} opacity={0.22} />
+            <circle cx={x} cy={y} r={2.5} fill={color} />
+          </g>
+        );
+      })}
+      <circle cx={cx} cy={cy} r={R} fill="none" stroke="rgba(255,255,255,0.12)" strokeWidth="1" />
+    </svg>
+  );
+}
 
 export default function LandingPage() {
   const router = useRouter();
@@ -86,10 +172,7 @@ export default function LandingPage() {
             {/* Nav */}
             <div className="flex items-center justify-between px-7 pt-7">
               <div className="flex items-center gap-3">
-                <LaborLensLogo size={24} />
-                <span className="text-white text-lg tracking-[0.35em] uppercase font-light">
-                  LABORLENS
-                </span>
+                <img src="/logo.svg" alt="LaborLens" className="h-9 w-auto" />
               </div>
               <div className="liquid-glass flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-white/50 text-xs">
                 Labour Exploitation Intelligence
@@ -234,9 +317,88 @@ export default function LandingPage() {
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ duration: 0.9, delay: 0.15 }}
-          className="w-[48%] flex flex-col p-6 min-h-dvh"
+          className="w-[48%] flex flex-col p-6 min-h-screen"
         >
+          <div className="flex items-center gap-3 mb-4">
+            <div className="liquid-glass rounded-2xl px-4 py-2.5 flex items-center gap-4 flex-1 overflow-hidden">
+              <span className="text-white/25 text-[10px] tracking-[0.18em] uppercase shrink-0">
+                Agent Swarm - Ready
+              </span>
+              {HOME_AGENTS.map((agent) => (
+                <div key={agent.id} className="flex items-center gap-1.5 min-w-0">
+                  <span className="relative flex h-2 w-2">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75" />
+                    <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500" />
+                  </span>
+                  <span className="text-white/55 text-xs truncate max-w-[7rem]">{agent.label}</span>
+                </div>
+              ))}
+            </div>
+            <button className="liquid-glass flex items-center gap-2 px-4 py-2.5 rounded-2xl text-white/50 text-xs hover:text-white transition-colors shrink-0">
+              ✦ Account
+            </button>
+          </div>
+
+          <div className="liquid-glass rounded-2xl p-4 w-56">
+            <p className="text-white text-sm font-medium mb-0.5">Recently Flagged</p>
+            <p className="text-white/40 text-xs mb-3">Live risk intelligence feed</p>
+            <div className="flex flex-col gap-2">
+              {LIVE_FEED.map((entry) => (
+                <div key={entry.location} className="flex items-center gap-2">
+                  <div className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: getRiskColor(entry.risk) }} />
+                  <span className="text-white/70 text-xs flex-1 leading-tight">{entry.location}</span>
+                  <span className="text-[10px] font-medium shrink-0" style={{ color: getRiskColor(entry.risk) }}>
+                    {entry.risk}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+
           <div className="flex-1" />
+
+          <div className="liquid-glass rounded-[2rem] p-3 mb-3">
+            <div className="grid grid-cols-2 gap-2 mb-2">
+              <div className="liquid-glass rounded-3xl p-5">
+                <div className="liquid-glass w-9 h-9 rounded-xl flex items-center justify-center mb-3">
+                  <Newspaper size={16} className="text-white/50" />
+                </div>
+                <p className="text-white text-sm font-medium">News Agent</p>
+                <p className="text-white/40 text-xs mt-0.5">Neural render pipeline</p>
+              </div>
+              <div className="liquid-glass rounded-3xl p-5">
+                <div className="liquid-glass w-9 h-9 rounded-xl flex items-center justify-center mb-3">
+                  <ShieldAlert size={16} className="text-white/50" />
+                </div>
+                <p className="text-white text-sm font-medium">Watchlist Agent</p>
+                <p className="text-white/40 text-xs mt-0.5">Species + cultivar library</p>
+              </div>
+            </div>
+
+            <div className="liquid-glass rounded-2xl p-3 flex items-center gap-4 hover:bg-white/5 transition-colors cursor-pointer">
+              <div className="shrink-0">
+                <MiniGlobe />
+              </div>
+              <div className="flex-1">
+                <p className="text-white text-sm font-medium">Supply Chain Globe</p>
+                <p className="text-white/40 text-xs mt-0.5">Interactive 3D risk mapping</p>
+              </div>
+              <div className="liquid-glass w-8 h-8 rounded-full flex items-center justify-center text-white/50 shrink-0">
+                <ChevronRight size={14} />
+              </div>
+            </div>
+          </div>
+
+          <div className="liquid-glass rounded-2xl p-3 flex items-center gap-3 hover:bg-white/5 transition-colors cursor-pointer">
+            <div className="liquid-glass w-8 h-8 rounded-xl flex items-center justify-center shrink-0">
+              <BarChart3 size={13} className="text-white/50" />
+            </div>
+            <div className="flex-1">
+              <p className="text-white text-xs font-medium">Analytics Dashboard</p>
+              <p className="text-white/35 text-[10px]">Regional trends and risk analysis</p>
+            </div>
+            <ChevronRight size={12} className="text-white/30" />
+          </div>
 
         </motion.div>
       </div>

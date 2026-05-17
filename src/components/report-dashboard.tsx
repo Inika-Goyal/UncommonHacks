@@ -5,7 +5,6 @@ import {
   ArrowLeft,
   CheckCircle2,
   CircleSlash,
-  Download,
   ExternalLink,
   FileText,
   Loader2,
@@ -340,10 +339,6 @@ export function ReportDashboard({ initialInputType, initialQuery, reportId }: Re
                   <FileText aria-hidden="true" size={15} />
                   Generate Complaint PDF
                 </a>
-                <a className="laborlens-secondary-action" href={pdfHref}>
-                  <Download aria-hidden="true" size={15} />
-                  Download letter
-                </a>
               </div>
             </div>
           </motion.section>
@@ -361,7 +356,7 @@ export function ReportDashboard({ initialInputType, initialQuery, reportId }: Re
               <SectionHeader icon={<ShieldAlert size={14} />} title="Signal Map" />
               <p>{report.mapPoints.length} mapped source signal{report.mapPoints.length === 1 ? "" : "s"}</p>
             </div>
-            <WorldGlobe ref={globeRef} points={report.mapPoints} />
+            <WorldGlobe ref={globeRef} points={report.mapPoints} arcs={report.mapArcs} />
           </motion.aside>
 
           <ModelIntelligencePanel report={report} onFocusGeography={handleFocusGeography} />

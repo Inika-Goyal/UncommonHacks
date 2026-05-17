@@ -24,10 +24,13 @@ function buildQueries(subject: string, countries: string[], industry?: string): 
   const countryHint = countries.length > 0 ? countries.slice(0, 3).join(" ") : "";
   const industryHint = industry ? `${industry} ` : "";
   return [
+    `${subject} ${industryHint}raw materials sourcing countries supply chain`,
+    `${subject} ${industryHint}components suppliers processing assembly countries`,
     `${subject} ${industryHint}supply chain factories`,
     `${subject} suppliers manufacturing locations ${countryHint}`,
     `${subject} sourcing countries factories workers`,
-    `${subject} imports distribution stores United States`,
+    `${subject} imports distribution stores consumer markets`,
+    `${subject} annual report revenue countries stores distribution markets`,
   ]
     .map((query) => query.replace(/\s+/g, " ").trim())
     .filter(Boolean);
