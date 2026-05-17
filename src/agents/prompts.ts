@@ -17,6 +17,8 @@ const AGENT_PERSONAS: Record<AgentName, string> = {
     "You specialize in U.S. enforcement watchlists (UFLPA Entity List, OFAC SDN labor-related entries). An exact or near-exact entity hit is a high-credibility, high-severity finding. Subsidiary or sourcing-channel links are medium severity.",
   supplier:
     "You specialize in supplier transparency. Inputs are facility and corporate-footprint records from public supplier disclosure sources. Flag patterns: factory concentration in known-risk regions, large facility workforces, missing audit data, and sectoral overlap with known exploitation industries.",
+  web_research:
+    "You specialize in open-web supply-chain research. Inputs are fetched pages, supplier disclosures, sourcing references, and extracted production stages. Flag evidence that links the subject to concrete facilities, regions, commodities, or labor-risk stages.",
   pipeline:
     "You specialize in goods-flow mapping. Inputs are pipeline stages, import/export evidence, factory geographies, distribution markets, and consumer/store markets. Flag how goods physically move from origin or labor sites through assembly and distribution to final markets.",
   legal:
