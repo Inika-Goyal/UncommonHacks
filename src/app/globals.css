@@ -2421,9 +2421,10 @@ td a {
 
 .launch-stage {
   max-width: 1180px;
-  min-height: calc(100dvh - 72px);
-  padding: clamp(16px, 2vw, 28px) clamp(16px, 4vw, 48px) 44px;
-  gap: 16px;
+  height: calc(100dvh - 72px);
+  min-height: 0;
+  padding: clamp(12px, 1.6vw, 22px) clamp(16px, 4vw, 48px) clamp(16px, 2vw, 28px);
+  gap: clamp(10px, 1.2vw, 14px);
   align-content: center;
 }
 
@@ -2449,10 +2450,10 @@ td a {
   -webkit-background-clip: initial;
   background-clip: initial;
   font-family: "Helvetica Regular", Helvetica, Arial, sans-serif;
-  font-size: clamp(32px, 4.8vw, 58px);
+  font-size: clamp(24px, 3.2vw, 40px);
   font-weight: 300;
   letter-spacing: 0.02em;
-  line-height: 1.02;
+  line-height: 1.05;
 }
 
 .launch-subtitle {
@@ -2468,7 +2469,7 @@ td a {
 }
 
 .launch-constellation {
-  height: clamp(300px, 44vh, 470px);
+  height: clamp(200px, 30vh, 340px);
   border: 0;
   border-radius: 24px;
   background:
