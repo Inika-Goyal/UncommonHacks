@@ -4477,3 +4477,824 @@ td a {
   color: rgba(255, 255, 255, 0.55);
   margin: 0;
 }
+
+/* ============================================================
+   Supply-chain country strip (multi-country supply chains)
+   ============================================================ */
+.laborlens-supply-chain {
+  margin-bottom: 14px;
+}
+
+.laborlens-supply-chain-head {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.laborlens-supply-summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.55);
+  letter-spacing: 0.04em;
+}
+
+.laborlens-supply-summary strong {
+  color: rgba(255, 255, 255, 0.85);
+  margin-left: 4px;
+}
+
+.laborlens-supply-chain-list {
+  list-style: none;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  gap: 10px;
+  padding: 0;
+  margin: 0;
+}
+
+.laborlens-supply-chain-card {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 12px;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  transition: border-color 0.18s ease, background 0.18s ease;
+}
+
+.laborlens-supply-chain-card:hover {
+  border-color: rgba(236, 72, 153, 0.45);
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.laborlens-supply-chain-worst {
+  border-color: rgba(239, 68, 68, 0.55);
+  background: rgba(239, 68, 68, 0.06);
+}
+
+.laborlens-supply-chain-card header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.laborlens-supply-iso {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  color: rgba(255, 255, 255, 0.75);
+}
+
+.laborlens-supply-name {
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.55);
+  flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.laborlens-supply-weight {
+  font-size: 10px;
+  color: rgba(236, 72, 153, 0.85);
+  padding: 1px 6px;
+  border-radius: 6px;
+  background: rgba(236, 72, 153, 0.1);
+}
+
+.laborlens-supply-prevalence {
+  font-size: 22px;
+  font-weight: 500;
+  color: #fff;
+  line-height: 1;
+}
+
+.laborlens-supply-prevalence small {
+  font-size: 10px;
+  color: rgba(255, 255, 255, 0.4);
+  margin-left: 4px;
+}
+
+.laborlens-supply-chain-card footer {
+  display: flex;
+  gap: 8px;
+  font-size: 10px;
+  color: rgba(255, 255, 255, 0.45);
+  flex-wrap: wrap;
+}
+
+.laborlens-supply-imputed {
+  color: rgba(245, 158, 11, 0.9);
+  border: 1px solid rgba(245, 158, 11, 0.4);
+  padding: 1px 5px;
+  border-radius: 4px;
+  letter-spacing: 0.06em;
+}
+
+/* ============================================================
+   Adjustments card (ML + agents in tandem)
+   ============================================================ */
+.laborlens-adjustments-card {
+  margin-bottom: 14px;
+}
+
+.laborlens-adjustments-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 6px;
+}
+
+.laborlens-adjustment-row {
+  display: grid;
+  grid-template-columns: 80px 70px 1fr auto;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.laborlens-adjustment-label {
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.88);
+}
+
+.laborlens-adjustment-baseline {
+  color: rgba(255, 255, 255, 0.45);
+  font-variant-numeric: tabular-nums;
+}
+
+.laborlens-adjustment-delta {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.laborlens-adjustment-delta.up {
+  color: rgba(239, 68, 68, 0.85);
+}
+
+.laborlens-adjustment-delta.down {
+  color: rgba(34, 197, 94, 0.85);
+}
+
+.laborlens-adjustment-final strong {
+  color: #fff;
+  font-weight: 600;
+}
+
+/* ============================================================
+   Feature drivers card
+   ============================================================ */
+.laborlens-driver-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.laborlens-driver-row {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.laborlens-driver-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.75);
+}
+
+.laborlens-driver-label {
+  flex: 1;
+}
+
+.laborlens-driver-dir {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  font-size: 10px;
+  letter-spacing: 0.04em;
+}
+
+.laborlens-driver-dir.up {
+  color: rgba(239, 68, 68, 0.9);
+}
+
+.laborlens-driver-dir.down {
+  color: rgba(34, 197, 94, 0.9);
+}
+
+.laborlens-driver-bar-track {
+  position: relative;
+  height: 5px;
+  border-radius: 3px;
+  background: rgba(255, 255, 255, 0.06);
+  overflow: hidden;
+}
+
+.laborlens-driver-bar-fill {
+  display: block;
+  height: 100%;
+  border-radius: 3px;
+}
+
+.laborlens-driver-bar-fill.up {
+  background: linear-gradient(90deg, rgba(239, 68, 68, 0.35), rgba(239, 68, 68, 0.85));
+}
+
+.laborlens-driver-bar-fill.down {
+  background: linear-gradient(90deg, rgba(34, 197, 94, 0.35), rgba(34, 197, 94, 0.85));
+}
+
+.laborlens-driver-foot {
+  display: flex;
+  justify-content: space-between;
+  font-size: 9.5px;
+  color: rgba(255, 255, 255, 0.4);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ============================================================
+   Gap insights card (predicted vs observed)
+   ============================================================ */
+.laborlens-gap-card {
+  /* Lives in the same grid as the other cards */
+}
+
+.laborlens-gap-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.laborlens-gap-row {
+  display: grid;
+  grid-template-columns: 36px 1fr auto auto;
+  align-items: center;
+  gap: 8px;
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.7);
+  padding: 4px 0;
+  border-bottom: 1px dashed rgba(255, 255, 255, 0.04);
+}
+
+.laborlens-gap-iso {
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  color: rgba(255, 255, 255, 0.85);
+  font-size: 10px;
+}
+
+.laborlens-gap-name {
+  color: rgba(255, 255, 255, 0.55);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.laborlens-gap-numbers {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-variant-numeric: tabular-nums;
+  font-size: 10.5px;
+}
+
+.laborlens-gap-numbers strong {
+  color: #fff;
+  font-weight: 600;
+}
+
+.laborlens-gap-numbers small {
+  color: rgba(255, 255, 255, 0.35);
+  font-size: 9px;
+}
+
+.laborlens-gap-delta {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 1px 6px;
+  border-radius: 5px;
+  font-variant-numeric: tabular-nums;
+}
+
+.laborlens-gap-delta.up {
+  background: rgba(239, 68, 68, 0.12);
+  color: rgba(239, 68, 68, 0.95);
+}
+
+.laborlens-gap-delta.down {
+  background: rgba(34, 197, 94, 0.12);
+  color: rgba(34, 197, 94, 0.95);
+}
+
+.laborlens-gap-missing {
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.55);
+  margin: 4px 0 0;
+  display: inline-flex;
+  gap: 6px;
+  align-items: flex-start;
+}
+
+.laborlens-delta-up {
+  color: rgba(239, 68, 68, 0.95);
+  font-weight: 600;
+}
+
+.laborlens-delta-down {
+  color: rgba(34, 197, 94, 0.95);
+  font-weight: 600;
+}
+
+/* ============================================================
+   Tier 1 — Verdict card (split: large score block + body)
+   ============================================================ */
+.laborlens-verdict-card {
+  display: grid;
+  grid-template-columns: minmax(220px, 280px) 1fr;
+  gap: 24px;
+  padding: 22px 26px;
+  align-items: stretch;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.laborlens-verdict-high {
+  border-color: rgba(239, 68, 68, 0.35);
+  background: linear-gradient(135deg, rgba(239, 68, 68, 0.08), rgba(255, 255, 255, 0.01));
+}
+
+.laborlens-verdict-moderate {
+  border-color: rgba(245, 158, 11, 0.32);
+  background: linear-gradient(135deg, rgba(245, 158, 11, 0.07), rgba(255, 255, 255, 0.01));
+}
+
+.laborlens-verdict-lower {
+  border-color: rgba(34, 197, 94, 0.32);
+  background: linear-gradient(135deg, rgba(34, 197, 94, 0.07), rgba(255, 255, 255, 0.01));
+}
+
+.laborlens-verdict-score-block {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 8px;
+  padding: 18px 20px;
+  border-radius: 18px;
+  background: rgba(0, 0, 0, 0.18);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.laborlens-verdict-band {
+  font-size: 10.5px;
+  letter-spacing: 0.18em;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.laborlens-verdict-high .laborlens-verdict-band {
+  color: rgb(252, 165, 165);
+}
+.laborlens-verdict-moderate .laborlens-verdict-band {
+  color: rgb(253, 224, 71);
+}
+.laborlens-verdict-lower .laborlens-verdict-band {
+  color: rgb(134, 239, 172);
+}
+
+.laborlens-verdict-overall {
+  display: inline-flex;
+  align-items: baseline;
+  color: #fff;
+  font-size: clamp(48px, 4.5vw, 64px);
+  font-weight: 500;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+}
+
+.laborlens-verdict-overall small {
+  margin-left: 4px;
+  color: rgba(255, 255, 255, 0.4);
+  font-size: 0.35em;
+  font-weight: 400;
+}
+
+.laborlens-verdict-sub {
+  font-size: 11.5px;
+  color: rgba(255, 255, 255, 0.5);
+  letter-spacing: 0.02em;
+  font-variant-numeric: tabular-nums;
+}
+
+.laborlens-verdict-body {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  min-width: 0;
+}
+
+.laborlens-verdict-context h2 {
+  margin: 4px 0 0;
+  color: #fff;
+  font-size: clamp(20px, 2vw, 26px);
+  font-weight: 400;
+  letter-spacing: 0;
+}
+
+.laborlens-verdict-meta {
+  margin: 6px 0 0;
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.48);
+  letter-spacing: 0.02em;
+}
+
+.laborlens-verdict-insight {
+  margin: 0;
+  font-size: 15.5px;
+  line-height: 1.55;
+  color: rgba(255, 255, 255, 0.92);
+  max-width: 70ch;
+}
+
+.laborlens-verdict-stats {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  margin: 4px 0 0;
+}
+
+.laborlens-verdict-stats > div {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 12px 14px;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.035);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.laborlens-verdict-stats dt {
+  font-size: 10.5px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.42);
+}
+
+.laborlens-verdict-stats dd {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  margin: 0;
+  font-variant-numeric: tabular-nums;
+}
+
+.laborlens-verdict-stats dd strong {
+  color: #fff;
+  font-size: 22px;
+  font-weight: 500;
+  letter-spacing: -0.01em;
+}
+
+.laborlens-verdict-stats dd span {
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.45);
+}
+
+.laborlens-verdict-note {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+  padding: 6px 10px;
+  border-radius: 8px;
+  background: rgba(239, 68, 68, 0.12);
+  color: rgb(254, 202, 202);
+  font-size: 11.5px;
+  align-self: flex-start;
+}
+
+@media (max-width: 880px) {
+  .laborlens-verdict-card {
+    grid-template-columns: 1fr;
+    padding: 18px 18px;
+    gap: 16px;
+  }
+  .laborlens-verdict-stats {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ============================================================
+   Tier 2 — Supply-chain grid of country tiles
+   ============================================================ */
+.laborlens-supply-section {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.laborlens-supply-head {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 0 4px;
+}
+
+.laborlens-supply-head h3 {
+  margin: 4px 0 0;
+  color: #fff;
+  font-size: 17px;
+  font-weight: 400;
+}
+
+.laborlens-supply-legend {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 10.5px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.42);
+}
+
+.laborlens-band-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  display: inline-block;
+  margin-right: 4px;
+}
+
+.laborlens-band-high {
+  background: rgb(239, 68, 68);
+  box-shadow: 0 0 10px rgba(239, 68, 68, 0.5);
+}
+.laborlens-band-moderate {
+  background: rgb(245, 158, 11);
+  box-shadow: 0 0 10px rgba(245, 158, 11, 0.5);
+}
+.laborlens-band-lower {
+  background: rgb(34, 197, 94);
+  box-shadow: 0 0 10px rgba(34, 197, 94, 0.5);
+}
+
+.laborlens-supply-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 12px;
+}
+
+.laborlens-country-tile {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px 18px;
+  border-radius: 18px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.035);
+  min-width: 0;
+}
+
+.laborlens-country-high {
+  border-color: rgba(239, 68, 68, 0.38);
+  background: linear-gradient(180deg, rgba(239, 68, 68, 0.07), rgba(255, 255, 255, 0.02));
+}
+.laborlens-country-moderate {
+  border-color: rgba(245, 158, 11, 0.34);
+  background: linear-gradient(180deg, rgba(245, 158, 11, 0.05), rgba(255, 255, 255, 0.02));
+}
+.laborlens-country-lower {
+  border-color: rgba(34, 197, 94, 0.32);
+  background: linear-gradient(180deg, rgba(34, 197, 94, 0.05), rgba(255, 255, 255, 0.02));
+}
+
+.laborlens-country-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.laborlens-country-id {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.laborlens-country-iso {
+  font-size: 10px;
+  letter-spacing: 0.18em;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.45);
+}
+
+.laborlens-country-name {
+  font-size: 14px;
+  color: #fff;
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.laborlens-country-band {
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  font-weight: 600;
+  text-transform: uppercase;
+  padding: 3px 8px;
+  border-radius: 999px;
+  flex-shrink: 0;
+}
+
+.laborlens-country-high .laborlens-country-band {
+  background: rgba(239, 68, 68, 0.18);
+  color: rgb(252, 165, 165);
+}
+.laborlens-country-moderate .laborlens-country-band {
+  background: rgba(245, 158, 11, 0.18);
+  color: rgb(253, 224, 71);
+}
+.laborlens-country-lower .laborlens-country-band {
+  background: rgba(34, 197, 94, 0.18);
+  color: rgb(134, 239, 172);
+}
+
+.laborlens-country-metric {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  font-variant-numeric: tabular-nums;
+}
+
+.laborlens-country-metric strong {
+  color: #fff;
+  font-size: 36px;
+  font-weight: 500;
+  letter-spacing: -0.02em;
+  line-height: 1;
+}
+
+.laborlens-country-metric span {
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.48);
+}
+
+.laborlens-country-weight {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  gap: 6px 10px;
+}
+
+.laborlens-country-weight-label {
+  grid-column: 1 / -1;
+  font-size: 10.5px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.4);
+}
+
+.laborlens-country-weight-track {
+  height: 4px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.06);
+  overflow: hidden;
+}
+
+.laborlens-country-weight-fill {
+  display: block;
+  height: 100%;
+  background: rgba(255, 255, 255, 0.55);
+  border-radius: 999px;
+}
+
+.laborlens-country-high .laborlens-country-weight-fill {
+  background: rgb(239, 68, 68);
+}
+.laborlens-country-moderate .laborlens-country-weight-fill {
+  background: rgb(245, 158, 11);
+}
+.laborlens-country-lower .laborlens-country-weight-fill {
+  background: rgb(34, 197, 94);
+}
+
+.laborlens-country-weight-value {
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.laborlens-country-driver {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin: 0;
+  padding-top: 8px;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.laborlens-country-driver-label {
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.4);
+}
+
+.laborlens-country-driver > span:not(.laborlens-country-driver-label) {
+  font-size: 12.5px;
+  color: rgba(255, 255, 255, 0.85);
+}
+
+.laborlens-country-note {
+  display: inline-flex;
+  gap: 6px;
+  align-items: center;
+  margin: 0;
+  font-size: 11px;
+  color: rgba(245, 158, 11, 0.85);
+}
+
+/* ============================================================
+   Tier 3 — Technical details disclosure
+   ============================================================ */
+.laborlens-details-disclosure {
+  margin-top: 6px;
+  border-radius: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  background: rgba(255, 255, 255, 0.015);
+}
+
+.laborlens-details-disclosure[open] {
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.laborlens-details-summary {
+  list-style: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 16px;
+  font-size: 12.5px;
+  color: rgba(255, 255, 255, 0.7);
+  letter-spacing: 0.02em;
+  user-select: none;
+}
+
+.laborlens-details-summary::-webkit-details-marker {
+  display: none;
+}
+
+.laborlens-details-summary svg {
+  transition: transform 0.2s ease;
+}
+
+.laborlens-details-disclosure[open] .laborlens-details-summary svg {
+  transform: rotate(180deg);
+}
+
+.laborlens-details-hint {
+  margin-left: auto;
+  font-size: 10.5px;
+  color: rgba(255, 255, 255, 0.35);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.laborlens-details-body {
+  padding: 14px 12px 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.laborlens-tech-preamble {
+  /* Per-card preambles are hidden — replaced by a single intro at
+     the top of the technical disclosure body. */
+  display: none;
+}
+
+.laborlens-details-intro {
+  margin: 0;
+  padding: 4px 6px 10px;
+  font-size: 12.5px;
+  line-height: 1.55;
+  color: rgba(255, 255, 255, 0.6);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  margin-bottom: 4px;
+}

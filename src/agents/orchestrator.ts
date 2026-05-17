@@ -4,6 +4,7 @@ import { ingestNode } from "@/agents/nodes/ingest";
 import { newsNode } from "@/agents/nodes/news";
 import { watchlistNode } from "@/agents/nodes/watchlist";
 import { supplierNode } from "@/agents/nodes/supplier";
+import { enrichCountriesNode } from "@/agents/nodes/enrich-countries";
 import { pipelineNode } from "@/agents/nodes/pipeline";
 import { legalNode } from "@/agents/nodes/legal";
 import { riskIndexNode } from "@/agents/nodes/risk-index";
@@ -21,6 +22,7 @@ function buildGraph() {
     .addNode("news", newsNode)
     .addNode("watchlist", watchlistNode)
     .addNode("supplier", supplierNode)
+    .addNode("enrich_countries", enrichCountriesNode)
     .addNode("pipeline", pipelineNode)
     .addNode("legal", legalNode)
     .addNode("risk_index", riskIndexNode)
@@ -32,7 +34,10 @@ function buildGraph() {
     .addEdge("ingest", "legal")
     .addEdge("ingest", "risk_index")
     .addEdge("news", "supplier")
-    .addEdge(["watchlist", "supplier", "legal", "risk_index"], "pipeline")
+    // enrich_countries needs all of watchlist/supplier/legal/risk_index
+    // first, so it can see every agent's geography fields.
+    .addEdge(["watchlist", "supplier", "legal", "risk_index"], "enrich_countries")
+    .addEdge("enrich_countries", "pipeline")
     .addEdge("pipeline", "synthesize")
     .addEdge("synthesize", "persist")
     .addEdge("persist", END);

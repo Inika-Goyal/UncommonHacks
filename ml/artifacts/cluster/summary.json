@@ -1,0 +1,59 @@
+{
+  "model_family": "KMeans (silhouette-selected k)",
+  "validation": "silhouette score over k in {3..8}",
+  "k": 3,
+  "silhouette": 0.282,
+  "feature_blocks": [
+    "demographic",
+    "economic"
+  ],
+  "feature_cols": [
+    "urban_share",
+    "youth_dep_ratio",
+    "population_log",
+    "gdp_per_capita_log",
+    "unemployment",
+    "gini"
+  ],
+  "centroids": [
+    {
+      "cluster": 0,
+      "urban_share": 65.66,
+      "youth_dep_ratio": 48.705,
+      "population_log": 15.852,
+      "gdp_per_capita_log": 8.325,
+      "unemployment": 16.542,
+      "gini": 37.476
+    },
+    {
+      "cluster": 1,
+      "urban_share": 75.386,
+      "youth_dep_ratio": 27.583,
+      "population_log": 16.386,
+      "gdp_per_capita_log": 9.955,
+      "unemployment": 5.94,
+      "gini": 33.597
+    },
+    {
+      "cluster": 2,
+      "urban_share": 38.83,
+      "youth_dep_ratio": 67.274,
+      "population_log": 17.008,
+      "gdp_per_capita_log": 7.241,
+      "unemployment": 4.838,
+      "gini": 36.241
+    }
+  ],
+  "n_countries": 153,
+  "sources": {
+    "predictors": [
+      {
+        "key": "wdi",
+        "name": "World Bank World Development Indicators",
+        "publisher": "World Bank",
+        "url": "https://datatopics.worldbank.org/world-development-indicators/",
+        "role": "predictor"
+      }
+    ]
+  }
+}

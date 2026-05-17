@@ -44,7 +44,8 @@ next-env.d.ts
 
 # Python / ML
 ml/.venv/
-ml/artifacts/
 __pycache__/
 *.pyc
+# Trained artifacts ARE committed (small, reproducible from raw CSVs).
+# Run `pnpm ml:train` to regenerate them.
 /output/playwright

@@ -8,7 +8,8 @@
     "start": "next start",
     "lint": "eslint",
     "typecheck": "tsc --noEmit",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "ml:train": "ml/.venv/bin/python -m ml.pipelines.train_geographic && ml/.venv/bin/python -m ml.pipelines.train_cluster"
   },
   "dependencies": {
     "@elevenlabs/react": "^1.6.0",

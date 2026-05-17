@@ -91,11 +91,23 @@ export type MlGeoExploit = {
   };
 };
 
-export type MlPrediction = {
+export type MlDriver = {
+  feature: string;
+  label: string;
+  country_value: number;
+  global_mean: number;
+  z_score: number;
+  global_importance: number;
+  contribution_score: number;
+  direction: "up" | "down";
+};
+
+export type MlCountryPayload = {
   country: string;
   country_name: string;
   year: number;
   warnings: string[];
+  imputed?: boolean;
   geographic: Record<ExploitCategory, MlGeoExploit> | Record<string, MlGeoExploit>;
   geographic_overall: {
     predicted_prevalence_per_1k: number;
@@ -116,11 +128,53 @@ export type MlPrediction = {
     overall_risk: number;
     rationale: string;
   };
+  top_drivers?: MlDriver[];
+  observed_prevalence_per_1k?: number | null;
+  predicted_vs_observed_delta?: number | null;
+};
+
+export type MlSupplyChain = {
+  weighted_prevalence_per_1k: number;
+  max_prevalence_per_1k: number;
+  max_country: string | null;
+  scores: {
+    severity: number;
+    credibility: number;
+    overall_risk: number;
+    rationale: string;
+  };
+};
+
+export type MlAdjustments = {
+  severityFromMl: number;
+  severityFromAgents: number;
+  credibilityFromMl: number;
+  credibilityFromAgents: number;
+  floorReason?: "uflpa_match" | "ofac_match" | null;
+  rationale: string;
+};
+
+export type MlPrediction = MlCountryPayload & {
+  // Multi-country payloads and aggregation. Optional for back-compat
+  // with single-country demo fixtures.
+  byCountry?: Record<string, MlCountryPayload>;
+  supplyChain?: MlSupplyChain;
+  countryWeights?: Record<string, number>;
+  // Visible boost from agent signals on top of ML scores. The
+  // synthesize node applies this in TS so the breakdown is transparent.
+  adjustments?: MlAdjustments;
   sources: {
     predicted: MlSource[];
     predictors: MlSource[];
   };
 };
+
+export type MlPredictionReason =
+  | "ML_NO_COUNTRY"
+  | "ML_COUNTRY_NOT_IN_PANEL"
+  | "ML_ARTIFACTS_MISSING"
+  | "ML_CLI_UNREACHABLE"
+  | "ML_CLI_ERROR";
 
 export type Report = {
   id: string;
@@ -138,6 +192,8 @@ export type Report = {
   mapPoints: MapPoint[];
   sourceChecks: SourceCheck[];
   mlPrediction?: MlPrediction | null;
+  mlPredictionReason?: MlPredictionReason | null;
+  mlInsight?: string | null;
 };
 
 export type ReportRequest = {
