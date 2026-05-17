@@ -2422,12 +2422,12 @@ td a {
 
 .launch-stage {
   max-width: 1180px;
-  height: calc(100dvh - 72px);
-  min-height: 0;
+  min-height: calc(100dvh - 72px);
+  height: auto;
   padding: clamp(10px, 1.4vw, 20px) clamp(16px, 4vw, 48px) clamp(14px, 1.8vw, 24px);
   gap: clamp(8px, 1vw, 12px);
-  grid-template-rows: auto minmax(0, 1fr) auto auto;
-  align-content: stretch;
+  grid-template-rows: auto auto auto auto;
+  align-content: start;
 }
 
 .launch-titlebar {
@@ -2468,15 +2468,14 @@ td a {
 .launch-visual-shell {
   padding: clamp(6px, 1vw, 12px);
   border-radius: 32px;
-  min-height: 0;
+  min-height: calc(clamp(260px, 31vh, 380px) + clamp(32px, 3.6vw, 46px));
   display: flex;
   flex-direction: column;
 }
 
 .launch-constellation {
-  flex: 1 1 0;
-  min-height: 220px;
-  height: auto;
+  flex: 0 0 auto;
+  height: clamp(260px, 31vh, 380px);
   border: 0;
   border-radius: 24px;
   background:
